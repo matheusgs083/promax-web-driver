@@ -1,1 +1,19 @@
+# Ambientes virtuais
+venv/
 .venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Sensível (Dados do Promax)
+.env
+data/*.csv
+data/*.xlsx
+data/*.pdf
+
+# Logs e Drivers
+*.log
+chromedriver
+geckodriver
