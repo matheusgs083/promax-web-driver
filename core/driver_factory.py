@@ -12,7 +12,6 @@ import dotenv
 
 dotenv.load_dotenv()
 
-# --- FUNÇÃO 1: CORE (Configuração do Navegador) ---
 def abrir_ie_driver():
     ie_options = IEOptions()
     
@@ -26,11 +25,10 @@ def abrir_ie_driver():
     ie_options.ignore_protected_mode_settings = True
     ie_options.ignore_zoom_level = True
     ie_options.require_window_focus = True
-    ie_options.page_load_strategy = "none" # Evita travar no carregamento lento
+    ie_options.page_load_strategy = "none"
 
     caminho_local = os.getenv("DRIVER_PATH")
 
-    # Prioriza o driver local conforme solicitado
     if os.path.exists(caminho_local):
         try:
             print(f"Iniciando com driver local: {caminho_local}")

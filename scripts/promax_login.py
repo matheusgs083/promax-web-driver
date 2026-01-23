@@ -2,7 +2,6 @@ import os
 import sys
 import time
 import dotenv
-import pyautogui
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -11,20 +10,19 @@ from selenium.webdriver.support import expected_conditions as EC
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from core.driver_factory import abrir_ie_driver
-import scripts.limpar_alertas as limpar_alertas
+import core.limpar_alertas as limpar_alertas
 import core.validador_visual as validador_visual
 
 dotenv.load_dotenv()
 
 def fazer_login_promax(driver, usuario, senha):
-    """Executa a rotina de login no sistema AmBev Promax."""
+    """Executa a rotina de login no sistema AmBev Promax e valida o sucesso."""
     try:
-        driver.get("http://paubrasil.promaxcloud.com.br/pw/")
-        wait = WebDriverWait(driver, 5)
+        driver.get(os.getenv("PROMAX_ADDRESS"))
+        wait = WebDriverWait(driver, 10) # Aumentei um pouco o tempo de espera inicial
 
         print("Aguardando carregamento e tratando janelas...")
         
-        # Foco na janela correta para evitar tela branca no modo IE
         if len(driver.window_handles) > 1:
             driver.switch_to.window(driver.window_handles[-1])
 
@@ -45,11 +43,11 @@ def fazer_login_promax(driver, usuario, senha):
         campo_user.send_keys(usuario)
         campo_pass.send_keys(senha)
 
-        # Primeiro clique
+        # Primeiro clique e limpeza de alertas iniciais
         btn_confirma.click()
-        limpar_alertas.limpar_alertas(driver) # Chamada corrigida usando o módulo
+        limpar_alertas.limpar_alertas(driver)
 
-        # Segundo clique
+        # Segundo clique (comum no Promax para confirmar sessão)
         time.sleep(2)
         try:
             btn_confirma = driver.find_element(By.NAME, "cmdConfirma")
@@ -57,11 +55,17 @@ def fazer_login_promax(driver, usuario, senha):
         except:
             print("Segunda confirmação não necessária.")
 
-        # Limpeza robusta pós-login (7 tentativas conforme seu código)
+        # Limpeza robusta pós-login
         limpar_alertas.limpar_alertas(driver, tentativas=7)
 
-        print("Login no Promax concluído!")
-        return True
+        # --- VALIDAÇÃO INTEGRADA ---
+        print("Validando sucesso do login visualmente...")
+        if validador_visual.validar_elemento("validacaoLogin.png", timeout=15):
+            print("Login no Promax concluído e validado!")
+            return True
+        else:
+            print("Erro: A imagem de validação não foi encontrada após o login.")
+            return False
 
     except Exception as e:
         print(f"Erro no fluxo de login: {e}")
@@ -74,13 +78,11 @@ if __name__ == "__main__":
     driver = abrir_ie_driver()
     driver.maximize_window()
 
+    # Agora a chamada fica muito mais simples:
     if fazer_login_promax(driver, PROMAX_USER, PROMAX_PASS):
-        # Validador Visual Geral
-        # Mudamos de 'validar_elemento' para o nome que você definiu no seu arquivo visual
-        if validador_visual.validar_elemento("validacaoLogin.png", timeout=15):
-            print("Sucesso: Login confirmado.")
-        else:
-            print("Alerta: Login processado, mas confirmação visual falhou.")
+        print("Prosseguindo com a automação...")
+    else:
+        print("Falha crítica: O login não pôde ser realizado.")
 
     time.sleep(5) 
     driver.quit()

@@ -5,7 +5,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 
 def limpar_alertas(driver, tentativas=3):
-    """Lida com os pop-ups sequenciais do Promax."""
+
     for i in range(tentativas):
         try:
             WebDriverWait(driver, 2).until(EC.alert_is_present())
