@@ -1,12 +1,12 @@
 === MAPA GERADO EM: Rel. Notas Fiscais Plus [F7367 - F7367] ===
-URL: http://paubrasil.promaxcloud.com.br/pw/cgi-bin/PP00100.exe?SessionID=h3uf2i74276575&ppopcao=7&call=03023700000000&SubSessionID=n5Is7K35067165
+URL: http://paubrasil.promaxcloud.com.br/pw/cgi-bin/PP00100.exe?SessionID=m5Il5E38625617&ppopcao=7&call=03023700000000&SubSessionID=c1ey9J15988680
 
 
 ============================================================
-CONTEXTO: ROOT | NOME: 03023700000000n5Is7K35067165
+CONTEXTO: ROOT | NOME: 03023700000000c1ey9J15988680
 ============================================================
-TAG: INPUT   | ID: SessionID       | NAME: SessionID            | VAL: h3uf2i74276575  | TXT:                     
-TAG: INPUT   | ID: SubSessionID    | NAME: SubSessionID         | VAL: n5Is7K35067165  | TXT:                     
+TAG: INPUT   | ID: SessionID       | NAME: SessionID            | VAL: m5Il5E38625617  | TXT:                     
+TAG: INPUT   | ID: SubSessionID    | NAME: SubSessionID         | VAL: c1ey9J15988680  | TXT:                     
 TAG: INPUT   | ID: ppopcao         | NAME: ppopcao              | VAL: 7               | TXT:                     
 TAG: INPUT   | ID: call            | NAME: call                 | VAL: 03023700000000  | TXT:                     
 TAG: INPUT   | ID: changeUNB       | NAME: changeUNB            | VAL:                 | TXT:                     
@@ -25,8 +25,8 @@ TAG: IMG     | ID:                 | NAME:                      | VAL:          
 ============================================================
 CONTEXTO: ROOT > Frame[1] | NOME: rotina
 ============================================================
-TAG: INPUT   | ID:                 | NAME: SessionID            | VAL: h3uf2i74276575  | TXT:                     
-TAG: INPUT   | ID:                 | NAME: SubSessionID         | VAL: n5Is7K35067165  | TXT:                     
+TAG: INPUT   | ID:                 | NAME: SessionID            | VAL: m5Il5E38625617  | TXT:                     
+TAG: INPUT   | ID:                 | NAME: SubSessionID         | VAL: c1ey9J15988680  | TXT:                     
 TAG: INPUT   | ID:                 | NAME: opcao                | VAL: 00              | TXT:                     
 TAG: INPUT   | ID:                 | NAME: ppopcao              | VAL: 00              | TXT:                     
 TAG: INPUT   | ID:                 | NAME: call                 | VAL: PW02099R        | TXT:                     
