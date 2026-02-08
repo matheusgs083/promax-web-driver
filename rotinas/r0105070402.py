@@ -1,32 +1,31 @@
 import time
+import dotenv
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
-import sys
-import os
-import dotenv
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+from core.logger import get_logger
 from core.download import salvar_arquivo_visual
-from core.validador_visual import validar_elemento
+# from core.validador_visual import validar_elemento  # se não usa, pode remover
+
+logger = get_logger(__name__)
 
 
+def gerar_0105070401(driver, nome_arquivo: str = "0105070401.csv") -> bool:
+    logger.info("--- ETAPA 1: PREPARAR E GERAR RELATÓRIO (0105070401) ---")
 
-def gerar_0105070401(driver, nome_arquivo="0105070401.csv"):
-    print(f"\n--- ETAPA 1: PREPARAR E GERAR RELATÓRIO ---")
-    
     # --- 1. APLICAR FILTROS (JS SEGURO) ---
-    print("1. Selecionando filtros na tela...")
-    
-    js_cmd = """
+    logger.info("1. Selecionando filtros na tela (JS)...")
+
+    js_cmd = r"""
     // Marca checkboxes idAS e idGeo
     var ids = ['idAS', 'idGeo'];
     for (var k = 0; k < ids.length; k++) {
         var el = document.getElementById(ids[k]);
-        if (el) { 
-            el.click(); 
+        if (el) {
+            el.click();
             if (el.type == 'checkbox') { el.checked = true; }
         }
     }
@@ -35,55 +34,70 @@ def gerar_0105070401(driver, nome_arquivo="0105070401.csv"):
     var links = document.getElementsByTagName('A');
     for (var i = 0; i < links.length; i++) {
         var texto = links[i].innerText || "";
-        if (texto.replace(/^\\s+|\\s+$/g, '') == 'Todos') {
+        if (texto.replace(/^\s+|\s+$/g, '') == 'Todos') {
             links[i].click();
-            break; 
+            break;
         }
     }
     """
+
     try:
         driver.execute_script(js_cmd)
-        time.sleep(2) # Pequena pausa para a tela atualizar visualmente
-    except Exception as e:
-        print(f"ERRO nos filtros: {e}")
+        time.sleep(2)  # pausa visual
+        logger.info("   > Filtros aplicados.")
+    except Exception:
+        logger.exception("ERRO ao aplicar filtros via JS.")
         return False
 
     # --- 2. CLICAR NO BOTÃO GERAR ---
-    print("2. Clicando no botão 'Gerar CSV'...")
+    logger.info("2. Clicando no botão 'Gerar CSV'...")
+
+    clicou = False
     try:
-        # Tenta via JS primeiro (mais garantido em sistemas legados)
         driver.execute_script("document.getElementById('btnGerarCSV').click();")
-    except:
-        # Se falhar, tenta o clique nativo do Selenium
+        clicou = True
+        logger.info("   > Clique via JS no btnGerarCSV OK.")
+    except Exception as e:
+        logger.warning("   > Clique via JS falhou (%s). Tentando clique Selenium...", e)
+
+    if not clicou:
         try:
             driver.find_element(By.ID, "btnGerarCSV").click()
-        except Exception as e:
-            print(f"ERRO: Não foi possível clicar no botão. {e}")
+            logger.info("   > Clique Selenium no btnGerarCSV OK.")
+        except Exception:
+            logger.exception("ERRO: Não foi possível clicar no botão 'Gerar CSV'.")
             return False
 
     # --- 3. AGUARDAR POPUP (ATÉ 7 MINUTOS) ---
-    print("\n3. Aguardando processamento do servidor...")
-    print("   Tempo limite: 7 minutos. O script ficará parado aqui.")
-    
-    tempo_maximo_segundos = 420 # 7 minutos * 60 seg
-    
+    tempo_maximo_segundos = 420
+    logger.info("3. Aguardando processamento do servidor... (timeout=%ss)", tempo_maximo_segundos)
+
     try:
-        # O WebDriverWait vigia a tela até o alerta aparecer ou o tempo acabar
         WebDriverWait(driver, tempo_maximo_segundos).until(EC.alert_is_present())
-        
+
         # --- 4. CLICAR NO OK ---
         alerta = driver.switch_to.alert
         texto_alerta = alerta.text
-        print(f" > SUCESSO! Popup detectado: '{texto_alerta}'")
-        
-        alerta.accept() # Clica no OK
-        print(" > OK clicado. A barra de download deve aparecer agora.")
-        time.sleep(1) # Pequena pausa para a barra de download aparecer
+        logger.info("   > Popup detectado: '%s'", texto_alerta)
 
-        salvar_arquivo_visual(dotenv.get_key(dotenv.find_dotenv(), "DOWNLOAD_DIR"), nome_arquivo)
-        return True 
-        
+        alerta.accept()
+        logger.info("   > OK clicado. Iniciando etapa de salvar arquivo...")
+
+        time.sleep(1)
+
+        download_dir = dotenv.get_key(dotenv.find_dotenv(), "DOWNLOAD_DIR")
+        if not download_dir:
+            logger.error("DOWNLOAD_DIR não encontrado no .env. Não dá pra salvar o arquivo.")
+            return False
+
+        salvar_arquivo_visual(download_dir, nome_arquivo)
+        logger.info("   > Arquivo salvo com sucesso: %s", nome_arquivo)
+        return True
+
     except TimeoutException:
-        print(f"\nERRO: O tempo limite de {tempo_maximo_segundos}s esgotou!")
-        print("O popup não apareceu. Verifique se o sistema travou.")
+        logger.error("ERRO: Timeout de %ss esgotou. Popup não apareceu.", tempo_maximo_segundos)
+        return False
+
+    except Exception:
+        logger.exception("ERRO inesperado durante espera/aceite do alerta e salvamento.")
         return False
