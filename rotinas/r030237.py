@@ -3,6 +3,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+import dotenv
 
 from core.logger import get_logger
 logger = get_logger(__name__)
@@ -14,6 +15,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from core.download import salvar_arquivo_visual
 from core.validador_visual import validar_elemento
 
+dotenv.load_dotenv()
 
 def gerar_030237(
     driver,

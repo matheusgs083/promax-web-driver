@@ -14,7 +14,7 @@ from core.validador_visual import validar_elemento
 
 
 
-def gerar_0105070401(driver):
+def gerar_0105070401(driver, nome_arquivo="0105070401.csv"):
     print(f"\n--- ETAPA 1: PREPARAR E GERAR RELATÓRIO ---")
     
     # --- 1. APLICAR FILTROS (JS SEGURO) ---
@@ -80,7 +80,7 @@ def gerar_0105070401(driver):
         print(" > OK clicado. A barra de download deve aparecer agora.")
         time.sleep(1) # Pequena pausa para a barra de download aparecer
 
-        salvar_arquivo_visual(dotenv.get_key(dotenv.find_dotenv(), "DOWNLOAD_DIR"), "0105070401.csv")
+        salvar_arquivo_visual(dotenv.get_key(dotenv.find_dotenv(), "DOWNLOAD_DIR"), nome_arquivo)
         return True 
         
     except TimeoutException:

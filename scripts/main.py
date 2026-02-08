@@ -38,6 +38,8 @@ if __name__ == "__main__":
 
         ok = fazer_login_promax(driver, PROMAX_USER, PROMAX_PASS, nome_unidade="SUME")
 
+        arquivos_gerados = ["030237_quick.csv", "0105070401.csv"]
+
         if ok:
             logger.info("Login OK. Iniciando automações...")
             acessar_rotina_atalho(driver, "030237")
@@ -49,11 +51,11 @@ if __name__ == "__main__":
             data_final=data_final,
             quebra1=15,       # com itens
             acao="BotVisualizar",
-            nome_arquivo="030237_quick.csv"
+            nome_arquivo=arquivos_gerados[0]
             )
             voltar_pro_menu(driver)
             acessar_rotina_atalho(driver, "0105070402")
-            gerar_0105070401(driver)
+            gerar_0105070401(driver, nome_arquivo=arquivos_gerados[1])
             voltar_pro_menu(driver)
 
             #mapear_campos(driver, nome_arquivo="mapa_030237.txt")
