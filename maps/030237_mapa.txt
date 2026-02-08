@@ -1,0 +1,112 @@
+=== MAPA GERADO EM: Rel. Notas Fiscais Plus [F7367 - F7367] ===
+URL: http://paubrasil.promaxcloud.com.br/pw/cgi-bin/PP00100.exe?SessionID=h3uf2i74276575&ppopcao=7&call=03023700000000&SubSessionID=n5Is7K35067165
+
+
+============================================================
+CONTEXTO: ROOT | NOME: 03023700000000n5Is7K35067165
+============================================================
+TAG: INPUT   | ID: SessionID       | NAME: SessionID            | VAL: h3uf2i74276575  | TXT:                     
+TAG: INPUT   | ID: SubSessionID    | NAME: SubSessionID         | VAL: n5Is7K35067165  | TXT:                     
+TAG: INPUT   | ID: ppopcao         | NAME: ppopcao              | VAL: 7               | TXT:                     
+TAG: INPUT   | ID: call            | NAME: call                 | VAL: 03023700000000  | TXT:                     
+TAG: INPUT   | ID: changeUNB       | NAME: changeUNB            | VAL:                 | TXT:                     
+TAG: INPUT   | ID: unidade         | NAME: unidade              | VAL:                 | TXT:                     
+TAG: INPUT   | ID: ssprx           | NAME: ssprx                | VAL: 00              | TXT:                     
+TAG: INPUT   | ID: parMF           | NAME: parMF                | VAL:                 | TXT:                     
+ -> Mergulhando em 3 sub-frames...
+
+============================================================
+CONTEXTO: ROOT > Frame[0] | NOME: top_rotina
+============================================================
+TAG: SELECT  | ID:                 | NAME: unidade              | VAL: 2210004         | TXT:  221.0003 - PAU BRASIL - PATOS221.0004 - PAU BRASI
+TAG: IMG     | ID:                 | NAME:                      | VAL:                 | TXT:                      | SRC: mini-logo.gif
+TAG: IMG     | ID:                 | NAME:                      | VAL:                 | TXT:                      | SRC: PromaX.gif
+
+============================================================
+CONTEXTO: ROOT > Frame[1] | NOME: rotina
+============================================================
+TAG: INPUT   | ID:                 | NAME: SessionID            | VAL: h3uf2i74276575  | TXT:                     
+TAG: INPUT   | ID:                 | NAME: SubSessionID         | VAL: n5Is7K35067165  | TXT:                     
+TAG: INPUT   | ID:                 | NAME: opcao                | VAL: 00              | TXT:                     
+TAG: INPUT   | ID:                 | NAME: ppopcao              | VAL: 00              | TXT:                     
+TAG: INPUT   | ID:                 | NAME: call                 | VAL: PW02099R        | TXT:                     
+TAG: INPUT   | ID:                 | NAME: visaoConsolidadora   | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: quebra1Ini8          | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: quebra1Fim8          | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: quebra2Ini8          | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: quebra2Fim8          | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: quebra3Ini8          | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: quebra3Fim8          | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: statusNota           | VAL: E               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: statusNota           | VAL: L               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: converteCaixas       | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: quebraPagina         | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: itens                | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: itens                | VAL: N               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: itens                | VAL: C               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: pisCofins            | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: listaNotaCompra      | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: notas                | VAL: NE              | TXT:                     
+TAG: INPUT   | ID:                 | NAME: notas                | VAL: NS              | TXT:                     
+TAG: INPUT   | ID:                 | NAME: listaNotasApagar     | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idNotasTransf        | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: visao                | VAL: F               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: visao                | VAL: E               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: visao                | VAL: P               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: visao                | VAL: V               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idAgruparTelevendas  | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idSomenteVendaBonif  | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idSomenteMetalfrio   | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idVisaoIpiBonif      | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: quebra1Inicial       | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: quebra1Final         | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: quebra2Inicial       | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: quebra2Final         | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: quebra3Inicial       | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: quebra3Final         | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: dataInicial          | VAL: 07/02/2026      | TXT:                     
+TAG: INPUT   | ID:                 | NAME: dataFinal            | VAL: 07/02/2026      | TXT:                     
+TAG: INPUT   | ID:                 | NAME: valorInicial         | VAL: 0,00            | TXT:                     
+TAG: INPUT   | ID:                 | NAME: valorFinal           | VAL: 999.999.999,99  | TXT:                     
+TAG: INPUT   | ID:                 | NAME: embalagemInicial     | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: embalagemFinal       | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: mercadoriaInicial    | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: mercadoriaFinal      | VAL:                 | TXT:                     
+TAG: INPUT   | ID:                 | NAME: cdVisao              | VAL:                 | TXT:                     
+TAG: INPUT   | ID: radio1          | NAME: tpConsolidacao       | VAL: 1               | TXT:                     
+TAG: INPUT   | ID: radio1          | NAME: tpConsolidacao       | VAL: 3               | TXT:                     
+TAG: INPUT   | ID: radio1          | NAME: tpConsolidacao       | VAL: 2               | TXT:                     
+TAG: INPUT   | ID: radio1          | NAME: tpConsolidacao       | VAL: 4               | TXT:                     
+TAG: INPUT   | ID: radio1          | NAME: tpConsolidacao       | VAL: 5               | TXT:                     
+TAG: INPUT   | ID: radio1          | NAME: idVisaoMultiCdd      | VAL: C               | TXT:                     
+TAG: INPUT   | ID: radio1          | NAME: idVisaoMultiCdd      | VAL: G               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: GeraExcel            | VAL: 1               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idStTodos            | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idStAutorizada       | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idStDenegada         | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idStContingencia     | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idStEnviada          | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idStNaoEnviada       | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idStRejeitada        | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idStContingAutoriz   | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idStContingDenegada  | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idStContingEnviada   | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idStContingNaoEnv    | VAL: S               | TXT:                     
+TAG: INPUT   | ID:                 | NAME: idStContingRejeitada | VAL: S               | TXT:                     
+TAG: INPUT   | ID: hiddenindPalmtop | NAME:                      | VAL: --Todos--       | TXT:                     
+TAG: SELECT  | ID:                 | NAME: quebra1              | VAL: 00              | TXT:  --Selecionar-- Geral Comercial - NF Gte Vendas - 
+TAG: SELECT  | ID:                 | NAME: quebra2              | VAL: 00              | TXT:  --Selecionar-- Comercial - Nf Gte Vendas - Nf Are
+TAG: SELECT  | ID:                 | NAME: quebra3              | VAL: 00              | TXT:  --Selecionar-- Comercial - Nf Gte Vendas - Nf Are
+TAG: SELECT  | ID:                 | NAME: indPalmtop           | VAL:                 | TXT:  --Todos--PalmtopDigitadoDescarga RemotaEDITelemar
+TAG: SELECT  | ID:                 | NAME: idSelecaoMultiCdd    | VAL: T               | TXT:  Todas as Movimentações Sem Multi-CDD Somente Mult
+TAG: BUTTON  | ID:                 | NAME: BotStatusNfe         | VAL: <LABEL>Selecionar <U>S</U>tatus da NF-e</LABEL> | TXT: Selecionar Status da NF-e
+TAG: BUTTON  | ID:                 | NAME: BotVisualizar        | VAL: <LABEL><U>V</U>isualizar</LABEL> | TXT: Visualizar          
+TAG: BUTTON  | ID:                 | NAME: BotOk                | VAL: <LABEL><U>O</U>K</LABEL> | TXT: OK                  
+TAG: IMG     | ID:                 | NAME:                      | VAL:                 | TXT:                      | SRC: Process.gif
+TAG: IMG     | ID:                 | NAME: BotPesquisaVisao     | VAL:                 | TXT:                      | SRC: busca.gif
+TAG: IMG     | ID:                 | NAME: BotCarregaVisao      | VAL:                 | TXT:                      | SRC: check.gif
+
+============================================================
+CONTEXTO: ROOT > Frame[2] | NOME: bottom_rotina
+============================================================
+TAG: INPUT   | ID:                 | NAME: frame                | VAL: 9               | TXT:                     

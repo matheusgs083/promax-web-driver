@@ -32,3 +32,25 @@ build/
 # Temp
 *.tmp
 *.bak
+
+# .gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Variáveis de Ambiente (SENHAS)
+.env
+
+# Logs e Relatórios gerados
+logs/
+*.log
+*.csv
+*.xlsx
+erro_*.png
+
+# VS Code / IDE
+.vscode/
+.idea/

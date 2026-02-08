@@ -1,0 +1,44 @@
+=== MAPA GERADO EM: Relatório do Cliente + ===
+URL: http://paubrasil.promaxcloud.com.br/pw/cgi-bin/PP00100.exe?SessionID=h3uf2i74276575&ppopcao=7&call=01050704020000&SubSessionID=f2iz0L32049648
+
+
+============================================================
+CONTEXTO: ROOT | NOME: 01050704020000f2iz0L32049648
+============================================================
+TAG: INPUT   | ID: SessionID       | NAME: SessionID            | VAL: h3uf2i74276575  | TXT:                     
+TAG: INPUT   | ID: SubSessionID    | NAME: SubSessionID         | VAL: f2iz0L32049648  | TXT:                     
+TAG: INPUT   | ID: opcao           | NAME: opcao                | VAL: 1               | TXT:                     
+TAG: INPUT   | ID: ppopcao         | NAME: ppopcao              | VAL:                 | TXT:                     
+TAG: INPUT   | ID: call            | NAME: call                 | VAL: PH050094        | TXT:                     
+TAG: INPUT   | ID: callAux         | NAME: callAux              | VAL:                 | TXT:                     
+TAG: INPUT   | ID: ajaxJson        | NAME: ajaxJson             | VAL: S               | TXT:                     
+TAG: INPUT   | ID: callRetorno     | NAME: callRetorno          | VAL: PY050094        | TXT:                     
+TAG: INPUT   | ID: lnkInc          | NAME: lnkInc               | VAL: 1               | TXT:                     
+TAG: INPUT   | ID: lnkAlt          | NAME: lnkAlt               | VAL: 1               | TXT:                     
+TAG: INPUT   | ID: lnkExc          | NAME: lnkExc               | VAL: 1               | TXT:                     
+TAG: INPUT   | ID: lnkCon          | NAME: lnkCon               | VAL: 1               | TXT:                     
+TAG: INPUT   | ID: lnkEsp          | NAME: lnkEsp               | VAL: 1               | TXT:                     
+TAG: INPUT   | ID: unidadeMenuAnt  | NAME:                      | VAL: 2210004         | TXT:                     
+TAG: INPUT   | ID: unidadeMenu     | NAME: unidadeMenu          | VAL: 2210004         | TXT:                     
+TAG: INPUT   | ID: dsUnidadeMenu   | NAME:                      | VAL: PAU BRASIL - SUME | TXT:                     
+TAG: INPUT   | ID: cdClienteIni    | NAME: cdClienteIni         | VAL: 0               | TXT:                     
+TAG: INPUT   | ID: cdClienteFim    | NAME: cdClienteFim         | VAL: 9.999.999       | TXT:                     
+TAG: INPUT   | ID: cdSetorIni      | NAME: cdSetorIni           | VAL: 0               | TXT:                     
+TAG: INPUT   | ID: cdSetorFim      | NAME: cdSetorFim           | VAL: 99.999          | TXT:                     
+TAG: INPUT   | ID: cdCorporativoIni | NAME: cdCorporativoIni     | VAL: 0               | TXT:                     
+TAG: INPUT   | ID: cdCorporativoFim | NAME: cdCorporativoFim     | VAL: 9.999.999.999.999 | TXT:                     
+TAG: INPUT   | ID: idRota          | NAME: idRota               | VAL: S               | TXT:                     
+TAG: INPUT   | ID: idAS            | NAME: idAS                 | VAL: S               | TXT:                     
+TAG: INPUT   | ID: idGeo           | NAME: idGeo                | VAL: S               | TXT:                     
+TAG: INPUT   | ID: btnGerarCSV     | NAME:                      | VAL: Gerar CSV       | TXT:                     
+TAG: A       | ID:                 | NAME:                      | VAL:                 | TXT:   Todos             
+TAG: A       | ID:                 | NAME:                      | VAL:                 | TXT:   Ativos            
+TAG: A       | ID:                 | NAME:                      | VAL:                 | TXT:   Bloqueados        
+TAG: A       | ID:                 | NAME:                      | VAL:                 | TXT:   Inativos          
+TAG: A       | ID:                 | NAME:                      | VAL:                 | TXT:   Balcão            
+TAG: A       | ID:                 | NAME:                      | VAL:                 | TXT:   Em Cadastramento  
+TAG: A       | ID:                 | NAME:                      | VAL:                 | TXT:   Duplicados        
+TAG: A       | ID:                 | NAME:                      | VAL:                 | TXT:   Venda Temporária  
+TAG: IMG     | ID: PY070000imgProcessando | NAME:                      | VAL:                 | TXT:                      | SRC: sivHelp.png
+TAG: IMG     | ID:                 | NAME:                      | VAL:                 | TXT:                      | SRC: sivSetaMenuUnidade.gif
+TAG: IMG     | ID:                 | NAME:                      | VAL:                 | TXT:                      | SRC: sivProcessBar.gif
