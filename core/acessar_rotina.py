@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 
 def acessar_rotina_atalho(driver, codigo_rotina):
-    time.sleep(1)
+    time.sleep(2)
     logger.info("--- ACESSANDO ROTINA: %s ---", codigo_rotina)
 
     driver.switch_to.default_content()

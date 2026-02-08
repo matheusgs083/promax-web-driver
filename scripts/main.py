@@ -18,7 +18,7 @@ from rotinas.r030237 import gerar_030237
 dotenv.load_dotenv()  # <-- faltava o ()
 
 logger = get_logger("PROMAX")
-hoje = date.today()
+hoje = date(2026, 2,9)
 primeiro_dia_mes = hoje.replace(day=1)
 
 data_inicial = hoje.strftime("%d/%m/%Y")
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         driver.maximize_window()
         logger.info("Driver iniciado e janela maximizada")
 
-        ok = fazer_login_promax(driver, PROMAX_USER, PROMAX_PASS, nome_unidade="SUME")
+        ok = fazer_login_promax(driver, PROMAX_USER, PROMAX_PASS, nome_unidade="PATOS")
 
         arquivos_gerados = ["030237_quick.csv", "0105070401.csv"]
 
