@@ -3,3 +3,32 @@ venv/
 
 logs/*
 !logs/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+*.egg-info/
+__pycache__/
+*.pyc
+
+# Build
+dist/
+build/
+*.o
+
+# Testing
+.coverage
+.pytest_cache/
+
+# Temp
+*.tmp
+*.bak

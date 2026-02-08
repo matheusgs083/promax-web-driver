@@ -10,7 +10,7 @@ from core.logger import get_logger
 from core.driver_factory import abrir_ie_driver
 from core.promax_login import fazer_login_promax
 from core.acessar_rotina import acessar_rotina_atalho, voltar_pro_menu
-from rotinas.r030237 import gerar_0105070401
+from rotinas.r0105070402 import gerar_0105070401
 from core.auxs.mapear_campos import mapear_campos
 from datetime import date
 from rotinas.r030237 import gerar_030237
@@ -53,6 +53,7 @@ if __name__ == "__main__":
             )
             voltar_pro_menu(driver)
             acessar_rotina_atalho(driver, "0105070402")
+            gerar_0105070401(driver)
             voltar_pro_menu(driver)
 
             #mapear_campos(driver, nome_arquivo="mapa_030237.txt")
