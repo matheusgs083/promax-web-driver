@@ -54,3 +54,11 @@ erro_*.png
 # VS Code / IDE
 .vscode/
 .idea/
+
+mainMapeador.py
+
+# Ignora todo o conteúdo da pasta maps
+maps/*
+
+# Exceto o arquivo .gitkeep (para a pasta subir pro Git)
+!maps/.gitkeep
