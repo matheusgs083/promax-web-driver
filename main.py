@@ -5,7 +5,6 @@ from datetime import date
 
 from core.driver_factory import DriverFactory
 from core.logger import get_logger
-from core.mapeador import mapear_campos
 from pages.login_page import LoginPage
 from pages.rotinas.relatorio_030237_page import Relatorio030237Page
 from pages.rotinas.relatorio_0105070402_page import Relatorio0105070402Page
@@ -46,8 +45,7 @@ def main():
         # Acessa a rotina e faz o 'Cast' para a classe específica
         janela_rotina_1 = menu_page.acessar_rotina("030237")
         relatorio_030237 = Relatorio030237Page(janela_rotina_1.driver, janela_rotina_1.handle_menu)
-        mapear_campos(relatorio_030237.driver, "maps\\030237_mapa.txt") # Mapeia os campos da rotina para o objeto (opcional, mas recomendado)
-        
+       
         relatorio_030237.gerar_relatorio(
             data_inicial=data_formatada,
             data_final=data_formatada,
@@ -64,7 +62,6 @@ def main():
 
         janela_rotina_2 = menu_page.acessar_rotina("0105070402") 
         relatorio_0105070402 = Relatorio0105070402Page(janela_rotina_2.driver, janela_rotina_2.handle_menu)
-        mapear_campos(relatorio_0105070402.driver, "maps\\0105070402_mapa.txt") # Mapeia os campos da rotina para o objeto (opcional, mas recomendado)
         
         relatorio_0105070402.gerar_relatorio(
             nome_arquivo="0105070402.csv",
@@ -74,7 +71,7 @@ def main():
         menu_page = relatorio_0105070402.fechar_e_voltar()
 
         logger.info("Fluxo concluído com sucesso!")
-
+        
     except Exception as e:
         logger.critical(f"ERRO FATAL NA EXECUÇÃO: {e}", exc_info=True)
         # Screenshot de emergência
