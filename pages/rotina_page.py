@@ -1,44 +1,352 @@
+import time
+import os
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoAlertPresentException, UnexpectedAlertPresentException
 from pages.base_page import BasePage
+
+try:
+    from core.manipulador_download import salvar_arquivo_visual
+    from core.validador_visual import validar_elemento
+except ImportError:
+    salvar_arquivo_visual = None
+    validar_elemento = None
 
 class RotinaPage(BasePage):
     """
-    Classe base para todas as janelas de rotina (pop-ups) do sistema.
-    Gerencia o controle de janelas e o retorno ao Menu.
+    Classe base para todas as janelas de rotina.
     """
 
+    # --- LOCATORS ---
+    FRAME_TOP_ROTINA = "top_rotina"
+    LOCATOR_UNIDADE = (By.NAME, "unidade")
+    FRAME_ROTINA = 1
+    BTN_GERA_EXCEL_1 = (By.NAME, "GerExecl")
+    BTN_GERA_EXCEL_2 = (By.NAME, "GeraExcel")
+
     def __init__(self, driver, handle_menu_original):
-        """
-        :param driver: Instância do Selenium.
-        :param handle_menu_original: ID da janela do Menu (para onde voltar).
-        """
         super().__init__(driver)
         self.handle_menu = handle_menu_original
         
-        # Garante foco na janela atual (a nova rotina)
         try:
             self.driver.switch_to.window(self.driver.current_window_handle)
             self.driver.maximize_window()
-        except Exception:
-            pass # Se já estiver maximizado ou der erro de permissão, ignora
+        except:
+            pass
+        
+        try:
+            atual = self.obter_unidade_atual()
+            self.logger.info(f"Janela aberta. Unidade ativa: {atual}")
+        except:
+            pass
+
+    def _entrar_frame_topo(self):
+        self.switch_to_default_content()
+        try:
+            self.wait.until(EC.frame_to_be_available_and_switch_to_it(self.FRAME_TOP_ROTINA))
+        except:
+            self.driver.switch_to.default_content()
+            self.driver.switch_to.frame(0)
+
+    def obter_unidade_atual(self):
+        self._entrar_frame_topo()
+        js = "var els=document.getElementsByName('unidade'); if(els && els.length>0) return els[0].value; return null;"
+        return self.driver.execute_script(js)
+
+    def listar_unidades(self):
+        self._entrar_frame_topo()
+        try:
+            el_select = self.wait.until(EC.presence_of_element_located(self.LOCATOR_UNIDADE))
+            js_listar = """
+            var sel = arguments[0];
+            var lista = [];
+            if (!sel || !sel.options) return [];
+            for (var i = 0; i < sel.options.length; i++) {
+                var opt = sel.options[i];
+                var val = opt.value;
+                if (val) {
+                    var valClean = val.replace(/^\\s+|\\s+$/g, '');
+                    if (valClean !== "") {
+                        lista.push({'texto': opt.text, 'valor': val});
+                    }
+                }
+            }
+            return lista;
+            """
+            return self.driver.execute_script(js_listar, el_select)
+        except Exception as e:
+            self.logger.error(f"Erro ao listar unidades: {e}")
+            return []
+
+    def selecionar_unidade(self, valor_unidade):
+        """
+        Seleciona unidade e monitora alertas por 15 segundos, engolindo exceções de bloqueio.
+        """
+        valor_unidade = str(valor_unidade).strip()
+        
+        # 1. Verifica se já está selecionada
+        try:
+            atual = self.obter_unidade_atual()
+            if atual and str(atual).strip() == valor_unidade:
+                self.logger.info(f"Unidade {valor_unidade} já selecionada.")
+                return
+        except UnexpectedAlertPresentException:
+            # Se já tem alerta travando a leitura inicial
+            try: self.driver.switch_to.alert.accept()
+            except: pass
+
+        self._entrar_frame_topo()
+        self.logger.info(f"--- Trocando Unidade para: {valor_unidade} ---")
+        
+        # 2. Troca via JS
+        self.selecionar_combo_js(self.LOCATOR_UNIDADE, valor_unidade)
+        
+        # 3. MONITORAMENTO DE ALERTAS (POLLING AGRESSIVO)
+        self.logger.info("Monitorando alertas pós-troca (Timeout: 15s)...")
+        
+        tempo_limite = time.time() + 15
+        
+        while time.time() < tempo_limite:
+            try:
+                # Tenta pegar o alerta DIRETAMENTE (sem wait, para ser rápido)
+                alert = self.driver.switch_to.alert
+                texto = alert.text
+                self.logger.warning(f"Alerta capturado: {texto}")
+                alert.accept()
+                
+                # Se pegou um alerta, espera 1s e continua no loop para pegar o próximo (ex: Estoque)
+                time.sleep(1)
+                
+            except NoAlertPresentException:
+                # Tudo limpo por enquanto
+                time.sleep(0.5)
+                
+            except UnexpectedAlertPresentException:
+                # ESSE É O ERRO DO SEU LOG. O Selenium travou pq o alerta apareceu.
+                # Nós pegamos ele aqui e tratamos.
+                self.logger.warning("Alerta bloqueante detectado (UnexpectedAlert). Aceitando...")
+                try: 
+                    self.driver.switch_to.alert.accept()
+                    time.sleep(1)
+                except: 
+                    pass
+            except Exception:
+                pass
+
+        self.logger.info("Fim do monitoramento de alertas. Prosseguindo.")
+        time.sleep(1)
 
     def fechar_e_voltar(self):
-        """
-        Fecha a janela da rotina atual e devolve o foco para o Menu.
-        """
-        try:
-            janela_atual = self.driver.current_window_handle
-            self.logger.info(f"Fechando janela da rotina: {janela_atual}")
-            self.driver.close()
-        except Exception as e:
-            self.logger.warning(f"Erro ao tentar fechar janela: {e}")
-
-        # Volta para o menu
+        try: self.driver.close()
+        except: pass
         self.driver.switch_to.window(self.handle_menu)
-        self.logger.info(f"Foco retornado para o Menu (Handle: {self.handle_menu})")
-        
-        # Reseta para o frame default do menu
         self.switch_to_default_content()
-        
-        # Importação local para evitar Ciclo de Importação (Menu <-> Rotina)
         from pages.menu_page import MenuPage
         return MenuPage(self.driver)
+    
+    def entrar_frame_rotina_blindado(self, frame_index: int = 1, timeout: int = 15):
+        """
+        Abstrai o padrão repetido de entrada no frame da rotina:
+        - switch_to_default_content
+        - wait frame
+        - trata alertas residuais
+        - fallback switch_to.frame
+        """
+        self.switch_to_default_content()
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                EC.frame_to_be_available_and_switch_to_it(frame_index)
+            )
+        except UnexpectedAlertPresentException:
+            self.lidar_com_alertas()
+            self.switch_to_default_content()
+            self.driver.switch_to.frame(frame_index)
+        except TimeoutException:
+            self.driver.switch_to.frame(frame_index)
+
+
+    def loop_unidades(
+        self,
+        nome_arquivo: str,
+        fn_execucao_unica,
+        sleep_entre: float = 2.0,
+        tentativas_alertas: int = 5,
+        timeout_alertas: int = 20,
+    ):
+        """
+        Abstrai o padrão "if unidade is None: listar_unidades -> for -> renomear arquivo -> try/except".
+        fn_execucao_unica assinatura:
+            fn_execucao_unica(cod_unidade: str, nome_arquivo_unidade: str) -> bool
+        """
+        self.logger.info("--- LOOP AUTOMÁTICO DE UNIDADES ---")
+        unidades = self.listar_unidades()
+        if not unidades:
+            return False
+
+        resultados = []
+        for i, item in enumerate(unidades):
+            cod = str(item.get("valor", "")).strip()
+            texto = item.get("texto", cod)
+            self.logger.info(f"===> [{i+1}/{len(unidades)}] Unidade: {texto} ({cod})")
+
+            base, ext = os.path.splitext(nome_arquivo)
+            ext = ext or ".csv"
+            nome_por_unidade = f"{base}_{cod}{ext}"
+
+            try:
+                ok = fn_execucao_unica(cod, nome_por_unidade)
+                resultados.append(bool(ok))
+                time.sleep(sleep_entre)
+            except Exception as e:
+                self.logger.error(f"Erro na unidade {cod}: {e}")
+                self.lidar_com_alertas(tentativas=tentativas_alertas, timeout=timeout_alertas)
+                resultados.append(False)
+
+        return all(resultados)
+
+
+    # ======================
+    # JS HELPERS (sem duplicar por Page)
+    # ======================
+
+    # 1) JS base IE - se você JÁ tem isso em algum lugar, pode apagar daqui e usar o seu.
+    JS_SET_VALUE_IE = """var el = arguments[0]; var val = arguments[1]; try { try { el.scrollIntoView(true); } catch(e) {} try { el.focus(); } catch(e) {} el.value = val; if (document.createEvent) { var ev1 = document.createEvent('HTMLEvents'); ev1.initEvent('input', true, true); el.dispatchEvent(ev1); var ev2 = document.createEvent('HTMLEvents'); ev2.initEvent('change', true, true); el.dispatchEvent(ev2); var ev3 = document.createEvent('HTMLEvents'); ev3.initEvent('blur', true, true); el.dispatchEvent(ev3); } else if (el.fireEvent) { try { el.fireEvent('oninput'); } catch(e) {} try { el.fireEvent('onchange'); } catch(e) {} try { el.fireEvent('onblur'); } catch(e) {} } return { ok: true, value: el.value }; } catch (e) { return { ok: false, error: (e && e.message) ? e.message : String(e) }; }"""
+    JS_CLICK_IE = """var el = arguments[0]; try { try { el.scrollIntoView(true); } catch(e) {} try { el.focus(); } catch(e) {} if (el.click) { el.click(); } else if (el.fireEvent) { el.fireEvent('onclick'); } return { ok: true }; } catch (e) { return { ok: false, error: (e && e.message) ? e.message : String(e) }; }"""
+    JS_RADIO_BY_NAME = """var name = arguments[0]; var val = arguments[1]; try { var els = document.getElementsByName(name); if (!els || !els.length) return { ok:false, error:"no-elements" }; for (var i=0; i<els.length; i++) { var el = els[i]; if ((el.value || "") == val) { try { el.scrollIntoView(true); } catch(e) {} try { el.focus(); } catch(e) {} el.checked = true; if (el.click) { el.click(); } else if (el.fireEvent) { el.fireEvent('onclick'); } if (document.createEvent) { var ev = document.createEvent('HTMLEvents'); ev.initEvent('change', true, true); el.dispatchEvent(ev); } else if (el.fireEvent) { try { el.fireEvent('onchange'); } catch(e) {} } return { ok:true, chosen: val }; } } return { ok:false, error:"value-not-found", wanted: val }; } catch(e) { return { ok:false, error:(e && e.message) ? e.message : String(e) }; }"""
+    JS_SELECT_BY_NAME = """var name = arguments[0]; var val = arguments[1]; try { var els = document.getElementsByName(name); if (!els || !els.length) return { ok:false, error:"no-select" }; var el = els[0]; try { el.scrollIntoView(true); } catch(e) {} try { el.focus(); } catch(e) {} el.value = val; if (document.createEvent) { var ev = document.createEvent('HTMLEvents'); ev.initEvent('change', true, true); el.dispatchEvent(ev); } else if (el.fireEvent) { try { el.fireEvent('onchange'); } catch(e) {} } return { ok:true, value: el.value }; } catch(e) { return { ok:false, error:(e && e.message) ? e.message : String(e) }; }"""
+
+    # checkbox by name com click opcional (algumas telas dependem de onclick)
+    JS_CHECKBOX_BY_NAME = """
+    var name = arguments[0];
+    var desired = arguments[1]; // true/false
+    var forceClick = arguments[2]; // true/false
+    try {
+        var els = document.getElementsByName(name);
+        if (!els || !els.length) return { ok:false, error:"no-elements" };
+        var el = els[0];
+        try { el.scrollIntoView(true); } catch(e) {}
+        try { el.focus(); } catch(e) {}
+
+        if (forceClick) {
+            if (el.checked !== desired) {
+                if (el.click) { el.click(); }
+                else if (el.fireEvent) { el.fireEvent('onclick'); }
+            }
+        }
+        el.checked = desired;
+
+        if (document.createEvent) {
+            var ev = document.createEvent('HTMLEvents');
+            ev.initEvent('change', true, true);
+            el.dispatchEvent(ev);
+        } else if (el.fireEvent) {
+            try { el.fireEvent('onchange'); } catch(e) {}
+        }
+        return { ok:true, checked: el.checked };
+    } catch(e) {
+        return { ok:false, error:(e && e.message) ? e.message : String(e) };
+    }
+    """
+
+
+    def js_click_ie(self, element):
+        res = self.driver.execute_script(self.JS_CLICK_IE, element)
+        if not res or not res.get("ok"):
+            raise RuntimeError(f"Falha click IE: {res}")
+        return True
+
+
+    def js_set_input_by_name(self, name: str, value):
+        if value is None:
+            return
+        el = self.find_element((By.NAME, name))
+        res = self.driver.execute_script(self.JS_SET_VALUE_IE, el, str(value))
+        if not res or not res.get("ok"):
+            raise RuntimeError(f"Falha set input {name}={value}: {res}")
+
+
+    def js_set_select_by_name(self, name: str, value):
+        if value is None:
+            return
+        res = self.driver.execute_script(self.JS_SELECT_BY_NAME, name, str(value))
+        if not res or not res.get("ok"):
+            raise RuntimeError(f"Falha select {name}={value}: {res}")
+
+
+    def js_set_radio_by_name(self, name: str, value):
+        if value is None:
+            return
+        res = self.driver.execute_script(self.JS_RADIO_BY_NAME, name, str(value))
+        if not res or not res.get("ok"):
+            raise RuntimeError(f"Falha radio {name}={value}: {res}")
+
+
+    def js_set_checkbox_by_name(self, name: str, checked: bool, force_click: bool = True):
+        if checked is None:
+            return
+        res = self.driver.execute_script(self.JS_CHECKBOX_BY_NAME, name, bool(checked), bool(force_click))
+        if not res or not res.get("ok"):
+            raise RuntimeError(f"Falha checkbox {name}={checked}: {res}")
+
+    def _fluxo_exportar_csv(
+        self,
+        timeout_csv,
+        nome_arquivo,
+        frame_index=None,
+        locators_export=None,
+        timeout_botao=30,
+    ):
+        """
+        Fluxo padrão pós-Visualizar:
+        - entra no frame da rotina (blindado)
+        - procura botão de exportação (aceita vários locators)
+        - clica via js_click_ie
+        - valida e salva visualmente
+        """
+        self.logger.info("Aguardando tela pós-Visualizar e botão CSV/Excel...")
+        self.switch_to_default_content()
+
+        frame_index = self.FRAME_ROTINA if frame_index is None else frame_index
+
+        # se não passar locators, usa o padrão da base
+        if locators_export is None:
+            locators_export = (self.BTN_GERA_EXCEL_1, self.BTN_GERA_EXCEL_2)
+
+        try:
+            WebDriverWait(self.driver, timeout_csv).until(
+                EC.frame_to_be_available_and_switch_to_it(frame_index)
+            )
+        except UnexpectedAlertPresentException:
+            self.lidar_com_alertas()
+            self.switch_to_default_content()
+            self.driver.switch_to.frame(frame_index)
+        except TimeoutException:
+            self.driver.switch_to.frame(frame_index)
+
+        def _achar_botao(d):
+            for locator in locators_export:
+                try:
+                    return d.find_element(*locator)
+                except Exception:
+                    pass
+            return False
+
+        try:
+            btn_csv = WebDriverWait(self.driver, timeout_botao).until(_achar_botao)
+        except TimeoutException:
+            raise RuntimeError("Botão de exportação (GeraExcel/GerExecl) não apareceu.")
+
+        # clique pelo helper padrão
+        self.js_click_ie(btn_csv)
+
+        self.logger.info("Botão de exportação clicado.")
+
+        if validar_elemento and salvar_arquivo_visual:
+            validar_elemento("botaoDownload.png", timeout=500)
+            diretorio = os.getenv("DOWNLOAD_DIR", "C:\\Downloads")
+            salvar_arquivo_visual(diretorio_destino=diretorio, nome_arquivo_final=nome_arquivo)
+        else:
+            self.logger.warning("Módulos visuais não carregados.")
+
+        self.switch_to_default_content()

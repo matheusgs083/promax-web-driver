@@ -6,10 +6,11 @@ from pages.rotina_page import RotinaPage
 
 class MenuPage(BasePage):
     # --- LOCATORS ---
-
     FRAME_TOP = "top"
     FRAME_INTERNO_INDEX = 0
     LOCATOR_ATALHO = (By.ID, "atalho")
+    # Novo locator baseado no log fornecido
+    LOCATOR_BTN_LOGOFF = (By.ID, "BtLogoff") 
 
     # --- JS PURO PARA EVITAR ERRO 'HTMLFormElement' ---
     JS_SET_VALUE = """
@@ -36,6 +37,21 @@ class MenuPage(BasePage):
     }
     """
 
+    # Novo JS simples para clicar (mais robusto que selenium click() em frames legados)
+    JS_CLICK = """
+    arguments[0].click();
+    """
+
+    def _entrar_no_frame_menu(self):
+        """Helper interno para navegar até o frame correto (top > frame[0])"""
+        self.switch_to_default_content()
+        try:
+            self.wait.until(EC.frame_to_be_available_and_switch_to_it(self.FRAME_TOP))
+            self.wait.until(EC.frame_to_be_available_and_switch_to_it(self.FRAME_INTERNO_INDEX))
+        except Exception as e:
+            self.logger.critical(f"Erro ao navegar nos frames do Menu: {e}")
+            raise e
+
     def acessar_rotina(self, codigo_rotina):
         """
         Digita o código da rotina, dá Enter via JS e aguarda a nova janela.
@@ -46,27 +62,17 @@ class MenuPage(BasePage):
         handle_menu = self.driver.current_window_handle
         handles_antes = self.driver.window_handles
 
-        # 2. Navega até o input (Resetando contexto antes)
-        self.switch_to_default_content()
-        
-        try:
-            # Entra no frame "top"
-            self.wait.until(EC.frame_to_be_available_and_switch_to_it(self.FRAME_TOP))
-            # Entra no frame interno (index 0)
-            self.wait.until(EC.frame_to_be_available_and_switch_to_it(self.FRAME_INTERNO_INDEX))
-        except Exception as e:
-            self.logger.critical(f"Erro ao navegar nos frames do Menu: {e}")
-            raise e
+        # 2. Navega até o frame (Refatorado para usar o helper)
+        self._entrar_no_frame_menu()
 
         # 3. Localiza o elemento (Wait explícito)
         try:
-            # Usamos presence_of_element_located para evitar verificação de visibilidade que quebra o JS
             elemento_atalho = self.wait.until(EC.presence_of_element_located(self.LOCATOR_ATALHO))
         except Exception:
             self.logger.critical("Campo 'atalho' não encontrado no frame.")
             raise
 
-        # 4. Digita o código VIA JS (Evita send_keys do Selenium)
+        # 4. Digita o código VIA JS
         self.logger.info(f"Digitando '{codigo_rotina}' via JS...")
         self.driver.execute_script(self.JS_SET_VALUE, elemento_atalho, codigo_rotina)
         time.sleep(0.5)
@@ -95,8 +101,40 @@ class MenuPage(BasePage):
         
         self.driver.switch_to.window(handle_nova_rotina)
         self.logger.info(f"Janela da rotina aberta e focada: {handle_nova_rotina}")
-        
-        # Aguarda carregamento inicial da rotina (Delay de segurança do legado)
-        time.sleep(2)
 
         return RotinaPage(self.driver, handle_menu_original=handle_menu)
+
+    def fazer_logoff(self):
+        """
+        Clica no botão de Logoff localizado no frame do menu.
+        """
+        self.logger.info("--- REALIZANDO LOGOFF ---")
+
+        # 1. Garante que estamos no frame correto (Top > 0)
+        self._entrar_no_frame_menu()
+
+        try:
+            # 2. Localiza o botão de Logoff
+            btn_logoff = self.wait.until(EC.presence_of_element_located(self.LOCATOR_BTN_LOGOFF))
+            
+            # 3. Clica via JS para evitar interceptações ou erros de coordenadas
+            self.logger.info("Clicando no botão de Logoff via JS...")
+            self.driver.execute_script(self.JS_CLICK, btn_logoff)
+            
+            # 4. Tratamento opcional de Alerta (comum em logoffs legados)
+            try:
+                # Espera curtíssima para ver se aparece um alert "Tem certeza?"
+                time.sleep(0.5) 
+                alert = EC.alert_is_present()(self.driver)
+                if alert:
+                    self.logger.info(f"Alerta de logoff detectado: {alert.text}")
+                    alert.accept()
+            except Exception:
+                # Se não tiver alerta, segue o fluxo
+                pass
+
+            self.logger.info("Logoff acionado com sucesso.")
+
+        except Exception as e:
+            self.logger.critical(f"Falha ao tentar fazer logoff: {e}")
+            raise

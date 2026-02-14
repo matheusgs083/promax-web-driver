@@ -3,6 +3,7 @@ import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, UnexpectedAlertPresentException
 from pages.base_page import BasePage
 from pages.menu_page import MenuPage
 
@@ -15,22 +16,20 @@ class LoginPage(BasePage):
     # --- CONFIGURAÇÕES ---
     URL_PROMAX = os.getenv("PROMAX_URL")
     
-    # Locators (By.NAME como no original)
+    # Locators
     LOCATOR_USUARIO = (By.NAME, "Usuario")
     LOCATOR_SENHA = (By.NAME, "Senha")
     LOCATOR_BTN_CONFIRMA = (By.NAME, "cmdConfirma")
     LOCATOR_UNIDADE = (By.NAME, "unidade")
 
-    # --- JAVASCRIPT (Idêntico ao original) ---
+    # --- JAVASCRIPT (Mantido idêntico) ---
     JS_SET_VALUE_IE = """
     var el = arguments[0];
     var val = arguments[1];
     try {
         try { el.scrollIntoView(true); } catch(e) {}
         try { el.focus(); } catch(e) {}
-        
         el.value = val;
-
         if (document.createEvent) {
             var ev1 = document.createEvent('HTMLEvents'); ev1.initEvent('input', true, true); el.dispatchEvent(ev1);
             var ev2 = document.createEvent('HTMLEvents'); ev2.initEvent('change', true, true); el.dispatchEvent(ev2);
@@ -51,12 +50,7 @@ class LoginPage(BasePage):
     try {
         try { el.scrollIntoView(true); } catch(e) {}
         try { el.focus(); } catch(e) {}
-
-        if (el.click) {
-            el.click();
-        } else if (el.fireEvent) {
-            el.fireEvent('onclick');
-        }
+        if (el.click) { el.click(); } else if (el.fireEvent) { el.fireEvent('onclick'); }
         return { ok: true };
     } catch (e) {
         return { ok: false, error: (e && e.message) ? e.message : String(e) };
@@ -80,7 +74,7 @@ class LoginPage(BasePage):
         self.logger.info(f"--- LOGIN PROMAX (Unidade: {nome_unidade}) ---")
         self.driver.get(self.URL_PROMAX)
         
-        # Tratamento de múltiplas janelas (Cópia da lógica original)
+        # Tratamento de múltiplas janelas
         if len(self.driver.window_handles) > 1:
             self.logger.warning(f"Janelas detectadas: {len(self.driver.window_handles)}. Focando na última.")
             self.driver.switch_to.window(self.driver.window_handles[-1])
@@ -88,117 +82,129 @@ class LoginPage(BasePage):
         self.logger.info("Aguardando carregamento inicial...")
 
         # =========================================================
-        # PARTE 1: ENTRAR NO FRAME (LÓGICA CORRIGIDA)
+        # PARTE 1: ENTRAR NO FRAME
         # =========================================================
-        # Verifica se existem frames antes de tentar entrar
         frames = self.driver.find_elements(By.TAG_NAME, "iframe") or self.driver.find_elements(By.TAG_NAME, "frame")
-        
         frame_index = None
-        if frames:
-            frame_index = 0
-            self.wait.until(EC.frame_to_be_available_and_switch_to_it(frame_index))
-            self.logger.info(f"Entrou no frame index={frame_index}")
-        else:
-            self.logger.info("Nenhum frame detectado. Tentando login na raiz.")
+        
+        try:
+            if frames:
+                frame_index = 0
+                self.wait.until(EC.frame_to_be_available_and_switch_to_it(frame_index))
+                self.logger.info(f"Entrou no frame index={frame_index}")
+            else:
+                self.logger.info("Nenhum frame detectado. Tentando login na raiz.")
+        except Exception:
+            self.logger.warning("Falha ao entrar no frame, tentando seguir na raiz...")
 
         # =========================================================
-        # PARTE 2: PREENCHIMENTO (Lógica do script original)
+        # PARTE 2: PREENCHIMENTO
         # =========================================================
-        
-        # Localiza os elementos (Wait explícito)
         try:
-            # Procura pelo campo 'Usuario' para confirmar que carregou
             campo_usuario = self.wait.until(EC.presence_of_element_located(self.LOCATOR_USUARIO))
-            self.logger.info(f"Campo Usuario encontrado.")
-            
             campo_senha = self.wait.until(EC.presence_of_element_located(self.LOCATOR_SENHA))
             botao_confirma = self.wait.until(EC.presence_of_element_located(self.LOCATOR_BTN_CONFIRMA))
+            
+            # Executa JS
+            self.driver.execute_script(self.JS_SET_VALUE_IE, campo_usuario, usuario)
+            self.driver.execute_script(self.JS_SET_VALUE_IE, campo_senha, senha)
+            self.driver.execute_script(self.JS_CLICK_IE, botao_confirma)
+            
+            self.logger.info("Credenciais enviadas.")
+            
         except Exception as e:
-            self.logger.error("Erro ao localizar campos. Página não carregou ou frame errado.")
+            self.logger.error("Erro ao localizar/interagir com campos de login.")
             raise e
 
-        # Executa JS para Usuario
-        r1 = self.driver.execute_script(self.JS_SET_VALUE_IE, campo_usuario, usuario)
-        if not r1 or not r1.get("ok"):
-             self.logger.error(f"Falha JS Usuario: {r1}")
-
-        # Executa JS para Senha
-        r2 = self.driver.execute_script(self.JS_SET_VALUE_IE, campo_senha, senha)
-        if not r2 or not r2.get("ok"):
-             self.logger.error(f"Falha JS Senha: {r2}")
-
-        # Executa JS Click
-        r3 = self.driver.execute_script(self.JS_CLICK_IE, botao_confirma)
-        if not r3 or not r3.get("ok"):
-             self.logger.error(f"Falha JS Click: {r3}")
-
-        self.logger.info("Credenciais enviadas.")
-
         # =========================================================
-        # PARTE 3: UNIDADE (Lógica Condicional)
+        # PARTE 3: UNIDADE E CONFIRMAÇÃO FINAL
         # =========================================================
         codigo_unidade = self.mapa_unidades.get(nome_unidade.upper()) if nome_unidade else None
 
         if codigo_unidade:
             self.logger.info(f"Selecionando unidade: {nome_unidade} ({codigo_unidade})")
             
-            self.switch_to_default_content()
-            
-            # Se usamos frame antes, voltamos pra ele
+            # Proteção: Se houver frame, garante que estamos nele
             if frame_index is not None:
+                self.switch_to_default_content()
                 try:
                     self.wait.until(EC.frame_to_be_available_and_switch_to_it(frame_index))
-                    self.logger.info("Retornou ao frame para seleção de unidade.")
-                except Exception:
-                     self.logger.warning("Não conseguiu voltar ao frame. Tentando no default.")
+                except:
+                    pass
 
             try:
-                # Localiza combo
-                select_unidade = self.wait.until(EC.presence_of_element_located(self.LOCATOR_UNIDADE))
-                
-                # Usa método JS da BasePage (que é idêntico ao selecionar_opcao.py do core)
+                # Usa método JS da BasePage
                 self.selecionar_combo_js(self.LOCATOR_UNIDADE, codigo_unidade)
                 self.logger.info("Unidade selecionada via JS.")
+                
+                # Pequena pausa para o sistema processar a troca no combo
+                time.sleep(1)
 
-                # Segunda Confirmação
+                # Segunda Confirmação (Botão Entrar Final)
                 try:
                     botao_final = self.find_element(self.LOCATOR_BTN_CONFIRMA)
                     self.driver.execute_script(self.JS_CLICK_IE, botao_final)
                     self.logger.info("Segunda confirmação clicada via JS.")
                 except Exception:
-                    self.logger.info("Botão final não necessário.")
+                    pass
 
             except Exception as e:
                 self.logger.warning(f"Erro no fluxo de unidade: {e}")
-        else:
-             self.logger.info("Nenhuma unidade informada/encontrada. Pulando.")
 
-        # =========================================================
-        # PARTE 4: FINALIZAÇÃO
-        # =========================================================
-        self._limpar_janelas_extras()
-        self.lidar_com_alertas()
+        # ====================================================================
+        # PARTE 4: TRATAMENTO DE ALERTAS (A CORREÇÃO DO CRASH)
+        # ====================================================================
+        self.logger.info("Aguardando alertas de sistema (Dia 15, Estoque, etc)...")
+        
+        # 1. Pausa vital para o navegador renderizar o alerta
+        time.sleep(2)
+
+        # 2. Limpa todos os alertas em sequência
+        # Se o alerta estiver ativo, qualquer comando do Selenium (como switch_to) falharia.
+        # Por isso chamamos isso ANTES de tentar sair do frame.
+        self.lidar_com_alertas(tentativas=5, timeout=1.5)
+
+        # 3. Pausa para o sistema carregar a próxima página (Menu)
+        time.sleep(2)
+        
+        # ====================================================================
+        # PARTE 5: FINALIZAÇÃO
+        # ====================================================================
+        
+        # Tenta sair do frame com segurança (se houver alerta residual, ele captura)
+        try:
+            self.switch_to_default_content()
+        except UnexpectedAlertPresentException:
+            self.logger.warning("Alerta detectado ao sair do frame. Aceitando...")
+            try:
+                self.driver.switch_to.alert.accept()
+                self.switch_to_default_content()
+            except:
+                pass
+
         self._limpar_janelas_extras()
 
         # Validação Visual
         if validar_elemento:
             self.logger.info("Buscando validação visual (validacaoLogin.png)...")
-            if validar_elemento("validacaoLogin.png", timeout=15):
+            # Tenta validar com timeout maior, pois o carregamento do menu pode ser lento
+            if validar_elemento("validacaoLogin.png", timeout=20):
                 self.logger.info("LOGIN VALIDADO COM SUCESSO!")
-                self.switch_to_default_content()
                 return MenuPage(self.driver)
         
-        self.logger.warning("Login não validado visualmente, mas seguindo o fluxo.")
-        self.switch_to_default_content()
+        self.logger.warning("Seguindo fluxo sem validação visual positiva.")
         return MenuPage(self.driver)
 
     def _limpar_janelas_extras(self):
         try:
+            # Verifica se o driver ainda está ativo
+            if not self.driver.window_handles: return
+
             atual = self.driver.current_window_handle
             for h in self.driver.window_handles:
                 if h != atual:
                     self.driver.switch_to.window(h)
                     self.driver.close()
             self.driver.switch_to.window(atual)
-        except:
+        except Exception:
             pass
