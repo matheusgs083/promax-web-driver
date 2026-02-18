@@ -129,7 +129,8 @@ class Relatorio0513Page(RotinaPage):
         # 1) SELECT (OpcaoRel)
         # -----------------------------
         if opcao_rel is not None:
-            self.logger.info(f"Configurando Classificação (OpcaoRel): {opcao_rel}")
+            self.logger.info(
+                f"Configurando Classificação (OpcaoRel): {opcao_rel}")
             self.js_set_select_by_name("OpcaoRel", str(opcao_rel))
 
         # -----------------------------
@@ -154,13 +155,17 @@ class Relatorio0513Page(RotinaPage):
             self.js_set_radio_by_name("tpEquipe", str(tp_equipe))
 
         if hectolitro is not None:
-            self.js_set_checkbox_by_name("hectolitro", bool(hectolitro), force_click=True)
+            self.js_set_checkbox_by_name(
+                "hectolitro", bool(hectolitro), force_click=True)
         if quebra_pagina is not None:
-            self.js_set_checkbox_by_name("quebraPagina", bool(quebra_pagina), force_click=True)
+            self.js_set_checkbox_by_name(
+                "quebraPagina", bool(quebra_pagina), force_click=True)
         if selecionar_tipo_marca is not None:
-            self.js_set_checkbox_by_name("selecionarTipomarca", bool(selecionar_tipo_marca), force_click=True)
+            self.js_set_checkbox_by_name("selecionarTipomarca", bool(
+                selecionar_tipo_marca), force_click=True)
         if selecionar_tipo_perfil is not None:
-            self.js_set_checkbox_by_name("selecionarTipoPerfil", bool(selecionar_tipo_perfil), force_click=True)
+            self.js_set_checkbox_by_name("selecionarTipoPerfil", bool(
+                selecionar_tipo_perfil), force_click=True)
 
         # -----------------------------
         # 4) INPUTS
@@ -236,17 +241,23 @@ class Relatorio0513Page(RotinaPage):
         self._assert_checkbox("Todos", False, tentativas=2)
 
         if situacao_ativo is not None:
-            self.js_set_checkbox_by_name("Ativo", bool(situacao_ativo), force_click=True)
+            self.js_set_checkbox_by_name(
+                "Ativo", bool(situacao_ativo), force_click=True)
         if situacao_bloqueado is not None:
-            self.js_set_checkbox_by_name("Bloqueado", bool(situacao_bloqueado), force_click=True)
+            self.js_set_checkbox_by_name("Bloqueado", bool(
+                situacao_bloqueado), force_click=True)
         if situacao_inativo is not None:
-            self.js_set_checkbox_by_name("Inativo", bool(situacao_inativo), force_click=True)
+            self.js_set_checkbox_by_name("Inativo", bool(
+                situacao_inativo), force_click=True)
         if situacao_temporario is not None:
-            self.js_set_checkbox_by_name("Temporario", bool(situacao_temporario), force_click=True)
+            self.js_set_checkbox_by_name("Temporario", bool(
+                situacao_temporario), force_click=True)
         if situacao_duplicado is not None:
-            self.js_set_checkbox_by_name("Duplicado", bool(situacao_duplicado), force_click=True)
+            self.js_set_checkbox_by_name("Duplicado", bool(
+                situacao_duplicado), force_click=True)
         if situacao_excluido is not None:
-            self.js_set_checkbox_by_name("Excluido", bool(situacao_excluido), force_click=True)
+            self.js_set_checkbox_by_name("Excluido", bool(
+                situacao_excluido), force_click=True)
 
     def _assert_checkbox(self, name, esperado: bool, tentativas=2):
         for i in range(tentativas):
@@ -254,7 +265,27 @@ class Relatorio0513Page(RotinaPage):
             atual = bool(el.is_selected())
             if atual == bool(esperado):
                 return True
-            self.logger.warning(f"Checkbox {name} não ficou {esperado}. Tentando novamente ({i+1}/{tentativas})...")
-            self.js_set_checkbox_by_name(name, bool(esperado), force_click=True)
+            self.logger.warning(
+                f"Checkbox {name} não ficou {esperado}. Tentando novamente ({i+1}/{tentativas})...")
+            self.js_set_checkbox_by_name(
+                name, bool(esperado), force_click=True)
             time.sleep(0.3)
-        raise RuntimeError(f"Checkbox {name} não ficou {esperado} após {tentativas} tentativas.")
+        raise RuntimeError(
+            f"Checkbox {name} não ficou {esperado} após {tentativas} tentativas.")
+
+
+"""Consolida="N" value=0>--Selecionar--     
+                                                    Consolida="S" value=1>Area               
+                                                    Consolida="N" value=2>Setor              
+                                                    Consolida="S" value=3>Categoria          
+                                                    Consolida="S" value=4>Categoria/Area     
+                                                    Consolida="N" value=5>Categoria/Setor    
+                                                    Consolida="S" value=6>Gerente Vendas     
+                                                    Consolida="S" value=7>Geral              
+                                                    Consolida="S" value=8>Gte. Vendas/Segmento
+                                                    Consolida="S" value=9>Segmento           
+                                                    Consolida="S" value=10>Area/Segmento     
+                                                    Consolida="N" value=11>Setor/Segmento    
+                                                    Consolida="S" value=12>Comercial         
+                                                    Consolida="S" value=13>Gte. Vendas/Categ.
+                                                    Consolida="S" value=14>Distrital         """
