@@ -31,6 +31,7 @@ primeiro_dia_mes = hoje.replace(day=1).strftime('%d/%m/%Y')
 data_ontem_formatada = ontem.strftime('%d/%m/%Y')
 mes_ano_hoje = hoje.strftime("%m/%Y")
 ano_atual = hoje.strftime('%Y')
+mes_atual = hoje.strftime('%m')
 
 
 def iniciar_sessao():
@@ -54,7 +55,7 @@ def iniciar_sessao():
     senha = os.getenv("PROMAX_PASS")
     
     # Faz o login e retorna a página de menu atualizada
-    menu_page = login_page.fazer_login(usuario, senha, nome_unidade="SOUSA")
+    menu_page = login_page.fazer_login(usuario, senha, nome_unidade="PATOS")
     logger.info("Sessão iniciada com sucesso.")
     return driver, menu_page
 
@@ -118,14 +119,14 @@ def main():
             page.gerar_relatorio(
                 opcao_rel="12", volume_fin="F", tp_equipe="A", 
                 mes_ano_inicial=mes_ano_hoje, mes_ano_final=mes_ano_hoje, 
-                quantos_clientes="99999"
+                quantos_clientes="99999", nome_arquivo=f"{hoje.strftime('%d-%m-%Y')} (nUnidade) nomeUnidade0513"
             )
             page.fechar_e_voltar()
 
         def tarefa_120616():
             janela = menu_page.acessar_rotina("120616")
             page = Relatorio120616Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(opcao_rel="3", mes_ano=mes_ano_hoje)
+            page.gerar_relatorio(opcao_rel="3", mes_ano=mes_ano_hoje, nome_arquivo=f"{hoje.strftime('%d-%m-%Y')} (nUnidade) 12.06.16_nomeUnidade120616")
             page.fechar_e_voltar()
 
         def tarefa_120601():
@@ -134,20 +135,20 @@ def main():
             page.gerar_relatorio(
                 opcao_rel="01", id_notas_tit_nao_atu=False, 
                 ini_vencimento=primeiro_dia_mes, fim_vencimento=data_ontem_formatada, 
-                ini_especie=4, fim_especie=4
+                ini_especie=4, fim_especie=4, nome_arquivo=f"{hoje.strftime('%d-%m-%Y')} (nUnidade) 12.06.01_nomeUnidade120601"
             )
             page.fechar_e_voltar()
 
         def tarefa_0512():
             janela = menu_page.acessar_rotina("0512")
             page = Relatorio0512Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(opcao_rel="11", ano=ano_atual, id_converte_hecto=True)
+            page.gerar_relatorio(opcao_rel="11", ano=ano_atual, id_converte_hecto=True, nome_arquivo=f"05.12 {ano_atual} nomeUnidade0512")
             page.fechar_e_voltar()
 
         def tarefa_150501():
             janela = menu_page.acessar_rotina("150501")
             page = Relatorio150501Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(periodo="M", mes_ano=mes_ano_hoje, totaliza_periodo=True)
+            page.gerar_relatorio(periodo="M", mes_ano=mes_ano_hoje, totaliza_periodo=True, nome_arquivo=f"{ano_atual}-{mes_atual} nomeUnidade150501")
             page.fechar_e_voltar()
 
         def tarefa_030237():
@@ -155,7 +156,7 @@ def main():
             page = Relatorio030237Page(janela.driver, janela.handle_menu)
             page.gerar_relatorio(
                 quebra1="14", quebra2="12", quebra3="16", 
-                data_inicial=primeiro_dia_mes, data_final=data_ontem_formatada
+                data_inicial=primeiro_dia_mes, data_final=data_ontem_formatada, nome_arquivo=f"{mes_atual}-{ano_atual} nomeUnidade030237"
             )
             page.fechar_e_voltar()
 
