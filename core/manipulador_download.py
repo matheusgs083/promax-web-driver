@@ -1,122 +1,110 @@
 import pyautogui
 import time
 import os
+import shutil
+from pathlib import Path
 from core.logger import get_logger
-
-logger = get_logger(__name__)
 from .validador_visual import validar_elemento
 
-def tratar_confirmacao_sobrescrever(timeout=6):
-    """
-    Verifica se apareceu a janela de 'Substituir arquivo existente' e clica em Sim.
-    """
-    # Tenta achar o botão "Sim" ou o texto de confirmação
-    # Recomendo ter um print apenas do botão "Sim" destacado
-    box_sim = validar_elemento("substituirArquivo.png", timeout=timeout, confidence=0.9)
-    
-    if box_sim:
-        logger.warning("Arquivo já existe. Sobrescrevendo...")
-        x, y = pyautogui.center(box_sim)
-        pyautogui.click(x, y)
-        time.sleep(1)
-        return True
-    return False
+logger = get_logger(__name__)
 
 def salvar_arquivo_visual(diretorio_destino, nome_arquivo_final):
-    logger.info("--- INICIANDO SALVAMENTO VISUAL OTIMIZADO ---")
+    logger.info("--- INICIANDO SALVAMENTO OTIMIZADO (WATCHER DE PASTA) ---")
+    
+    # =========================================================================
+    # 1. MAPEAMENTO DE PASTAS E SNAPSHOT INICIAL
+    # =========================================================================
+    # Define a pasta padrão de downloads nativa do Windows do usuário logado
+    pasta_downloads = Path(os.path.expanduser("~")) / "Downloads"
+    pasta_destino = Path(diretorio_destino)
+    
+    # Garante que as pastas de trabalho existem
+    pasta_downloads.mkdir(parents=True, exist_ok=True)
+    pasta_destino.mkdir(parents=True, exist_ok=True)
 
+    # Tira uma "foto" dos arquivos que já estão lá ANTES de clicar em baixar
+    arquivos_antes = set(pasta_downloads.iterdir())
+
+   # =========================================================================
+    # 2. ESPERA INTELIGENTE E DISPARO DO DOWNLOAD (BARRA DO IE)
     # =========================================================================
-    # 1. CLICAR NA SETINHA (BAIXAR)
-    # =========================================================================
-    # Tenta localizar a setinha com 90% de precisão (ignora pequenas mudanças de pixel)
-    # Requer: pip install opencv-python
-    box_setinha = validar_elemento("setinhaDownload.png", timeout=5, confidence=0.9)
+    logger.info("Aguardando o servidor processar e a barra do IE aparecer...")
     
-    if box_setinha:
-        logger.info("Setinha detectada. Movendo e clicando...")
-        x, y = pyautogui.center(box_setinha)
-        # Move suavemente em 0.5s para garantir que o sistema detecte o hover
-        pyautogui.moveTo(x, y, duration=0.5)
-        pyautogui.click()
-        time.sleep(1)
+    box_btn = validar_elemento("botaoDownload.png", timeout=120, confidence=0.8)
     
-    else:
-        # --- FALLBACK: CÁLCULO NO BOTÃO GRANDE ---
-        logger.warning("Setinha não encontrada. Usando fallback no botão principal.")
-        box_btn = validar_elemento("botaoDownload.png", timeout=5, confidence=0.8)
+    if box_btn:
+        x, y = pyautogui.center(box_btn)
+        logger.info("Barra do IE detectada! Movendo o mouse para clicar...")
         
-        if box_btn:
-            # Ajuste matemático: Clicar 15 pixels a menos que a largura total (canto direito)
-            # É mais seguro que porcentagem em botões pequenos
-            x_setinha = (box_btn.left + box_btn.width) - 15 
-            y_centro = box_btn.top + (box_btn.height / 2)
-
-            logger.info("Clicando na borda direita do botão principal (Fallback)...")
-            pyautogui.moveTo(x_setinha, y_centro, duration=0.5)
-            pyautogui.click()
-            time.sleep(1)
-        else:
-            logger.error("ERRO CRÍTICO: Nenhum botão de download encontrado.")
-            return False
-
-    # =========================================================================
-    # 2. MENU "SALVAR COMO"
-    # =========================================================================
-    # Aqui a imagem deve ser APENAS o texto "Salvar como" destacado no menu
-    box_menu = validar_elemento("salvarComo.png", timeout=5, confidence=0.9)
-    
-    if box_menu:
-        x, y = pyautogui.center(box_menu)
+        # 1. Move o mouse suavemente até o botão (dá tempo do Windows registrar o hover)
         pyautogui.moveTo(x, y, duration=0.3)
+        time.sleep(0.2) # Pausa dramática
+        
+        # 2. Executa o clique
         pyautogui.click()
-        logger.info("Menu 'Salvar como' clicado.")
+        
+        # 3. BACKUP DE SEGURANÇA (Trava Dupla)
+        # Se o clique do mouse for ignorado pelo Windows, o Alt+S garante a ação.
+        # Se o clique funcionar, a barra some e o Alt+S será inofensivo.
+        time.sleep(0.5)
+        pyautogui.hotkey('alt', 's')
+        
     else:
-        # Fallback de teclado cego: Baixo + Enter
-        logger.warning("Menu visual falhou. Tentando setas do teclado...")
-        pyautogui.press('down')
-        time.sleep(0.3)
-        pyautogui.press('enter')
-
-    # Espera a janela do Windows abrir
-    logger.info("Aguardando diálogo do Windows...")
-    time.sleep(3) 
-
-    # =========================================================================
-    # 3. JANELA DO WINDOWS - PREENCHIMENTO VIA ATALHOS (MAIS SEGURO)
-    # =========================================================================
-    
-    # --- Definir Diretório (Alt + D foca na barra de endereço) ---
-    logger.info(f"Definindo diretório: {diretorio_destino}")
-    pyautogui.hotkey('alt', 'd') 
-    time.sleep(0.5)
-    pyautogui.write(diretorio_destino, interval=0.01)
-    pyautogui.press('enter')
-    
-    # Tempo para o Windows processar a troca de pasta
-    time.sleep(1.5) 
-    
-    # Clica no centro da tela (área neutra) para tirar foco da barra de endereço
-    # Isso evita bugs onde o nome do arquivo é digitado na barra de endereço
-    pyautogui.press('tab') 
-    
-    # --- Definir Nome do Arquivo (Alt + N foca no campo Nome) ---
-    logger.info(f"Definindo nome: {nome_arquivo_final}")
-    pyautogui.hotkey('alt', 'n')
-    time.sleep(0.5)
-    
-    # Limpa e escreve
-    pyautogui.hotkey('ctrl', 'a')
-    pyautogui.press('backspace')
-    pyautogui.write(nome_arquivo_final, interval=0.01)
-    time.sleep(1)
-    
-    # --- Salvar (Enter) ---
-    pyautogui.press('enter')
+        logger.error("Timeout Crítico: A barra de download do IE não apareceu após 2 minutos.")
+        return False, "Barra de download nativa não apareceu"
+        
+    # Dá 1 segundo de respiro pro Windows começar a criar o arquivo físico na pasta
     time.sleep(1)
 
-    # --- Checar Sobrescrita ---
-    if tratar_confirmacao_sobrescrever():
-        logger.info("Sobrescrita tratada.")
+    # =========================================================================
+    # 3. VIGIAR A PASTA, MOVER E CONVERTER PARA .CSV
+    # =========================================================================
     
-    logger.info("Processo de salvamento finalizado.")
-    return True
+    # Garante que o nome final do arquivo termine explicitamente com .csv
+    if not nome_arquivo_final.lower().endswith('.csv'):
+        nome_arquivo_final += '.csv'
+        
+    caminho_final = pasta_destino / nome_arquivo_final
+    
+    # Extensões temporárias criadas por navegadores enquanto o download não acaba
+    extensoes_ignoradas = ['.tmp', '.crdownload', '.part', '.partial']
+        
+    # Dá 500 segundos de tolerância para a transferência da rede concluir
+    tempo_limite = time.time() + 500
+    logger.info(f"Aguardando arquivo novo em: {pasta_downloads}")
+    
+    while time.time() < tempo_limite:
+        arquivos_agora = set(pasta_downloads.iterdir())
+        novos_arquivos = arquivos_agora - arquivos_antes
+        
+        for arquivo in novos_arquivos:
+            # Pega a extensão do arquivo que acabou de aparecer
+            extensao_atual = arquivo.suffix.lower()
+            
+            # Se não for um arquivo temporário de download, achamos o nosso relatório (.inf, .csv, etc)
+            if extensao_atual not in extensoes_ignoradas:
+                try:
+                    # Se já houver um arquivo com esse nome nos Relatorios, apaga (sobrescreve automático)
+                    if caminho_final.exists():
+                        logger.warning(f"Arquivo já existe no destino. Removendo antigo: {caminho_final}")
+                        caminho_final.unlink()
+                        
+                    # MÁGICA AQUI: Move o arquivo original e força ele a ter o nome final com .csv
+                    shutil.move(str(arquivo), str(caminho_final))
+                    logger.info(f"Sucesso! Relatório capturado e convertido para: {caminho_final}")
+                    
+                    # RETORNO ATUALIZADO PARA O RELATÓRIO
+                    return True, "Download concluído com sucesso"
+                    
+                except PermissionError:
+                    # Se der erro de permissão, o Windows/IE ainda está gravando o arquivo no disco
+                    logger.debug("Arquivo bloqueado (ainda baixando). Aguardando liberação do SO...")
+                    time.sleep(1)
+                    continue
+                    
+        # Pausa breve antes de checar a pasta de novo para não sobrecarregar o processador
+        time.sleep(1)
+        
+    logger.error("Timeout: Nenhum arquivo novo concluído apareceu na pasta Downloads após 500s.")
+    # RETORNO ATUALIZADO PARA O RELATÓRIO
+    return False, "Timeout na espera da rede/download do arquivo"
