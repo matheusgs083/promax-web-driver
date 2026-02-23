@@ -51,9 +51,10 @@ class Relatorio120601Page(RotinaPage):
         timeout_csv=500,
     ):
         # === LOOP (MULTI-UNIDADES) via RotinaPage ===
-        if unidade is None:
+        if unidade is None or isinstance(unidade, list):
             return self.loop_unidades(
                 nome_arquivo=nome_arquivo,
+                unidades_alvo=unidade if isinstance(unidade, list) else None,
                 fn_execucao_unica=lambda cod, arq: self.gerar_relatorio(
                     unidade=cod,
                     opcao_rel=opcao_rel,
@@ -82,6 +83,13 @@ class Relatorio120601Page(RotinaPage):
         # 1) Entrar no frame (blindado)
         self.entrar_frame_rotina_blindado(self.FRAME_ROTINA, timeout=timeout)
 
+        try:
+            WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located((By.NAME, "opcaoRel"))
+            )
+        except TimeoutException:
+            self.logger.warning("O formulário demorou a renderizar. O preenchimento pode falhar.")
+
         # 2) Preenchimento
         try:
             # SELECT
@@ -89,9 +97,7 @@ class Relatorio120601Page(RotinaPage):
                 self.logger.info(f"Configurando Ordenação (opcaoRel): {opcao_rel}")
                 self.js_set_select_by_name("opcaoRel", opcao_rel)
 
-            # CHECKBOXES (True/False)
-            # OBS: aqui uso force_click=False porque no seu JS original do 120601
-            # você só setava checked (sem clicar). Mantém comportamento.
+
             checkboxes = [
                 ("titulo", titulo),
                 ("tituloPdd", titulo_pdd),
@@ -135,12 +141,21 @@ class Relatorio120601Page(RotinaPage):
         time.sleep(2)
         self.switch_to_default_content()
 
+        resultado_final = True
+
         if acao == "BotVisualizar" and clicar_csv_apos_visualizar:
-            self._fluxo_exportar_csv(timeout_csv, nome_arquivo)
+
+            resultado_final = self._fluxo_exportar_csv(
+                timeout_csv=timeout_csv, 
+                nome_arquivo=nome_arquivo,
+                timeout_botao=timeout_csv
+            )
 
         self.switch_to_default_content()
-        return True
-
+        
+        # Retorna o status real para o loop_unidades acionar o Tracker
+        return resultado_final
+    
 """01 Numérica N 
 02 Alfabética N 
 03 Portador N 

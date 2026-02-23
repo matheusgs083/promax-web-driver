@@ -9,9 +9,14 @@ from pages.base_page import BasePage
 try:
     from core.manipulador_download import salvar_arquivo_visual
     from core.validador_visual import validar_elemento
+    from core.relatorio_execucao import tracker
 except ImportError:
     salvar_arquivo_visual = None
     validar_elemento = None
+    # Fallback seguro caso o tracker não exista ainda
+    class MockTracker:
+        def anotar(self, *args, **kwargs): pass
+    tracker = MockTracker()
 
 class RotinaPage(BasePage):
     """
@@ -165,26 +170,39 @@ class RotinaPage(BasePage):
         except TimeoutException:
             self.driver.switch_to.frame(frame_index)
 
-
     def loop_unidades(
         self,
         nome_arquivo: str,
         fn_execucao_unica,
+        unidades_alvo: list = None,  # <--- NOVO PARÂMETRO
         sleep_entre: float = 2.0,
         tentativas_alertas: int = 5,
         timeout_alertas: int = 20,
     ):
-        """
-        Abstrai o padrão "if unidade is None: listar_unidades -> for -> renomear arquivo -> try/except".
-        fn_execucao_unica assinatura:
-            fn_execucao_unica(cod_unidade: str, nome_arquivo_unidade: str) -> bool
-        """
         self.logger.info("--- LOOP AUTOMÁTICO DE UNIDADES ---")
-        unidades = self.listar_unidades()
-        if not unidades:
+        todas_unidades = self.listar_unidades()
+        if not todas_unidades:
             return False
 
+        # --- LÓGICA DE FILTRAGEM (Aceita a Lista de Números) ---
+        if unidades_alvo:
+            alvos_limpos = [str(u).strip() for u in unidades_alvo]
+            
+            # Filtra a lista mantendo apenas os códigos (números) que você pediu
+            unidades = [u for u in todas_unidades if str(u.get("valor", "")).strip() in alvos_limpos]
+            
+            if not unidades:
+                self.logger.warning(f"Nenhuma unidade alvo {alvos_limpos} foi encontrada na tela.")
+                return False
+                
+            self.logger.info(f"Filtro ativo! Rodando apenas para {len(unidades)} unidade(s).")
+        else:
+            unidades = todas_unidades
+
+        # Extrai o nome da rotina dinamicamente (ex: Relatorio0513Page -> Rotina 0513)
+        rotina_nome = self.__class__.__name__.replace("Page", "").replace("Relatorio", "Rotina ")
         resultados = []
+
         for i, item in enumerate(unidades):
             cod = str(item.get("valor", "")).strip()
             texto = item.get("texto", cod)
@@ -194,29 +212,58 @@ class RotinaPage(BasePage):
             ext = ext or ".csv"
             nome_por_unidade = f"{base}_{cod}{ext}"
 
+            # MARCA O TEMPO INICIAL DA UNIDADE
+            inicio_unidade = time.time()
+
             try:
-                ok = fn_execucao_unica(cod, nome_por_unidade)
-                resultados.append(bool(ok))
+                # Recebe o retorno da sua função de geração de relatório
+                resultado = fn_execucao_unica(cod, nome_por_unidade)
+                
+                # CALCULA A DURAÇÃO
+                duracao_unidade = time.time() - inicio_unidade
+                
+                # Desempacota o resultado para o relatório consolidado
+                if isinstance(resultado, tuple):
+                    ok, motivo = resultado
+                elif resultado is False:
+                    ok, motivo = False, "Falha na execução (Retornou False)"
+                else:
+                    ok, motivo = True, "Download concluído"
+
+                # Loga no arquivo CSV Tracker (agora passando a duracao)
+                if ok:
+                    tracker.anotar(rotina_nome, cod, "SUCESSO", motivo, duracao_unidade)
+                else:
+                    tracker.anotar(rotina_nome, cod, "FALHA DOWNLOAD", motivo, duracao_unidade)
+
+                resultados.append(ok)
                 time.sleep(sleep_entre)
+                
             except Exception as e:
-                self.logger.error(f"Erro na unidade {cod}: {e}")
+                # Calcula a duração mesmo se der erro rápido
+                duracao_unidade = time.time() - inicio_unidade
+                
+                # Captura erros bloqueantes como "Nenhuma informação encontrada"
+                msg_erro = str(e).split('\n')[0]
+                self.logger.error(f"Erro na unidade {cod}: {msg_erro}")
+                
+                # Loga o erro no arquivo CSV Tracker
+                tracker.anotar(rotina_nome, cod, "ERRO SISTEMA", msg_erro, duracao_unidade)
+                
                 self.lidar_com_alertas(tentativas=tentativas_alertas, timeout=timeout_alertas)
                 resultados.append(False)
 
         return all(resultados)
 
-
     # ======================
     # JS HELPERS (sem duplicar por Page)
     # ======================
 
-    # 1) JS base IE - se você JÁ tem isso em algum lugar, pode apagar daqui e usar o seu.
     JS_SET_VALUE_IE = """var el = arguments[0]; var val = arguments[1]; try { try { el.scrollIntoView(true); } catch(e) {} try { el.focus(); } catch(e) {} el.value = val; if (document.createEvent) { var ev1 = document.createEvent('HTMLEvents'); ev1.initEvent('input', true, true); el.dispatchEvent(ev1); var ev2 = document.createEvent('HTMLEvents'); ev2.initEvent('change', true, true); el.dispatchEvent(ev2); var ev3 = document.createEvent('HTMLEvents'); ev3.initEvent('blur', true, true); el.dispatchEvent(ev3); } else if (el.fireEvent) { try { el.fireEvent('oninput'); } catch(e) {} try { el.fireEvent('onchange'); } catch(e) {} try { el.fireEvent('onblur'); } catch(e) {} } return { ok: true, value: el.value }; } catch (e) { return { ok: false, error: (e && e.message) ? e.message : String(e) }; }"""
     JS_CLICK_IE = """var el = arguments[0]; try { try { el.scrollIntoView(true); } catch(e) {} try { el.focus(); } catch(e) {} if (el.click) { el.click(); } else if (el.fireEvent) { el.fireEvent('onclick'); } return { ok: true }; } catch (e) { return { ok: false, error: (e && e.message) ? e.message : String(e) }; }"""
     JS_RADIO_BY_NAME = """var name = arguments[0]; var val = arguments[1]; try { var els = document.getElementsByName(name); if (!els || !els.length) return { ok:false, error:"no-elements" }; for (var i=0; i<els.length; i++) { var el = els[i]; if ((el.value || "") == val) { try { el.scrollIntoView(true); } catch(e) {} try { el.focus(); } catch(e) {} el.checked = true; if (el.click) { el.click(); } else if (el.fireEvent) { el.fireEvent('onclick'); } if (document.createEvent) { var ev = document.createEvent('HTMLEvents'); ev.initEvent('change', true, true); el.dispatchEvent(ev); } else if (el.fireEvent) { try { el.fireEvent('onchange'); } catch(e) {} } return { ok:true, chosen: val }; } } return { ok:false, error:"value-not-found", wanted: val }; } catch(e) { return { ok:false, error:(e && e.message) ? e.message : String(e) }; }"""
     JS_SELECT_BY_NAME = """var name = arguments[0]; var val = arguments[1]; try { var els = document.getElementsByName(name); if (!els || !els.length) return { ok:false, error:"no-select" }; var el = els[0]; try { el.scrollIntoView(true); } catch(e) {} try { el.focus(); } catch(e) {} el.value = val; if (document.createEvent) { var ev = document.createEvent('HTMLEvents'); ev.initEvent('change', true, true); el.dispatchEvent(ev); } else if (el.fireEvent) { try { el.fireEvent('onchange'); } catch(e) {} } return { ok:true, value: el.value }; } catch(e) { return { ok:false, error:(e && e.message) ? e.message : String(e) }; }"""
 
-    # checkbox by name com click opcional (algumas telas dependem de onclick)
     JS_CHECKBOX_BY_NAME = """
     var name = arguments[0];
     var desired = arguments[1]; // true/false
@@ -249,13 +296,11 @@ class RotinaPage(BasePage):
     }
     """
 
-
     def js_click_ie(self, element):
         res = self.driver.execute_script(self.JS_CLICK_IE, element)
         if not res or not res.get("ok"):
             raise RuntimeError(f"Falha click IE: {res}")
         return True
-
 
     def js_set_input_by_name(self, name: str, value):
         if value is None:
@@ -265,7 +310,6 @@ class RotinaPage(BasePage):
         if not res or not res.get("ok"):
             raise RuntimeError(f"Falha set input {name}={value}: {res}")
 
-
     def js_set_select_by_name(self, name: str, value):
         if value is None:
             return
@@ -273,14 +317,12 @@ class RotinaPage(BasePage):
         if not res or not res.get("ok"):
             raise RuntimeError(f"Falha select {name}={value}: {res}")
 
-
     def js_set_radio_by_name(self, name: str, value):
         if value is None:
             return
         res = self.driver.execute_script(self.JS_RADIO_BY_NAME, name, str(value))
         if not res or not res.get("ok"):
             raise RuntimeError(f"Falha radio {name}={value}: {res}")
-
 
     def js_set_checkbox_by_name(self, name: str, checked: bool, force_click: bool = True):
         if checked is None:
@@ -302,14 +344,13 @@ class RotinaPage(BasePage):
         - entra no frame da rotina (blindado)
         - procura botão de exportação (aceita vários locators)
         - clica via js_click_ie
-        - valida e salva visualmente
+        - aciona o watcher de download e RETORNA o status
         """
         self.logger.info("Aguardando tela pós-Visualizar e botão CSV/Excel...")
         self.switch_to_default_content()
 
         frame_index = self.FRAME_ROTINA if frame_index is None else frame_index
 
-        # se não passar locators, usa o padrão da base
         if locators_export is None:
             locators_export = (self.BTN_GERA_EXCEL_1, self.BTN_GERA_EXCEL_2)
 
@@ -335,18 +376,23 @@ class RotinaPage(BasePage):
         try:
             btn_csv = WebDriverWait(self.driver, timeout_botao).until(_achar_botao)
         except TimeoutException:
-            raise RuntimeError("Botão de exportação (GeraExcel/GerExecl) não apareceu.")
+            raise RuntimeError("Botão de exportação HTML (GeraExcel/GerExecl) não apareceu na tela.")
 
-        # clique pelo helper padrão
+        # clique pelo helper padrão (Botão da Página)
         self.js_click_ie(btn_csv)
+        self.logger.info("Botão HTML de exportação clicado. Acionando Watcher...")
 
-        self.logger.info("Botão de exportação clicado.")
-
+        resultado_download = (False, "Módulos visuais ausentes")
+        
+        # Chama a rotina visual de download (que agora usa a barra do IE)
         if validar_elemento and salvar_arquivo_visual:
-            validar_elemento("botaoDownload.png", timeout=500)
-            diretorio = os.getenv("DOWNLOAD_DIR", "C:\\Downloads")
-            salvar_arquivo_visual(diretorio_destino=diretorio, nome_arquivo_final=nome_arquivo)
+            diretorio = os.getenv("DOWNLOAD_DIR", r"C:\Users\caixa.patos\Documents\Relatorios")
+            # RECEBE O RESULTADO PARA SUBIR PARA O TRACKER
+            resultado_download = salvar_arquivo_visual(diretorio_destino=diretorio, nome_arquivo_final=nome_arquivo)
         else:
             self.logger.warning("Módulos visuais não carregados.")
 
         self.switch_to_default_content()
+        
+        # Retorna a tupla (True/False, "Motivo") para o loop_unidades
+        return resultado_download

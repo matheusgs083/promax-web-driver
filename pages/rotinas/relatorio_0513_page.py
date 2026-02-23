@@ -76,13 +76,14 @@ class Relatorio0513Page(RotinaPage):
     ):
 
         # === LOOP (MULTI-UNIDADES) via RotinaPage ===
-        if unidade is None:
+        # ATUALIZAÇÃO: Aceita Lista ou None
+        if unidade is None or isinstance(unidade, list):
             return self.loop_unidades(
                 nome_arquivo=nome_arquivo,
+                unidades_alvo=unidade if isinstance(unidade, list) else None,
                 fn_execucao_unica=lambda cod, arq: self.gerar_relatorio(
                     unidade=cod,
                     opcao_rel=opcao_rel,
-
                     situacao_todos=situacao_todos,
                     situacao_ativo=situacao_ativo,
                     situacao_bloqueado=situacao_bloqueado,
@@ -90,14 +91,12 @@ class Relatorio0513Page(RotinaPage):
                     situacao_temporario=situacao_temporario,
                     situacao_duplicado=situacao_duplicado,
                     situacao_excluido=situacao_excluido,
-
                     volume_fin=volume_fin,
                     tp_equipe=tp_equipe,
                     hectolitro=hectolitro,
                     quebra_pagina=quebra_pagina,
                     selecionar_tipo_marca=selecionar_tipo_marca,
                     selecionar_tipo_perfil=selecionar_tipo_perfil,
-
                     mes_ano_inicial=mes_ano_inicial,
                     mes_ano_final=mes_ano_final,
                     codigo_inicial1=codigo_inicial1,
@@ -108,10 +107,8 @@ class Relatorio0513Page(RotinaPage):
                     linha_marca=linha_marca,
                     embalagem=embalagem,
                     produto=produto,
-
                     quantos_clientes=quantos_clientes,
                     percentual_venda=percentual_venda,
-
                     acao=acao,
                     clicar_csv_apos_visualizar=clicar_csv_apos_visualizar,
                     timeout_csv=timeout_csv,
@@ -124,6 +121,13 @@ class Relatorio0513Page(RotinaPage):
 
         # entrar no frame blindado (via RotinaPage)
         self.entrar_frame_rotina_blindado(self.FRAME_ROTINA, timeout=15)
+
+        try:
+            WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located((By.NAME, "OpcaoRel"))
+            )
+        except TimeoutException:
+            self.logger.warning("O formulário demorou a renderizar. O preenchimento pode falhar.")
 
         # -----------------------------
         # 1) SELECT (OpcaoRel)
@@ -210,11 +214,22 @@ class Relatorio0513Page(RotinaPage):
         time.sleep(2)
         self.switch_to_default_content()
 
+        resultado_final = True
+
         if acao == "BotVisualizar" and clicar_csv_apos_visualizar:
-            self._fluxo_exportar_csv(timeout_csv, nome_arquivo)
+            # ==========================================================
+            # CORREÇÃO: Passar timeout_botao igual ao timeout_csv
+            # ==========================================================
+            resultado_final = self._fluxo_exportar_csv(
+                timeout_csv=timeout_csv, 
+                nome_arquivo=nome_arquivo,
+                timeout_botao=timeout_csv
+            )
 
         self.switch_to_default_content()
-        return True
+        
+        # Retorna a tupla (ou True) para que o loop_unidades possa registrar no Tracker
+        return resultado_final
 
     # ---------------------
     # Situação (blindada)
@@ -272,20 +287,3 @@ class Relatorio0513Page(RotinaPage):
             time.sleep(0.3)
         raise RuntimeError(
             f"Checkbox {name} não ficou {esperado} após {tentativas} tentativas.")
-
-
-"""Consolida="N" value=0>--Selecionar--     
-                                                    Consolida="S" value=1>Area               
-                                                    Consolida="N" value=2>Setor              
-                                                    Consolida="S" value=3>Categoria          
-                                                    Consolida="S" value=4>Categoria/Area     
-                                                    Consolida="N" value=5>Categoria/Setor    
-                                                    Consolida="S" value=6>Gerente Vendas     
-                                                    Consolida="S" value=7>Geral              
-                                                    Consolida="S" value=8>Gte. Vendas/Segmento
-                                                    Consolida="S" value=9>Segmento           
-                                                    Consolida="S" value=10>Area/Segmento     
-                                                    Consolida="N" value=11>Setor/Segmento    
-                                                    Consolida="S" value=12>Comercial         
-                                                    Consolida="S" value=13>Gte. Vendas/Categ.
-                                                    Consolida="S" value=14>Distrital         """

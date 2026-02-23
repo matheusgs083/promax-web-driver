@@ -1,6 +1,9 @@
 import os
 import time
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, UnexpectedAlertPresentException
 from pages.rotina_page import RotinaPage
 
 class Relatorio0512Page(RotinaPage):
@@ -56,9 +59,10 @@ class Relatorio0512Page(RotinaPage):
     ):
 
         # === LOOP MULTI-UNIDADES ===
-        if unidade is None:
+        if unidade is None or isinstance(unidade, list):
             return self.loop_unidades(
                 nome_arquivo=nome_arquivo,
+                unidades_alvo=unidade if isinstance(unidade, list) else None,
                 fn_execucao_unica=lambda cod, arq: self.gerar_relatorio(
                     unidade=cod,
                     opcao_rel=opcao_rel,
@@ -96,6 +100,18 @@ class Relatorio0512Page(RotinaPage):
 
         self.selecionar_unidade(unidade)
         self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
+
+        # ==========================================================
+        # CORREÇÃO 1: Esperar o formulário renderizar após trocar unidade
+        # Isso impede o erro "no-select" (Condição de Corrida)
+        # ==========================================================
+        try:
+            WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located((By.NAME, "ano"))
+            )
+        except TimeoutException:
+            self.logger.warning("O formulário demorou a renderizar. O preenchimento pode falhar.")
+
 
         # 1) PREENCHIMENTO DE SELECTS
         if opcao_rel is not None:
@@ -155,17 +171,34 @@ class Relatorio0512Page(RotinaPage):
                 self.js_set_input_by_name(name, str(val))
 
         # --- CLIQUE FINAL ---
-        btn = self.find_element((By.NAME, acao))
-        self.js_click_ie(btn)
+        try:
+            btn = self.find_element((By.NAME, acao))
+            self.js_click_ie(btn)
+        except UnexpectedAlertPresentException:
+            self.logger.warning("Alerta bloqueante. Limpando...")
+            self.lidar_com_alertas()
+            raise
         
         time.sleep(2)
         self.switch_to_default_content()
 
+        resultado_final = True
+
         if acao == "BotVisualizar" and clicar_csv_apos_visualizar:
-            self._fluxo_exportar_csv(timeout_csv, nome_arquivo)
+            # ==========================================================
+            # CORREÇÃO 2: Passar timeout_botao igual ao timeout_csv
+            # Evita o erro onde ele desiste do botão CSV antes do download terminar
+            # ==========================================================
+            resultado_final = self._fluxo_exportar_csv(
+                timeout_csv=timeout_csv, 
+                nome_arquivo=nome_arquivo,
+                timeout_botao=timeout_csv
+            )
 
         self.switch_to_default_content()
-        return True
+        
+        # Retorna a tupla para que o loop_unidades registre no Tracker
+        return resultado_final
     
 """ value=01>Produto       
     value=02>Cliente       

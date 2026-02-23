@@ -1,8 +1,7 @@
-# pages/relatorio_120616_page.py
-
 import os
 import time
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, UnexpectedAlertPresentException
 
@@ -60,9 +59,11 @@ class Relatorio120616Page(RotinaPage):
     ):
 
         # === LOOP (MULTI-UNIDADES) via RotinaPage ===
-        if unidade is None:
+        # ATUALIZAÇÃO: Aceita Lista ou None
+        if unidade is None or isinstance(unidade, list):
             return self.loop_unidades(
                 nome_arquivo=nome_arquivo,
+                unidades_alvo=unidade if isinstance(unidade, list) else None,
                 fn_execucao_unica=lambda cod, arq: self.gerar_relatorio(
                     unidade=cod,
                     opcao_rel=opcao_rel,
@@ -92,6 +93,17 @@ class Relatorio120616Page(RotinaPage):
 
         # entrar no frame blindado (abstraído)
         self.entrar_frame_rotina_blindado(self.FRAME_ROTINA, timeout=timeout)
+
+        # ==========================================================
+        # CORREÇÃO: Esperar o formulário renderizar após trocar unidade
+        # Isso impede o erro "no-select" (Condição de Corrida)
+        # ==========================================================
+        try:
+            WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located((By.NAME, "opcaoRel"))
+            )
+        except TimeoutException:
+            self.logger.warning("O formulário demorou a renderizar. O preenchimento pode falhar.")
 
         try:
             # SELECT correto: name="opcaoRel"
@@ -139,13 +151,23 @@ class Relatorio120616Page(RotinaPage):
         time.sleep(2)
         self.switch_to_default_content()
 
+        resultado_final = True
+
         if acao == "BotVisualizar" and clicar_csv_apos_visualizar:
-            # usa o método abstraído na RotinaPage
-            self._fluxo_exportar_csv(timeout_csv, nome_arquivo)
+            # ==========================================================
+            # CORREÇÃO: Passar timeout_botao igual ao timeout_csv
+            # ==========================================================
+            resultado_final = self._fluxo_exportar_csv(
+                timeout_csv=timeout_csv, 
+                nome_arquivo=nome_arquivo,
+                timeout_botao=timeout_csv
+            )
 
         self.switch_to_default_content()
-        return True
-
+        
+        # Retorna o resultado para registro
+        return resultado_final
+    
 """
 value=0 >--Selecionar--
  value=1 >Segmento

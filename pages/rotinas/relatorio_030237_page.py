@@ -45,12 +45,13 @@ class Relatorio030237Page(RotinaPage):
     ):
 
         # === LOOP (MULTI-UNIDADES) via RotinaPage ===
-        if unidade is None:
+        if unidade is None or isinstance(unidade, list):
             return self.loop_unidades(
                 nome_arquivo=nome_arquivo,
+                unidades_alvo=unidade if isinstance(unidade, list) else None,
                 fn_execucao_unica=lambda cod, arq: self.gerar_relatorio(
-                    data_inicial,
-                    data_final,
+                    data_inicial=data_inicial,
+                    data_final=data_final,
                     unidade=cod,
                     tipo_nota=tipo_nota,
                     itens=itens,
@@ -83,6 +84,13 @@ class Relatorio030237Page(RotinaPage):
 
         # 2) Entrar no frame (abstraído)
         self.entrar_frame_rotina_blindado(self.FRAME_ROTINA, timeout=timeout)
+
+        try:
+            WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located((By.NAME, "dataInicial"))
+            )
+        except TimeoutException:
+            self.logger.warning("O formulário demorou a renderizar. O preenchimento pode falhar.")
 
         # 3) Preenchimento
         try:
@@ -123,12 +131,20 @@ class Relatorio030237Page(RotinaPage):
         time.sleep(2)
         self.switch_to_default_content()
 
+        resultado_final = True
+
         if acao == "BotVisualizar" and clicar_csv_apos_visualizar:
-            self._fluxo_exportar_csv(timeout_csv, nome_arquivo)
+
+            resultado_final = self._fluxo_exportar_csv(
+                timeout_csv=timeout_csv, 
+                nome_arquivo=nome_arquivo,
+                timeout_botao=timeout_csv  # <-- Isso impede a queda nos 30s
+            )
 
         self.switch_to_default_content()
-        return True
-
+        
+        # Retorna a tupla (ou True) para que o loop_unidades possa registrar no Tracker
+        return resultado_final
 """
 00 → --Selecionar--
 01 → Geral

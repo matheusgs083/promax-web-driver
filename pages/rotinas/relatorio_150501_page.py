@@ -1,6 +1,9 @@
 import os
 import time
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, UnexpectedAlertPresentException
 from pages.rotina_page import RotinaPage
 
 class Relatorio150501Page(RotinaPage):
@@ -53,9 +56,10 @@ class Relatorio150501Page(RotinaPage):
         if lista_conta is None:  lista_conta = ["9999999999"] # Tamanho 10
 
         # === LOOP MULTI-UNIDADES ===
-        if unidade is None:
+        if unidade is None or isinstance(unidade, list):
             return self.loop_unidades(
                 nome_arquivo=nome_arquivo,
+                unidades_alvo=unidade if isinstance(unidade, list) else None,
                 fn_execucao_unica=lambda cod, arq: self.gerar_relatorio(
                     unidade=cod,
                     opcao_rel=opcao_rel, visao=visao, periodo=periodo,
@@ -76,6 +80,18 @@ class Relatorio150501Page(RotinaPage):
 
         self.selecionar_unidade(unidade)
         self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
+
+        # ==========================================================
+        # CORREÇÃO: Esperar o formulário renderizar após trocar unidade
+        # Isso impede o erro "no-select" (Condição de Corrida)
+        # ==========================================================
+        try:
+            WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located((By.NAME, "opcaoRel"))
+            )
+        except TimeoutException:
+            self.logger.warning("O formulário demorou a renderizar. O preenchimento pode falhar.")
+
 
         # 1) CONFIGURAÇÕES INICIAIS
         if opcao_rel: self.js_set_select_by_name("opcaoRel", str(opcao_rel))
@@ -124,17 +140,31 @@ class Relatorio150501Page(RotinaPage):
                 self.js_set_checkbox_by_name(name, is_checked, force_click=True)
 
         # --- AÇÃO FINAL ---
-        btn = self.find_element((By.NAME, acao))
-        self.js_click_ie(btn)
+        try:
+            btn = self.find_element((By.NAME, acao))
+            self.js_click_ie(btn)
+        except UnexpectedAlertPresentException:
+            self.logger.warning("Alerta bloqueante. Limpando...")
+            self.lidar_com_alertas()
+            raise
         
         time.sleep(2)
         self.switch_to_default_content()
 
+        resultado_final = True
+
         if acao == "BotVisualizar" and clicar_csv_apos_visualizar:
-            self._fluxo_exportar_csv(timeout_csv, nome_arquivo)
+            # Captura a tupla (Sucesso, Motivo) retornada pelo manipulador
+            resultado_final = self._fluxo_exportar_csv(
+                timeout_csv=timeout_csv, 
+                nome_arquivo=nome_arquivo,
+                timeout_botao=timeout_csv # <-- Ajuste do timeout longo
+            )
 
         self.switch_to_default_content()
-        return True
+        
+        # Retorna a tupla para que o loop_unidades registre no Tracker
+        return resultado_final
 
     def _adicionar_itens_lista(self, nome_select, funcao_js, valor):
         """
@@ -154,9 +184,7 @@ class Relatorio150501Page(RotinaPage):
                 self.logger.warning(f"Não foi possível adicionar item {item} em {nome_select}. Erro: {e}")
 
     def _aguardar_reload_pagina(self):
-        """
-        Pausa para permitir o Postback do sistema legado e reentra no frame.
-        """
+
         self.logger.info("Aguardando reload da página (Postback)...")
-        time.sleep(1) # Tempo de segurança para o sistema processar
+        time.sleep(2) # Tempo de segurança para o sistema processar
         self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
