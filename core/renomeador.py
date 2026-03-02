@@ -40,7 +40,7 @@ def carregar_dicionario_revendas(caminho_excel_auxiliar):
     return dicionario
 
 def limpar_nomes_relatorios(pasta_relatorios, caminho_excel_auxiliar):
-    """Higieniza os nomes, cria pastas por rotina e move os arquivos."""
+    """Higieniza os nomes, cria pastas por rotina e move/substitui os arquivos."""
     logger.info("=== INICIANDO HIGIENIZAÇÃO E ORGANIZAÇÃO DOS ARQUIVOS ===")
     
     mapa_revendas = carregar_dicionario_revendas(caminho_excel_auxiliar)
@@ -117,15 +117,14 @@ def limpar_nomes_relatorios(pasta_relatorios, caminho_excel_auxiliar):
                 # Se o arquivo ainda não estiver no lugar certo
                 if caminho_novo.resolve() != arquivo.resolve():
                     try:
-                        arquivo.rename(caminho_novo)
-                        logger.info(f"Organizado: '{nome_original}' -> '{pasta_sub}/{novo_nome}'")
+                        # Substitui o rename por replace para sobrescrever arquivos existentes
+                        arquivo.replace(caminho_novo)
+                        logger.info(f"Organizado/Substituído: '{nome_original}' -> '{pasta_sub}/{novo_nome}'")
                         
                         # Anota no log a estrutura de pastas para poder reverter depois
                         log_renomeios[chave_log] = nome_original
                         arquivos_processados += 1
                         
-                    except FileExistsError:
-                        logger.warning(f"O arquivo '{caminho_novo}' já existe. Ignorando...")
                     except Exception as e:
                         logger.error(f"Erro ao organizar '{nome_original}': {e}")
 
@@ -134,7 +133,7 @@ def limpar_nomes_relatorios(pasta_relatorios, caminho_excel_auxiliar):
         with open(caminho_log, 'w', encoding='utf-8') as f:
             json.dump(log_renomeios, f, indent=4, ensure_ascii=False)
 
-    logger.info(f"Organização concluída. {arquivos_processados} arquivo(s) processado(s) e movidos para suas pastas.")
+    logger.info(f"Organização concluída. {arquivos_processados} arquivo(s) processado(s) e movidos/substituídos nas pastas.")
 
 def desfazer_renomeacoes(pasta_relatorios):
     """Lê o log, devolve os arquivos para a raiz com o nome feio original e apaga as subpastas."""
@@ -164,7 +163,8 @@ def desfazer_renomeacoes(pasta_relatorios):
         
         if caminho_atual.exists():
             try:
-                caminho_atual.rename(caminho_antigo)
+                # Usa replace também no rollback para evitar erros se a raiz já tiver o arquivo
+                caminho_atual.replace(caminho_antigo)
                 logger.info(f"Restaurado para raiz: '{chave_log}' -> '{nome_original}'")
                 arquivos_desfeitos += 1
                 pastas_afetadas.add(caminho_atual.parent)
