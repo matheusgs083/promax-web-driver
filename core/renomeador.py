@@ -93,18 +93,32 @@ def limpar_nomes_relatorios(pasta_relatorios, caminho_excel_auxiliar):
                             if padrao_lixo in novo_nome:
                                 novo_nome = novo_nome.replace(padrao_lixo, valor_real)
                                 
-                                # Extrai a rotina direto do nome da coluna (ex: nomeUnidade120616 -> 120616)
-                                match_rotina = re.search(r'nomeUnidade(\d+)', coluna)
-                                if match_rotina:
-                                    pasta_sub = match_rotina.group(1)
+                                # ---> A MÁGICA DO PREFIXO AQUI <---
+                                # Se o arquivo tiver " - ", tudo antes do traço vira a pasta!
+                                if " - " in nome_original:
+                                    pasta_sub = nome_original.split(" - ")[0].strip()
+                                else:
+                                    # Fallback (caso esqueça do traço, extrai só os números como antes)
+                                    match_rotina = re.search(r'nomeUnidade(\d+)', coluna)
+                                    if match_rotina:
+                                        pasta_sub = match_rotina.group(1)
                     
+                    # ---> TROCA DE VÍRGULA POR PONTO NO NOME DO ARQUIVO AQUI <---
+                    novo_nome = novo_nome.replace(',', '.')
                     novo_nome = re.sub(r'\s+', ' ', novo_nome).strip()
 
             else:
-                # Trata relatórios globais que não têm código de filial (Ex: 0105070402.csv)
-                match_global = re.search(r'^(\d{4,})', nome_original)
-                if match_global:
-                    pasta_sub = match_global.group(1)
+                # ---> A MÁGICA DO PREFIXO PARA ARQUIVOS GLOBAIS AQUI <---
+                if " - " in nome_original:
+                    pasta_sub = nome_original.split(" - ")[0].strip()
+                else:
+                    # Fallback para relatórios globais sem traço
+                    match_global = re.search(r'^(\d{4,})', nome_original)
+                    if match_global:
+                        pasta_sub = match_global.group(1)
+                
+                # ---> TROCA DE VÍRGULA POR PONTO NO NOME DOS ARQUIVOS GLOBAIS <---
+                novo_nome = novo_nome.replace(',', '.')
 
             # Se conseguiu descobrir de qual rotina o arquivo é, move ele pra pasta!
             if pasta_sub:

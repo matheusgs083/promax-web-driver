@@ -1,4 +1,5 @@
 import os
+import subprocess
 import dotenv
 from selenium import webdriver
 from selenium.webdriver.ie.service import Service as IEService
@@ -11,8 +12,35 @@ dotenv.load_dotenv()
 logger = get_logger(__name__)
 
 class DriverFactory:
+    
+    @staticmethod
+    def _limpar_processos_zumbis():
+        """
+        Mata processos fantasmas do IEDriverServer, Internet Explorer e Edge 
+        antes de iniciar o driver para evitar o WinError 10054 (conexão recusada na 1ª tentativa).
+        """
+        logger.info("Realizando limpeza de processos zumbis (IEDriver, IE, Edge)...")
+        processos = ["IEDriverServer.exe", "iexplore.exe", "msedge.exe"]
+        
+        # CREATE_NO_WINDOW (0x08000000) evita que o terminal pisque na tela do Windows
+        CREATE_NO_WINDOW = 0x08000000 
+        
+        for proc in processos:
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/IM", proc, "/T"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=CREATE_NO_WINDOW
+                )
+            except Exception:
+                pass # Ignora silenciosamente se o processo não existir
+
     @staticmethod
     def get_driver():
+        # 1. Passa a "vassourada" na memória antes de instanciar o driver
+        DriverFactory._limpar_processos_zumbis()
+
         ie_options = IEOptions()
         ie_options.add_additional_option("ie.edgechromium", True)
         ie_options.add_additional_option("ie.edgepath", os.getenv("EDGE_PATH"))

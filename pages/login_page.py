@@ -22,7 +22,7 @@ class LoginPage(BasePage):
     LOCATOR_BTN_CONFIRMA = (By.NAME, "cmdConfirma")
     LOCATOR_UNIDADE = (By.NAME, "unidade")
 
-    # --- JAVASCRIPT (Mantido idêntico) ---
+    # --- JAVASCRIPT ---
     JS_SET_VALUE_IE = """
     var el = arguments[0];
     var val = arguments[1];
@@ -117,16 +117,28 @@ class LoginPage(BasePage):
             raise e
 
         # =========================================================
-        # PARTE 3: UNIDADE E CONFIRMAÇÃO FINAL
+        # PARTE 3: UNIDADE E CONFIRMAÇÃO FINAL (CORRIGIDA)
         # =========================================================
         codigo_unidade = self.mapa_unidades.get(nome_unidade.upper()) if nome_unidade else None
 
         if codigo_unidade:
             self.logger.info(f"Selecionando unidade: {nome_unidade} ({codigo_unidade})")
             
-            # Proteção: Se houver frame, garante que estamos nele
+            # Proteção: Se houver frame, garante que estamos nele de forma segura
             if frame_index is not None:
-                self.switch_to_default_content()
+                try:
+                    self.switch_to_default_content()
+                except UnexpectedAlertPresentException:
+                    self.logger.warning("Alerta bloqueando a saída do frame. Tentando aceitar...")
+                    try:
+                        self.driver.switch_to.alert.accept()
+                        self.switch_to_default_content()
+                    except:
+                        pass
+                except Exception as e:
+                    self.logger.error(f"Erro inesperado ao tentar sair do frame: {e}")
+                
+                # Tenta voltar para o frame do formulário
                 try:
                     self.wait.until(EC.frame_to_be_available_and_switch_to_it(frame_index))
                 except:
@@ -152,7 +164,7 @@ class LoginPage(BasePage):
                 self.logger.warning(f"Erro no fluxo de unidade: {e}")
 
         # ====================================================================
-        # PARTE 4: TRATAMENTO DE ALERTAS (A CORREÇÃO DO CRASH)
+        # PARTE 4: TRATAMENTO DE ALERTAS
         # ====================================================================
         self.logger.info("Aguardando alertas de sistema (Dia 15, Estoque, etc)...")
         
@@ -160,8 +172,6 @@ class LoginPage(BasePage):
         time.sleep(2)
 
         # 2. Limpa todos os alertas em sequência
-        # Se o alerta estiver ativo, qualquer comando do Selenium (como switch_to) falharia.
-        # Por isso chamamos isso ANTES de tentar sair do frame.
         self.lidar_com_alertas(tentativas=5, timeout=1.5)
 
         # 3. Pausa para o sistema carregar a próxima página (Menu)
@@ -171,11 +181,11 @@ class LoginPage(BasePage):
         # PARTE 5: FINALIZAÇÃO
         # ====================================================================
         
-        # Tenta sair do frame com segurança (se houver alerta residual, ele captura)
+        # Tenta sair do frame com segurança
         try:
             self.switch_to_default_content()
         except UnexpectedAlertPresentException:
-            self.logger.warning("Alerta detectado ao sair do frame. Aceitando...")
+            self.logger.warning("Alerta detectado ao sair do frame final. Aceitando...")
             try:
                 self.driver.switch_to.alert.accept()
                 self.switch_to_default_content()
@@ -187,7 +197,6 @@ class LoginPage(BasePage):
         # Validação Visual
         if validar_elemento:
             self.logger.info("Buscando validação visual (validacaoLogin.png)...")
-            # Tenta validar com timeout maior, pois o carregamento do menu pode ser lento
             if validar_elemento("validacaoLogin.png", timeout=20):
                 self.logger.info("LOGIN VALIDADO COM SUCESSO!")
                 return MenuPage(self.driver)

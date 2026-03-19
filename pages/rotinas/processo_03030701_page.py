@@ -1,122 +1,141 @@
 import time
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, UnexpectedAlertPresentException
+from selenium.common.exceptions import NoAlertPresentException
 from pages.rotina_page import RotinaPage
 
-class AlteracaoCondicaoPagtoPage(RotinaPage):
-    """
-    Rotina: Alteração de Condição de Pagamento
-    Call: PW02107C
-    Interno: PW02107C
-    """
+class Processo03030701Page(RotinaPage):
 
     FRAME_ROTINA = 1
 
-    def alterar_condicao(self, mapa, numero_nota, nova_condicao, serie="003"):
-
-        self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
-
-        # =====================================================================
-        # PASSO 1: INJEÇÃO E CARREGAMENTO (Equivale ao POST opcao=2)
-        # =====================================================================
-        self.logger.info(f"Carregando Nota: Mapa={mapa}, Num={numero_nota}, Série={serie}")
-        
-        self.js_set_input_by_name("mapa", str(mapa))
-        self.js_set_input_by_name("numero", str(numero_nota))
-        self.js_set_input_by_name("serie", str(serie))
-        
-        # Dispara o gatilho nativo do Promax
-        self.driver.execute_script("CarregaNota();")
-        self._aguardar_processamento_visual()
-
-        # =====================================================================
-        # PASSO 2: APLICAR CONDIÇÃO E VALIDAR (Equivale ao POST opcao=3)
-        # =====================================================================
-        self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
-        
-        el_cond = self.find_element((By.NAME, "condNova"))
-        if not el_cond.is_enabled():
-            self.logger.warning(f"Rejeitado: Nota {numero_nota} não encontrada ou não editável.")
-            return False
-
-        self.logger.info(f"Aplicando Condição: {nova_condicao}")
-        self.js_set_input_by_name("condNova", str(nova_condicao))
-        
-        # Dispara a validação nativa
-        self.driver.execute_script("CarregaNovaCond();")
-        self._aguardar_processamento_visual()
-
-        # =====================================================================
-        # PASSO 3: HACK DE CONFIRMAÇÃO E SALVAMENTO (Equivale ao POST opcao=6)
-        # =====================================================================
-        self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
-        
-        btn_salvar = self.find_element((By.NAME, "BotSalvar"))
-        if not btn_salvar.is_enabled():
-            self.logger.warning(f"Rejeitado: Botão Salvar bloqueado. Condição inválida?")
-            return False
-
-        # Sobrescreve a caixinha de pergunta do Promax para responder "Sim" na hora
-        self.driver.execute_script("""
-            if(typeof window.msgbxSimNao === 'function'){ 
-                window.msgbxSimNao = function(tela, msg, fnSim, fnNao){ 
-                    console.log('Robô confirmou: ' + msg); fnSim(); 
-                }; 
-            }
-        """)
-
-        self.logger.info("Salvando no banco...")
-        try:
-            self.driver.execute_script("Salvar();")
-        
-            WebDriverWait(self.driver, 2).until(EC.alert_is_present())
-            alert = self.driver.switch_to.alert
-            texto_alerta = alert.text
-            alert.accept()
-            
-            if "já conciliada" in texto_alerta.lower() or "inválida" in texto_alerta.lower():
-                self.logger.error(f"Erro do Sistema: {texto_alerta}")
-                return False
-                
-        except TimeoutException:
-            pass # Sem alertas de erro, sucesso!
-
-        self._aguardar_processamento_visual()
-        self.logger.info(f"Nota {numero_nota} gravada com SUCESSO!")
-        self.switch_to_default_content()
-        return True
-
-    def _aguardar_processamento_visual(self):
-            """
-            Monitora o loader do sistema burlando o bug 'HTMLFormElement' nativo do IE Mode.
-            """
-            # Dá 500ms pro sistema processar o clique e engatilhar o postback
-            time.sleep(0.5) 
-            
-            timeout = time.time() + 5.0
-            
-            while time.time() < timeout:
-                try:
-                    # Injeta JS puro do IE antigo em vez de usar is_displayed() do Selenium
-                    estado_loader = self.driver.execute_script(
-                        "var loader = document.getElementById('imgWait');"
-                        "return loader ? loader.style.display : 'none';"
-                    )
-                    
-                    if estado_loader == 'none':
-                        break # O loader sumiu visualmente
-                        
-                except Exception:
-                    # Se cair aqui (JavascriptException, StaleElement, NoSuchWindow), 
-                    # significa que o HTML velho morreu e o Promax recarregou a tela. Sucesso!
-                    break 
-                    
-                time.sleep(0.5)
-                
-            # Tenta reentrar no frame após o reload para a próxima ação
+    def _esperar_campo_habilitado_js(self, nome_elemento, timeout_segundos=15):
+        """
+        Injeta JS para aguardar ativamente até que um campo exista e esteja livre para digitação.
+        Retorna True se ficou pronto, False se esgotou o tempo.
+        """
+        script = f"""
+            var el = document.getElementsByName('{nome_elemento}')[0];
+            if (!el) return false;
+            if (el.disabled) return false;
+            if (el.readOnly) return false;
+            // Verifica a classe CSS (o Promax usa 'clsDisabled')
+            if (el.className && typeof el.className === 'string' && el.className.toLowerCase().indexOf('disabled') !== -1) return false;
+            if (el.style.display === 'none' || el.style.visibility === 'hidden') return false;
+            return true;
+        """
+        fim = time.time() + timeout_segundos
+        while time.time() < fim:
             try:
-                self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
+                pronto = self.driver.execute_script(script)
+                if pronto:
+                    return True
+            except Exception:
+                pass
+            time.sleep(0.5)
+            
+        return False
+
+    def _lidar_com_alerta_ie(self):
+        """Verifica se o Promax lançou um alerta de erro (Ex: 'Informação inválida') e fecha."""
+        try:
+            alerta = self.driver.switch_to.alert
+            texto = alerta.text
+            alerta.accept()
+            return texto
+        except NoAlertPresentException:
+            return None
+        except Exception:
+            return None
+
+    def alterar_condicao(self, mapa, numero_nota, nova_condicao, serie="003"):
+        try:
+            self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
+            self.logger.info(f"Carregando Nota: Mapa={mapa}, Num={numero_nota}, Série={serie}")
+
+            if not self._esperar_campo_habilitado_js("mapa", 5):
+                return False, "Formulário inicial não carregou."
+
+            # =====================================================================
+            # PASSO 1: INJEÇÃO E CARREGAMENTO
+            # =====================================================================
+            # Usa JS puro para inserir os dados de uma vez (muito mais rápido e seguro)
+            script_carga = f"""
+                document.getElementsByName('mapa')[0].value = '{mapa}';
+                document.getElementsByName('numero')[0].value = '{numero_nota}';
+                document.getElementsByName('serie')[0].value = '{serie}';
+                CarregaNota();
+            """
+            self.driver.execute_script(script_carga)
+            
+            # PAUSA VITAL: Dá tempo para o Promax processar o POST e recarregar a tela
+            self.logger.info("Aguardando servidor...")
+            time.sleep(3)
+
+            # O iframe recarregou, o Selenium perdeu a referência. Precisamos entrar de novo.
+            try: self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
+            except: pass
+
+            # Verifica se o Promax estourou um pop-up de erro
+            alerta_texto = self._lidar_com_alerta_ie()
+            if alerta_texto:
+                return False, f"Recusado pelo sistema: {alerta_texto}"
+
+            # =====================================================================
+            # PASSO 2: APLICAR CONDIÇÃO E VALIDAR REGRAS DE NEGÓCIO
+            # =====================================================================
+            # Agora com 15 segundos, o robô vai ter paciência se o Promax estiver lento
+            if not self._esperar_campo_habilitado_js("condNova", 15):
+                self.logger.warning(f"Rejeitado: Nota {numero_nota} já alterada, faturada ou não encontrada.")
+                return False, "Nota bloqueada para edição ou não encontrada."
+
+            self.logger.info(f"Aplicando Condição: {nova_condicao}")
+            
+            script_condicao = f"""
+                document.getElementsByName('condNova')[0].value = '{nova_condicao}';
+                CarregaNovaCond();
+            """
+            self.driver.execute_script(script_condicao)
+            
+            time.sleep(2) # Outra recarga de tela
+            
+            try: self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
+            except: pass
+            
+            alerta_texto = self._lidar_com_alerta_ie()
+            if alerta_texto:
+                return False, f"Condição inválida: {alerta_texto}"
+
+            # =====================================================================
+            # PASSO 3: CONFIRMAÇÃO E SALVAMENTO
+            # =====================================================================
+            # Se o botão Salvar não habilitar após injetar a condição, a regra quebrou
+            if not self._esperar_campo_habilitado_js("BotSalvar", 5):
+                return False, "Botão Salvar bloqueado. Regra de negócio não permitiu a conversão."
+
+            # Sobrescreve a caixinha de pergunta do Promax para responder "Sim" silenciosamente
+            self.driver.execute_script("""
+                if(typeof window.msgbxSimNao === 'function'){ 
+                    window.msgbxSimNao = function(tela, msg, fnSim, fnNao){ fnSim(); }; 
+                }
+                Salvar();
+            """)
+
+            self.logger.info("Salvando no banco...")
+            time.sleep(2)
+            
+            try: self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
+            except: pass
+
+            alerta_texto = self._lidar_com_alerta_ie()
+            if alerta_texto:
+                return False, f"Erro ao salvar: {alerta_texto}"
+
+            self.logger.info(f"Nota {numero_nota} gravada com SUCESSO!")
+            self.switch_to_default_content()
+            return True, "Alterada com sucesso"
+
+        except Exception as e:
+            self.logger.error(f"Erro inesperado no processamento da nota {numero_nota}: {e}")
+            try:
+                self.switch_to_default_content()
             except:
                 pass
+            return False, f"Falha sistêmica (Crash): {str(e)}"

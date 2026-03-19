@@ -1,5 +1,7 @@
 import time
 import os
+import datetime as dt  # <-- CORRIGIDO: Usando apelido dt para evitar conflitos
+import csv
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -174,7 +176,7 @@ class RotinaPage(BasePage):
         self,
         nome_arquivo: str,
         fn_execucao_unica,
-        unidades_alvo: list = None,  # <--- NOVO PARÂMETRO
+        unidades_alvo: list = None,
         sleep_entre: float = 2.0,
         tentativas_alertas: int = 5,
         timeout_alertas: int = 20,
@@ -263,6 +265,31 @@ class RotinaPage(BasePage):
     JS_CLICK_IE = """var el = arguments[0]; try { try { el.scrollIntoView(true); } catch(e) {} try { el.focus(); } catch(e) {} if (el.click) { el.click(); } else if (el.fireEvent) { el.fireEvent('onclick'); } return { ok: true }; } catch (e) { return { ok: false, error: (e && e.message) ? e.message : String(e) }; }"""
     JS_RADIO_BY_NAME = """var name = arguments[0]; var val = arguments[1]; try { var els = document.getElementsByName(name); if (!els || !els.length) return { ok:false, error:"no-elements" }; for (var i=0; i<els.length; i++) { var el = els[i]; if ((el.value || "") == val) { try { el.scrollIntoView(true); } catch(e) {} try { el.focus(); } catch(e) {} el.checked = true; if (el.click) { el.click(); } else if (el.fireEvent) { el.fireEvent('onclick'); } if (document.createEvent) { var ev = document.createEvent('HTMLEvents'); ev.initEvent('change', true, true); el.dispatchEvent(ev); } else if (el.fireEvent) { try { el.fireEvent('onchange'); } catch(e) {} } return { ok:true, chosen: val }; } } return { ok:false, error:"value-not-found", wanted: val }; } catch(e) { return { ok:false, error:(e && e.message) ? e.message : String(e) }; }"""
     JS_SELECT_BY_NAME = """var name = arguments[0]; var val = arguments[1]; try { var els = document.getElementsByName(name); if (!els || !els.length) return { ok:false, error:"no-select" }; var el = els[0]; try { el.scrollIntoView(true); } catch(e) {} try { el.focus(); } catch(e) {} el.value = val; if (document.createEvent) { var ev = document.createEvent('HTMLEvents'); ev.initEvent('change', true, true); el.dispatchEvent(ev); } else if (el.fireEvent) { try { el.fireEvent('onchange'); } catch(e) {} } return { ok:true, value: el.value }; } catch(e) { return { ok:false, error:(e && e.message) ? e.message : String(e) }; }"""
+
+        
+    JS_CHECKED_BY_NAME_VALUE = """
+    var name = arguments[0], value = arguments[1], desired = arguments[2], forceClick = arguments[3];
+    try {
+        var els = document.getElementsByName(name);
+        if (!els || !els.length) return { ok:false, error:"no-elements" };
+        var target = null;
+        for (var i=0; i<els.length; i++) {
+            if ((els[i].value || "") == value) { target = els[i]; break; }
+        }
+        if (!target) return { ok:false, error:"value-not-found", wanted:value };
+        try { target.scrollIntoView(true); target.focus(); } catch(e) {}
+        if (forceClick && target.checked !== desired) {
+            if (target.click) target.click(); else if (target.fireEvent) target.fireEvent('onclick');
+        }
+        target.checked = desired;
+        if (document.createEvent) {
+            var ev = document.createEvent('HTMLEvents'); ev.initEvent('change', true, true);
+            target.dispatchEvent(ev);
+        }
+        return { ok:true, checked: target.checked };
+    } catch(e) { return { ok:false, error: String(e) }; }
+    """
+
 
     JS_CHECKBOX_BY_NAME = """
     var name = arguments[0];
@@ -395,4 +422,92 @@ class RotinaPage(BasePage):
         self.switch_to_default_content()
         
         # Retorna a tupla (True/False, "Motivo") para o loop_unidades
-        return resultado_download
+        return resultado_download # <-- Correção menor aqui também, o seu estava retornando 'None'
+    
+    # --- MÉTODOS DE AÇÃO ---
+    def js_set_checked_by_name_value(self, name: str, value: str, checked: bool, force_click: bool = True):
+        if checked is None: return
+        res = self.driver.execute_script(self.JS_CHECKED_BY_NAME_VALUE, name, str(value), bool(checked), bool(force_click))
+        if not res or not res.get("ok"):
+            raise RuntimeError(f"Falha set checked {name}[value={value}]={checked}: {res}")
+
+    def adicionar_itens_lista_por_botao(self, nome_select: str, nome_botao: str, itens):
+        """Padrão de preenchimento de listas via botão de adição ('>')"""
+        if itens is None: return
+        itens = itens if isinstance(itens, list) else [itens]
+        for item in itens:
+            self.js_set_select_by_name(nome_select, str(item))
+            btn = self.find_element((By.NAME, nome_botao))
+            self.js_click_ie(btn)
+            time.sleep(0.8)
+
+    # --- MÉTODOS DE ASSERÇÃO (VALIDAÇÃO) ---
+    def _assert_checkbox(self, name, esperado: bool, tentativas=2):
+        for i in range(tentativas):
+            el = self.find_element((By.NAME, name))
+            if bool(el.is_selected()) == bool(esperado): return True
+            self.logger.warning(f"Refazendo Checkbox {name} -> {esperado}")
+            self.js_set_checkbox_by_name(name, bool(esperado), force_click=True)
+            time.sleep(0.3)
+        raise RuntimeError(f"Checkbox {name} falhou após {tentativas} tentativas.")
+
+    def _assert_checked_by_name_value(self, name, value, esperado: bool, tentativas=2):
+        js_get = "var els=document.getElementsByName(arguments[0]); for(var i=0;i<els.length;i++){if(els[i].value==arguments[1]) return !!els[i].checked;} return null;"
+        for i in range(tentativas):
+            atual = self.driver.execute_script(js_get, str(name), str(value))
+            if bool(atual) == bool(esperado): return True
+            self.js_set_checked_by_name_value(name, value, bool(esperado), force_click=True)
+            time.sleep(0.3)
+        raise RuntimeError(f"Radio/Check {name}[{value}] falhou após {tentativas} tentativas.")
+    
+    def registrar_log_csv(self, caminho_arquivo, colunas, dados_linha):
+        """Utilitário genérico para logar resultados de processamento linha a linha."""
+        arquivo_existe = os.path.exists(caminho_arquivo)
+        
+        # <-- CORRIGIDO AQUI: dt.datetime.now()
+        dados_linha['data_hora'] = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Garante que a coluna data_hora seja a primeira se já não estiver em colunas
+        if 'data_hora' not in colunas:
+            colunas = ['data_hora'] + colunas
+
+        with open(caminho_arquivo, mode='a', newline='', encoding='utf-8-sig') as f:
+            writer = csv.DictWriter(f, fieldnames=colunas, delimiter=';')
+            if not arquivo_existe:
+                writer.writeheader()
+            writer.writerow(dados_linha)
+
+    def executar_gatilho_e_aguardar(self, script_gatilho, timeout=5.0):
+        """Executa JS e aguarda resposta via Alert ou sumiço de Loader."""
+        try:
+            self.driver.execute_script(script_gatilho)
+        except Exception as e:
+            return False, f"Erro JS: {str(e)}"
+
+        fim = time.time() + timeout
+        while time.time() < fim:
+            # 1. Checa Alertas
+            try:
+                alert = self.driver.switch_to.alert
+                msg = alert.text
+                alert.accept()
+                sucesso = any(w in msg.lower() for w in ["sucesso", "salvo", "confirm", "ok", "processado"])
+                return sucesso, msg
+            except: pass
+
+            # 2. Checa Loader (imgWait)
+            try:
+                display = self.driver.execute_script("var el = document.getElementById('imgWait'); return el ? el.style.display : 'none';")
+                if display == 'none': return True, "OK"
+            except: return True, "Reloaded"
+            
+            time.sleep(0.1)
+        return True, "Timeout"
+
+    def preencher_campo_com_gatilho(self, nome_campo, valor, script_gatilho):
+        """Atalho para Set Input + Trigger + Wait"""
+        self.js_set_input_by_name(nome_campo, str(valor))
+        sucesso, msg = self.executar_gatilho_e_aguardar(script_gatilho)
+        if not sucesso:
+            self.logger.error(f"Erro no campo {nome_campo}: {msg}")
+        return sucesso, msg

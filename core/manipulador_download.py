@@ -1,143 +1,104 @@
+import pyautogui
 import time
 import os
 import shutil
-import win32gui
+import re
 from pathlib import Path
 from core.logger import get_logger
-from pywinauto import Application
+from .validador_visual import validar_elemento
 
 logger = get_logger(__name__)
 
-def _get_ie_notification_bar_hwnd():
-    """
-    Varre as janelas rapidamente via Win32 API para achar a barra amarela.
-    Isso é instantâneo e impede que o Python trave tentando ler o HTML do site.
-    """
-    bar_hwnds = []
-    
-    def enum_child_cb(hwnd, _):
-        try:
-            # Procura especificamente pela classe da barra amarela do IE
-            if win32gui.GetClassName(hwnd) == "Frame Notification Bar":
-                bar_hwnds.append(hwnd)
-        except Exception:
-            pass
-        return True
-
-    def enum_windows_cb(hwnd, _):
-        try:
-            class_name = win32gui.GetClassName(hwnd)
-            # O IE Mode roda dentro da estrutura do Edge ou IEFrame
-            if class_name in ["Chrome_WidgetWin_1", "IEFrame"]:
-                win32gui.EnumChildWindows(hwnd, enum_child_cb, None)
-        except Exception:
-            pass
-        return True
-
-    # Executa a varredura
-    win32gui.EnumWindows(enum_windows_cb, None)
-    
-    # Retorna o identificador da barra (se encontrada)
-    return bar_hwnds[0] if bar_hwnds else None
-
-
 def salvar_arquivo_visual(diretorio_destino, nome_arquivo_final):
-    logger.info("--- INICIANDO SALVAMENTO OTIMIZADO (SNIPER API WIN32) ---")
+    logger.info("--- INICIANDO SALVAMENTO OTIMIZADO (WATCHER DE PASTA) ---")
     
     # =========================================================================
     # 1. MAPEAMENTO DE PASTAS E SNAPSHOT INICIAL
     # =========================================================================
-    pasta_downloads = Path(os.path.expanduser("~")) / "Downloads"
+    # CORREÇÃO 1: Forma correta de pegar o path e não gerar erro de 'str'
+    pasta_downloads = Path.home() / "Downloads"
     pasta_destino = Path(diretorio_destino)
     
+    # Garante que as pastas de trabalho existem
     pasta_downloads.mkdir(parents=True, exist_ok=True)
     pasta_destino.mkdir(parents=True, exist_ok=True)
 
+    # CORREÇÃO 2 (WinError 3): Limpar caracteres proibidos do Windows no nome do arquivo (ex: / de datas)
+    nome_limpo = re.sub(r'[\\/*?:"<>|]', "_", nome_arquivo_final)
+    
+    if not nome_limpo.lower().endswith('.csv'):
+        nome_limpo += '.csv'
+        
+    caminho_final = pasta_destino / nome_limpo
+
+    # Tira uma "foto" dos arquivos que já estão lá
     arquivos_antes = set(pasta_downloads.iterdir())
 
     # =========================================================================
-    # 2. CAÇADOR DA BARRA AMARELA DO IE (ANTI-TRAVAMENTO)
+    # 2. ESPERA INTELIGENTE E DISPARO DO DOWNLOAD (BARRA DO IE)
     # =========================================================================
-    logger.info("Aguardando a barra amarela do IE (Busca ultra-rápida nativa)...")
-    tempo_limite_btn = time.time() + 120 # Timeout de 2 minutos
-    clicou_salvar = False
+    logger.info("Aguardando o servidor processar e a barra do IE aparecer...")
+    box_btn = validar_elemento("botaoDownload.png", timeout=120, confidence=0.8)
     
-    while time.time() < tempo_limite_btn and not clicou_salvar:
-        # Pega a "identidade" exata apenas da barra amarela
-        hwnd_barra = _get_ie_notification_bar_hwnd()
+    if box_btn:
+        x, y = pyautogui.center(box_btn)
+        logger.info("Barra do IE detectada! Movendo o mouse para clicar...")
+        pyautogui.moveTo(x, y, duration=0.3)
+        time.sleep(0.2)
+        pyautogui.click()
         
-        if hwnd_barra:
-            try:
-                # Conecta o robô APENAS na barra amarela (Ignora o relatório pesado)
-                app = Application(backend="uia").connect(handle=hwnd_barra)
-                barra = app.window(handle=hwnd_barra)
-                
-                # Procura o botão Salvar DENTRO da barra
-                btn_salvar = barra.child_window(title_re=".*Salvar.*", control_type="SplitButton")
-                if btn_salvar.exists(timeout=1):
-                    btn_salvar.invoke() # Clica internamente via código
-                    logger.info("✅ Botão Salvar (SplitButton) acionado em 2º plano!")
-                    clicou_salvar = True
-                    break
-                
-                # Caso seja um botão normal sem a setinha
-                btn_salvar_simples = barra.child_window(title_re=".*Salvar.*", control_type="Button")
-                if btn_salvar_simples.exists(timeout=1):
-                    btn_salvar_simples.invoke()
-                    logger.info("✅ Botão Salvar (Button) acionado em 2º plano!")
-                    clicou_salvar = True
-                    break
-            except Exception as e:
-                logger.debug(f"A barra apareceu, aguardando botão ficar clicável...")
-                
-        time.sleep(1) # Espera 1 segundo e tenta de novo
-
-    if not clicou_salvar:
+        # O Alt+S mantido, mas cuidado se ele estiver tirando o foco do IE em outras rotinas
+        time.sleep(0.5)
+        pyautogui.hotkey('alt', 's')
+    else:
         logger.error("Timeout Crítico: A barra de download do IE não apareceu após 2 minutos.")
         return False, "Barra de download nativa não apareceu"
         
-    # Dá 2 segundos de respiro pro Windows criar o arquivo temporário na pasta
-    time.sleep(2)
+    time.sleep(1)
 
     # =========================================================================
-    # 3. VIGIAR A PASTA, MOVER E CONVERTER PARA .CSV
+    # 3. VIGIAR A PASTA, MOVER E SALVAR
     # =========================================================================
+    timeout_segundos = 500
+    tempo_limite = time.time() + timeout_segundos
+    logger.info(f"Aguardando arquivo novo em: {pasta_downloads}")
     
-    # Garante que o arquivo final sairá como .csv, matando o maldito .inf
-    if not nome_arquivo_final.lower().endswith('.csv'):
-        nome_arquivo_final += '.csv'
-        
-    caminho_final = pasta_destino / nome_arquivo_final
-    extensoes_ignoradas = ['.tmp', '.crdownload', '.part', '.partial']
-        
-    tempo_limite = time.time() + 720
-    logger.info(f"Aguardando arquivo novo na pasta nativa de Downloads...")
+    # Adicionamos .ini para ignorar o desktop.ini que o Windows cria do nada
+    extensoes_ignoradas = {'.tmp', '.crdownload', '.part', '.partial', '.ini'}
     
     while time.time() < tempo_limite:
         arquivos_agora = set(pasta_downloads.iterdir())
         novos_arquivos = arquivos_agora - arquivos_antes
         
         for arquivo in novos_arquivos:
+            # Ignora se for uma pasta temporária em vez de um arquivo
+            if not arquivo.is_file():
+                continue
+
             extensao_atual = arquivo.suffix.lower()
             
+            # Se não for um arquivo ignorado, tenta interagir
             if extensao_atual not in extensoes_ignoradas:
                 try:
+                    # TRUQUE DE MESTRE: Tenta renomear o arquivo para ele mesmo. 
+                    # Se o IE ainda estiver baixando, o Windows bloqueia e cai no PermissionError.
+                    arquivo.rename(arquivo)
+                    
                     if caminho_final.exists():
                         logger.warning(f"Arquivo já existe no destino. Removendo antigo: {caminho_final}")
                         caminho_final.unlink()
                         
-                    # Move e renomeia (Removendo o .inf e garantindo o .csv final)
                     shutil.move(str(arquivo), str(caminho_final))
-                    logger.info(f"Sucesso! Relatório capturado para: {caminho_final}")
-                    
+                    logger.info(f"Sucesso! Relatório capturado e salvo em: {caminho_final}")
                     return True, "Download concluído com sucesso"
                     
                 except PermissionError:
                     logger.debug("Arquivo bloqueado (ainda baixando). Aguardando liberação do SO...")
-                    time.sleep(1)
-                    continue
+                except Exception as e:
+                    logger.error(f"Erro inesperado ao mover o arquivo: {e}")
                     
+        # Pausa antes de checar a pasta de novo
         time.sleep(1)
         
-    logger.error("Timeout: Nenhum arquivo novo concluído apareceu na pasta Downloads após 720s.")
+    logger.error(f"Timeout: Nenhum arquivo novo apareceu após {timeout_segundos}s.")
     return False, "Timeout na espera da rede/download do arquivo"
