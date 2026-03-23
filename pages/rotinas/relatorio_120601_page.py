@@ -138,7 +138,6 @@ class Relatorio120601Page(RotinaPage):
             self.lidar_com_alertas()
             raise
 
-        time.sleep(2)
         self.switch_to_default_content()
 
         resultado_final = True

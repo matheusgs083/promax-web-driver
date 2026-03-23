@@ -6,8 +6,10 @@ import dotenv
 from datetime import datetime, timedelta
 
 from core.driver_factory import DriverFactory
+from core.execution_result import ExecutionStatus, normalize_execution_result
 from core.logger import get_logger
 from core.relatorio_execucao import tracker
+from core.settings import get_settings
 from pages.login_page import LoginPage
 from core.renomeador import limpar_nomes_relatorios
 from core.movimentador import mover_relatorios
@@ -24,6 +26,7 @@ dotenv.load_dotenv()
 logger = get_logger("MAIN_PROMAX")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+settings = get_settings()
 
 driver = None
 menu_page = None
@@ -77,14 +80,14 @@ def iniciar_sessao():
     driver = DriverFactory.get_driver()
     driver.maximize_window()
 
-    usuario = os.getenv("PROMAX_USER")
-    senha = os.getenv("PROMAX_PASS")
+    usuario = settings.promax_user
+    senha = settings.promax_pass
 
     if not usuario or not senha:
         raise ValueError("PROMAX_USER e/ou PROMAX_PASS não definidos no .env")
 
     login_page = LoginPage(driver)
-    menu_page = login_page.fazer_login(usuario, senha, nome_unidade="SOUSA")
+    menu_page = login_page.fazer_login(usuario, senha, nome_unidade=settings.unidade_relatorios)
     logger.info("Sessão iniciada com sucesso.")
     return driver, menu_page
 
@@ -116,9 +119,37 @@ def executar_tarefa_com_retry(nome_tarefa, funcao_logica, tentativas=3, espera_s
             if not driver:
                 iniciar_sessao()
 
-            funcao_logica()
-            logger.info(f"Status: {nome_tarefa} CONCLUÍDA.")
-            return True
+            resultado = normalize_execution_result(
+                funcao_logica(),
+                success_message=f"{nome_tarefa} concluída com sucesso",
+                failure_message=f"{nome_tarefa} retornou falha sem detalhamento",
+            )
+
+            if resultado.ok:
+                logger.info(f"Status: {nome_tarefa} CONCLUÍDA. Detalhe: {resultado.message}")
+                return resultado
+
+            logger.warning(
+                f"{nome_tarefa} retornou status '{resultado.status.value}'. "
+                f"Detalhe: {resultado.message}"
+            )
+
+            if tentativa < tentativas and resultado.should_retry:
+                logger.warning(
+                    f"Nova tentativa agendada para {nome_tarefa} em {espera_segundos}s "
+                    f"por retorno de execução não conclusivo."
+                )
+                time.sleep(espera_segundos)
+                continue
+
+            if resultado.status is ExecutionStatus.PARTIAL_SUCCESS:
+                logger.warning(
+                    f"{nome_tarefa} concluída com sucesso parcial após {tentativa} tentativa(s). "
+                    "Fluxo principal seguirá e a repescagem tratará as unidades pendentes."
+                )
+                return resultado
+
+            raise RuntimeError(f"{nome_tarefa} finalizou com status '{resultado.status.value}': {resultado.message}")
 
         except Exception as e:
             msg_erro = str(e)
@@ -160,7 +191,7 @@ def main():
         def tarefa_0513(unidades_alvo=None):
             janela = menu_page.acessar_rotina("0513")
             page = Relatorio0513Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 opcao_rel="12",
                 volume_fin="F",
@@ -171,22 +202,24 @@ def main():
                 nome_arquivo=f"{data_hoje_arquivo} (nUnidade) nomeUnidade0513",
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_120616(unidades_alvo=None):
             janela = menu_page.acessar_rotina("120616")
             page = Relatorio120616Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 opcao_rel="3",
                 mes_ano=mes_ano_atual,
                 nome_arquivo=f"{data_hoje_arquivo} (nUnidade) 120616_nomeUnidade120616",
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_120601(unidades_alvo=None):
             janela = menu_page.acessar_rotina("120601")
             page = Relatorio120601Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 opcao_rel="01",
                 id_notas_tit_nao_atu=False,
@@ -197,11 +230,12 @@ def main():
                 nome_arquivo=f"{data_hoje_arquivo} 120601_nomeUnidade120601",
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_0512(unidades_alvo=None):
             janela = menu_page.acessar_rotina("0512")
             page = Relatorio0512Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 opcao_rel="11",
                 ano=ano_atual,
@@ -209,11 +243,12 @@ def main():
                 nome_arquivo=f"05,12 {ano_atual} nomeUnidade0512",
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_150501(unidades_alvo=None):
             janela = menu_page.acessar_rotina("150501")
             page = Relatorio150501Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 visao="02",
                 periodo="M",
@@ -222,11 +257,12 @@ def main():
                 nome_arquivo=f"{ano_atual}-{mes_atual} nomeUnidade150501",
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_030237(unidades_alvo=None):
             janela = menu_page.acessar_rotina("030237")
             page = Relatorio030237Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 quebra1="14",
                 quebra2="12",
@@ -236,11 +272,12 @@ def main():
                 nome_arquivo=f"{mes_atual}-{ano_atual} nomeUnidade030237",
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_030237_Giro(unidades_alvo=None):
             janela = menu_page.acessar_rotina("030237")
             page = Relatorio030237Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 quebra1="14",
                 quebra2="12",
@@ -250,11 +287,12 @@ def main():
                 nome_arquivo=f"{mes_passado}-{ano_mes_passado}_nUnidade",
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_020220_Auditool(unidades_alvo=None):
             janela = menu_page.acessar_rotina("020220")
             page = Relatorio020220Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 opcao_rel="01",
                 mercadoria_todos=False,
@@ -265,11 +303,12 @@ def main():
                 nome_arquivo="020220 Auditool - nomeUnidade020220",
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_020220_Giro(unidades_alvo=None):
             janela = menu_page.acessar_rotina("020220")
             page = Relatorio020220Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo or ["3610007"],
                 opcao_rel="01",
                 mercadoria_todos=False,
@@ -279,11 +318,12 @@ def main():
                 nome_arquivo="020220_nUnidade",
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_020220_Recolhas(unidades_alvo=None):
             janela = menu_page.acessar_rotina("020220")
             page = Relatorio020220Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 opcao_rel="01",
                 mercadoria_todos=False,
@@ -293,14 +333,15 @@ def main():
                 nome_arquivo="020220 Recolhas - nomeUnidade020220",
             )
             page.fechar_e_voltar()
+            return resultado
 
         mapa_tarefas = {
                     #"0513": {"nome": "Rotina 0513", "func": tarefa_0513},
                     #"120616": {"nome": "Rotina 120616", "func": tarefa_120616},
-                    #"120601": {"nome": "Rotina 120601", "func": tarefa_120601},
-                    "0512": {"nome": "Rotina 0512", "func": tarefa_0512},
-                    "150501": {"nome": "Rotina 150501", "func": tarefa_150501},
-                    "030237": {"nome": "Rotina 030237", "func": tarefa_030237},
+                    "120601": {"nome": "Rotina 120601", "func": tarefa_120601},
+                    #"0512": {"nome": "Rotina 0512", "func": tarefa_0512},
+                    #"150501": {"nome": "Rotina 150501", "func": tarefa_150501},
+                    #"030237": {"nome": "Rotina 030237", "func": tarefa_030237},
                     #"020220": {"nome": "Rotina 020220 Auditool", "func": tarefa_020220_Auditool},
                     #"020220_RECOLHAS": {"nome": "Rotina 020220 Recolhas", "func": tarefa_020220_Recolhas},
                     #"030237_GIRO": {"nome": "Rotina 030237 Giro", "func": tarefa_030237_Giro},
@@ -378,7 +419,7 @@ def main():
 
         pasta_destino = os.path.join(BASE_DIR, "logs", "relatorios_baixados")
         os.makedirs(pasta_destino, exist_ok=True)
-        pasta_download = os.getenv("DOWNLOAD_DIR", r"C:\Users\caixa.patos\Documents\Relatorios")
+        pasta_download = str(settings.download_dir)
 
         # Gerar o log do tracker sempre acontece, mesmo com erro
         try:

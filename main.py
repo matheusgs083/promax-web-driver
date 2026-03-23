@@ -6,8 +6,10 @@ from datetime import datetime, timedelta
 
 from selenium.common.exceptions import UnexpectedAlertPresentException, NoSuchWindowException, WebDriverException
 from core.driver_factory import DriverFactory
+from core.execution_result import normalize_execution_result
 from core.logger import get_logger
 from core.relatorio_execucao import tracker
+from core.settings import get_settings
 from pages.login_page import LoginPage
 
 # --- IMPORTAÇÃO DO RENOMEADOR E MOVIMENTADOR ---
@@ -26,6 +28,7 @@ from pages.rotinas.relatorio_020220_page import Relatorio020220Page
 # Carrega variáveis
 dotenv.load_dotenv()
 logger = get_logger("MAIN_REPESCAGEM")
+settings = get_settings()
 
 # --- VARIÁVEIS GLOBAIS DE CONTROLE ---
 driver = None
@@ -61,24 +64,45 @@ def iniciar_sessao():
     driver = DriverFactory.get_driver()
     driver.maximize_window()
     login_page = LoginPage(driver)
-    usuario = os.getenv("PROMAX_USER")
-    senha = os.getenv("PROMAX_PASS")
+    usuario = settings.promax_user
+    senha = settings.promax_pass
     
-    menu_page = login_page.fazer_login(usuario, senha, nome_unidade="SOUSA")
+    menu_page = login_page.fazer_login(usuario, senha, nome_unidade=settings.unidade_relatorios)
     logger.info("Sessão iniciada com sucesso.")
     return driver, menu_page
 
 
-def executar_tarefa_com_retry(nome_tarefa, funcao_logica, tentativas=3):
+def executar_tarefa_com_retry(nome_tarefa, funcao_logica, tentativas=3, espera_segundos=3):
     global driver, menu_page
 
     for tentativa in range(1, tentativas + 1):
         try:
             logger.info(f"--- Executando: {nome_tarefa} (Tentativa {tentativa}/{tentativas}) ---")
             if not driver: iniciar_sessao()
-            funcao_logica()
-            logger.info(f"Status: {nome_tarefa} CONCLUÍDA.")
-            return True
+            resultado = normalize_execution_result(
+                funcao_logica(),
+                success_message=f"{nome_tarefa} concluída com sucesso",
+                failure_message=f"{nome_tarefa} retornou falha sem detalhamento",
+            )
+
+            if resultado.ok:
+                logger.info(f"Status: {nome_tarefa} CONCLUÍDA. Detalhe: {resultado.message}")
+                return resultado
+
+            logger.warning(
+                f"{nome_tarefa} retornou status '{resultado.status.value}'. "
+                f"Detalhe: {resultado.message}"
+            )
+
+            if tentativa < tentativas and resultado.should_retry:
+                logger.warning(
+                    f"Nova tentativa agendada para {nome_tarefa} em {espera_segundos}s "
+                    f"por retorno de execução não conclusivo."
+                )
+                time.sleep(espera_segundos)
+                continue
+
+            raise RuntimeError(f"{nome_tarefa} finalizou com status '{resultado.status.value}': {resultado.message}")
 
         except (UnexpectedAlertPresentException, NoSuchWindowException, WebDriverException) as e:
             msg_erro = str(e)
@@ -110,43 +134,47 @@ def main():
         def tarefa_120616(unidades_alvo=None):
             janela = menu_page.acessar_rotina("120616")
             page = Relatorio120616Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo, 
                 opcao_rel="3", mes_ano=mes_ano_passado, 
                 nome_arquivo=f"{ultimo_dia_mes_passado.replace('/','-')} (nUnidade) 120616_nomeUnidade120616"
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_0512(unidades_alvo=None):
             janela = menu_page.acessar_rotina("0512")
             page = Relatorio0512Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 opcao_rel="11", ano=ano_atual, id_converte_hecto=True, 
                 nome_arquivo=f"0512 {ano_atual} nomeUnidade0512"
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_150501(unidades_alvo=None):
             janela = menu_page.acessar_rotina("150501")
             page = Relatorio150501Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 periodo="M", mes_ano=mes_ano_passado, totaliza_periodo=True, 
                 nome_arquivo=f"{ano_mes_passado}-{mes_passado} nomeUnidade150501"
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_030237(unidades_alvo=None):
             janela = menu_page.acessar_rotina("030237")
             page = Relatorio030237Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 quebra1="14", quebra2="12", quebra3="16", 
                 data_inicial=primeiro_dia_mes_passado, data_final=ultimo_dia_mes_passado, 
                 nome_arquivo=f"{mes_passado}-{ano_mes_passado} nomeUnidade030237"
             )
             page.fechar_e_voltar()
+            return resultado
 
         # -----------------------------------------------------------
         # MAPEAMENTO DOS ALVOS DA REPESCAGEM
@@ -178,7 +206,7 @@ def main():
             except: pass
 
         # --- HIGIENIZAÇÃO DE NOMES ---
-        pasta_destino = os.getenv("DOWNLOAD_DIR", r"C:\Users\caixa.patos\Documents\Relatorios")
+        pasta_destino = str(settings.download_dir)
         try:
             pasta_data = os.path.join(os.getcwd(), "data")
             arquivos_excel = [f for f in glob.glob(os.path.join(pasta_data, "*.xlsx")) if not os.path.basename(f).startswith("~$")]

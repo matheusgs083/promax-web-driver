@@ -1,7 +1,7 @@
 import time
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, NoAlertPresentException
 from core.logger import get_logger
 
 class BasePage:
@@ -38,16 +38,81 @@ class BasePage:
     def switch_to_default_content(self):
         self.driver.switch_to.default_content()
 
-    def lidar_com_alertas(self, tentativas=3, timeout=2):
-        for i in range(1, tentativas + 1):
+    def wait_until(self, condition, timeout=15, message=None):
+        return WebDriverWait(self.driver, timeout).until(condition, message)
+
+    def wait_for_js_condition(self, script, timeout=15, poll_frequency=0.2, description="condição JS"):
+        def _condition(driver):
             try:
-                WebDriverWait(self.driver, timeout).until(EC.alert_is_present())
+                return bool(driver.execute_script(script))
+            except Exception:
+                return False
+
+        try:
+            return WebDriverWait(self.driver, timeout, poll_frequency=poll_frequency).until(_condition)
+        except TimeoutException as exc:
+            raise TimeoutException(f"Timeout aguardando {description}") from exc
+
+    def wait_for_element_value(self, locator, expected_value, timeout=10):
+        expected = str(expected_value)
+
+        def _condition(driver):
+            try:
+                value = driver.find_element(*locator).get_attribute("value")
+                return str(value).strip() == expected
+            except Exception:
+                return False
+
+        try:
+            return WebDriverWait(self.driver, timeout, poll_frequency=0.2).until(_condition)
+        except TimeoutException as exc:
+            raise TimeoutException(f"Timeout aguardando valor '{expected}' em {locator}") from exc
+
+    def wait_for_window_count(self, expected_count, timeout=15):
+        try:
+            return WebDriverWait(self.driver, timeout, poll_frequency=0.2).until(
+                lambda d: len(d.window_handles) >= expected_count
+            )
+        except TimeoutException as exc:
+            raise TimeoutException(
+                f"Timeout aguardando ao menos {expected_count} janela(s). Atual: {len(self.driver.window_handles)}"
+            ) from exc
+
+    def wait_for_no_alert(self, timeout=5):
+        def _condition(driver):
+            try:
+                driver.switch_to.alert
+                return False
+            except NoAlertPresentException:
+                return True
+            except Exception:
+                return False
+
+        try:
+            return WebDriverWait(self.driver, timeout, poll_frequency=0.2).until(_condition)
+        except TimeoutException as exc:
+            raise TimeoutException("Timeout aguardando limpeza de alertas") from exc
+
+    def lidar_com_alertas(self, tentativas=2, timeout=2, timeout_entre_alertas=1, max_alertas=10):
+        alertas_tratados = 0
+        tentativas_sem_alerta = 0
+
+        while tentativas_sem_alerta < tentativas and alertas_tratados < max_alertas:
+            try:
+                WebDriverWait(self.driver, timeout if alertas_tratados == 0 else timeout_entre_alertas).until(
+                    EC.alert_is_present()
+                )
                 alert = self.driver.switch_to.alert
                 self.logger.warning(f"Alerta detectado: {alert.text}")
                 alert.accept()
-                time.sleep(0.5)
+                self.wait_for_no_alert(timeout=max(timeout_entre_alertas, 1))
+                alertas_tratados += 1
+                tentativas_sem_alerta = 0
             except TimeoutException:
-                break
+                tentativas_sem_alerta += 1
+
+        if alertas_tratados:
+            self.logger.info(f"Tratamento de alertas concluido. Total aceito(s): {alertas_tratados}")
 
     # --- NOVO MÉTODO (INTEGRADO AQUI) ---
     def selecionar_combo_js(self, locator, valor_opcao):

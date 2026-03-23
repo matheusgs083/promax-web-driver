@@ -2,6 +2,12 @@
 
 Este projeto é uma solução de automação robusta para o sistema legado **Promax**, desenvolvida em Python utilizando Selenium WebDriver (modo IE/Edge). O projeto segue estritamente o padrão de arquitetura **Page Object Model (POM)** para garantir escalabilidade, manutenção e leitura fácil.
 
+## Organizacao
+
+- `docs/` concentra contexto, revisao tecnica e plano de melhoria.
+- `agents/` concentra prompts e instrucoes de agentes especializados.
+- `pages/` e `core/` continuam sendo o codigo-fonte da automacao.
+
 ## Funcionalidades
 
 * **Login Automático:** Suporte a frames, seleção dinâmica de unidades e injeção de Javascript para compatibilidade com sistemas legados (IE5/IE7 quirks mode).

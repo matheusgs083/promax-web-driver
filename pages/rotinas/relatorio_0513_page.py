@@ -211,7 +211,6 @@ class Relatorio0513Page(RotinaPage):
         btn = self.find_element((By.NAME, acao))
         self.js_click_ie(btn)
 
-        time.sleep(2)
         self.switch_to_default_content()
 
         resultado_final = True

@@ -7,6 +7,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoAlertPresentException, UnexpectedAlertPresentException
 from pages.base_page import BasePage
+from core.execution_result import ExecutionResult, ExecutionStatus, normalize_execution_result
+from core.settings import get_settings
 
 try:
     from core.manipulador_download import salvar_arquivo_visual
@@ -39,20 +41,21 @@ class RotinaPage(BasePage):
         try:
             self.driver.switch_to.window(self.driver.current_window_handle)
             self.driver.maximize_window()
-        except:
-            pass
+        except Exception as e:
+            self.logger.debug(f"Não foi possível maximizar/focar a janela da rotina: {e}")
         
         try:
             atual = self.obter_unidade_atual()
             self.logger.info(f"Janela aberta. Unidade ativa: {atual}")
-        except:
-            pass
+        except Exception as e:
+            self.logger.debug(f"Não foi possível ler a unidade ativa ao abrir a rotina: {e}")
 
     def _entrar_frame_topo(self):
         self.switch_to_default_content()
         try:
             self.wait.until(EC.frame_to_be_available_and_switch_to_it(self.FRAME_TOP_ROTINA))
-        except:
+        except Exception as e:
+            self.logger.debug(f"Falha ao entrar no frame '{self.FRAME_TOP_ROTINA}', usando fallback frame[0]: {e}")
             self.driver.switch_to.default_content()
             self.driver.switch_to.frame(0)
 
@@ -88,70 +91,74 @@ class RotinaPage(BasePage):
 
     def selecionar_unidade(self, valor_unidade):
         """
-        Seleciona unidade e monitora alertas por 15 segundos, engolindo exceções de bloqueio.
+        Seleciona unidade, drena alertas residuais e confirma a troca pelo estado real da tela.
         """
         valor_unidade = str(valor_unidade).strip()
-        
-        # 1. Verifica se já está selecionada
+
         try:
             atual = self.obter_unidade_atual()
             if atual and str(atual).strip() == valor_unidade:
-                self.logger.info(f"Unidade {valor_unidade} já selecionada.")
+                self.logger.info(f"Unidade {valor_unidade} ja selecionada.")
                 return
         except UnexpectedAlertPresentException:
-            # Se já tem alerta travando a leitura inicial
-            try: self.driver.switch_to.alert.accept()
-            except: pass
+            try:
+                self.driver.switch_to.alert.accept()
+                self.wait_for_no_alert(timeout=2)
+            except Exception as e:
+                self.logger.warning(f"Falha ao limpar alerta durante leitura da unidade atual: {e}")
 
         self._entrar_frame_topo()
         self.logger.info(f"--- Trocando Unidade para: {valor_unidade} ---")
-        
-        # 2. Troca via JS
         self.selecionar_combo_js(self.LOCATOR_UNIDADE, valor_unidade)
-        
-        # 3. MONITORAMENTO DE ALERTAS (POLLING AGRESSIVO)
-        self.logger.info("Monitorando alertas pós-troca (Timeout: 15s)...")
-        
-        tempo_limite = time.time() + 15
-        
-        while time.time() < tempo_limite:
-            try:
-                # Tenta pegar o alerta DIRETAMENTE (sem wait, para ser rápido)
-                alert = self.driver.switch_to.alert
-                texto = alert.text
-                self.logger.warning(f"Alerta capturado: {texto}")
-                alert.accept()
-                
-                # Se pegou um alerta, espera 1s e continua no loop para pegar o próximo (ex: Estoque)
-                time.sleep(1)
-                
-            except NoAlertPresentException:
-                # Tudo limpo por enquanto
-                time.sleep(0.5)
-                
-            except UnexpectedAlertPresentException:
-                # ESSE É O ERRO DO SEU LOG. O Selenium travou pq o alerta apareceu.
-                # Nós pegamos ele aqui e tratamos.
-                self.logger.warning("Alerta bloqueante detectado (UnexpectedAlert). Aceitando...")
-                try: 
-                    self.driver.switch_to.alert.accept()
-                    time.sleep(1)
-                except: 
-                    pass
-            except Exception:
-                pass
 
-        self.logger.info("Fim do monitoramento de alertas. Prosseguindo.")
-        time.sleep(1)
+        self.logger.info("Monitorando alertas pos-troca...")
+        self.lidar_com_alertas(tentativas=2, timeout=3, timeout_entre_alertas=1, max_alertas=10)
+        self._confirmar_unidade_ativa(valor_unidade, timeout=10)
 
     def fechar_e_voltar(self):
-        try: self.driver.close()
-        except: pass
+        try:
+            self.driver.close()
+        except Exception as e:
+            self.logger.warning(f"Falha ao fechar a janela da rotina antes de voltar ao menu: {e}")
         self.driver.switch_to.window(self.handle_menu)
         self.switch_to_default_content()
         from pages.menu_page import MenuPage
         return MenuPage(self.driver)
-    
+
+    def _confirmar_unidade_ativa(self, valor_unidade, timeout=5):
+        valor_unidade = str(valor_unidade).strip()
+        prazo = time.time() + timeout
+        ultimo_valor_lido = None
+
+        while time.time() < prazo:
+            try:
+                atual = self.obter_unidade_atual()
+                ultimo_valor_lido = str(atual).strip() if atual is not None else None
+                if ultimo_valor_lido == valor_unidade:
+                    self.logger.info(f"Unidade confirmada com sucesso: {valor_unidade}")
+                    return
+            except UnexpectedAlertPresentException:
+                self.logger.warning("Alerta tardio detectado durante confirmacao da unidade. Drenando...")
+                self.lidar_com_alertas(tentativas=1, timeout=1, timeout_entre_alertas=1, max_alertas=5)
+            except NoAlertPresentException:
+                pass
+            except Exception as e:
+                self.logger.debug(f"Aguardando estabilizacao da unidade {valor_unidade}: {e}")
+            finally:
+                try:
+                    self.switch_to_default_content()
+                except Exception:
+                    pass
+
+            time.sleep(0.3)
+
+        detalhe = (
+            f"Ultimo valor lido: '{ultimo_valor_lido}'"
+            if ultimo_valor_lido is not None
+            else "Nenhum valor de unidade foi lido apos a troca"
+        )
+        raise TimeoutException(f"Timeout aguardando confirmacao da unidade '{valor_unidade}'. {detalhe}")
+
     def entrar_frame_rotina_blindado(self, frame_index: int = 1, timeout: int = 15):
         """
         Abstrai o padrão repetido de entrada no frame da rotina:
@@ -172,6 +179,23 @@ class RotinaPage(BasePage):
         except TimeoutException:
             self.driver.switch_to.frame(frame_index)
 
+    def aguardar_formulario_rotina(self, nome_campo: str, timeout: int = 15, frame_index: int | None = None):
+        frame = self.FRAME_ROTINA if frame_index is None else frame_index
+        self.entrar_frame_rotina_blindado(frame, timeout=timeout)
+        self.wait_until(EC.presence_of_element_located((By.NAME, nome_campo)), timeout=timeout)
+        return True
+
+    def aguardar_loader_oculto(self, timeout: int = 5):
+        try:
+            self.wait_for_js_condition(
+                "var el = document.getElementById('imgWait'); return !el || el.style.display === 'none';",
+                timeout=timeout,
+                description="loader principal oculto",
+            )
+            return True
+        except TimeoutException:
+            return False
+
     def loop_unidades(
         self,
         nome_arquivo: str,
@@ -184,7 +208,10 @@ class RotinaPage(BasePage):
         self.logger.info("--- LOOP AUTOMÁTICO DE UNIDADES ---")
         todas_unidades = self.listar_unidades()
         if not todas_unidades:
-            return False
+            return ExecutionResult(
+                status=ExecutionStatus.TECHNICAL_FAILURE,
+                message="Nenhuma unidade foi encontrada na tela para processamento",
+            )
 
         # --- LÓGICA DE FILTRAGEM (Aceita a Lista de Números) ---
         if unidades_alvo:
@@ -195,7 +222,10 @@ class RotinaPage(BasePage):
             
             if not unidades:
                 self.logger.warning(f"Nenhuma unidade alvo {alvos_limpos} foi encontrada na tela.")
-                return False
+                return ExecutionResult(
+                    status=ExecutionStatus.BUSINESS_FAILURE,
+                    message=f"Nenhuma unidade alvo {alvos_limpos} foi encontrada na tela",
+                )
                 
             self.logger.info(f"Filtro ativo! Rodando apenas para {len(unidades)} unidade(s).")
         else:
@@ -204,6 +234,8 @@ class RotinaPage(BasePage):
         # Extrai o nome da rotina dinamicamente (ex: Relatorio0513Page -> Rotina 0513)
         rotina_nome = self.__class__.__name__.replace("Page", "").replace("Relatorio", "Rotina ")
         resultados = []
+        falhas_negocio = 0
+        falhas_tecnicas = 0
 
         for i, item in enumerate(unidades):
             cod = str(item.get("valor", "")).strip()
@@ -225,18 +257,20 @@ class RotinaPage(BasePage):
                 duracao_unidade = time.time() - inicio_unidade
                 
                 # Desempacota o resultado para o relatório consolidado
-                if isinstance(resultado, tuple):
-                    ok, motivo = resultado
-                elif resultado is False:
-                    ok, motivo = False, "Falha na execução (Retornou False)"
-                else:
-                    ok, motivo = True, "Download concluído"
+                resultado_normalizado = normalize_execution_result(
+                    resultado,
+                    success_message="Unidade processada com sucesso",
+                    failure_message="Falha na execução (retornou False)",
+                )
+                ok = resultado_normalizado.ok
+                motivo = resultado_normalizado.message
 
                 # Loga no arquivo CSV Tracker (agora passando a duracao)
                 if ok:
                     tracker.anotar(rotina_nome, cod, "SUCESSO", motivo, duracao_unidade)
                 else:
                     tracker.anotar(rotina_nome, cod, "FALHA DOWNLOAD", motivo, duracao_unidade)
+                    falhas_negocio += 1
 
                 resultados.append(ok)
                 time.sleep(sleep_entre)
@@ -254,8 +288,34 @@ class RotinaPage(BasePage):
                 
                 self.lidar_com_alertas(tentativas=tentativas_alertas, timeout=timeout_alertas)
                 resultados.append(False)
+                falhas_tecnicas += 1
 
-        return all(resultados)
+        total_unidades = len(unidades)
+        sucessos = sum(1 for item in resultados if item)
+
+        if sucessos == total_unidades:
+            return ExecutionResult(
+                status=ExecutionStatus.SUCCESS,
+                message=f"Todas as {total_unidades} unidade(s) foram processadas com sucesso",
+            )
+
+        if sucessos > 0:
+            return ExecutionResult(
+                status=ExecutionStatus.PARTIAL_SUCCESS,
+                message=(
+                    f"Execução parcial: {sucessos}/{total_unidades} unidade(s) com sucesso, "
+                    f"{falhas_negocio} falha(s) de negócio e {falhas_tecnicas} falha(s) técnica(s)"
+                ),
+            )
+
+        status = ExecutionStatus.TECHNICAL_FAILURE if falhas_tecnicas else ExecutionStatus.BUSINESS_FAILURE
+        return ExecutionResult(
+            status=status,
+            message=(
+                f"Nenhuma unidade processada com sucesso. "
+                f"{falhas_negocio} falha(s) de negócio e {falhas_tecnicas} falha(s) técnica(s)"
+            ),
+        )
 
     # ======================
     # JS HELPERS (sem duplicar por Page)
@@ -413,7 +473,7 @@ class RotinaPage(BasePage):
         
         # Chama a rotina visual de download (que agora usa a barra do IE)
         if validar_elemento and salvar_arquivo_visual:
-            diretorio = os.getenv("DOWNLOAD_DIR", r"C:\Users\caixa.patos\Documents\Relatorios")
+            diretorio = str(get_settings().download_dir)
             # RECEBE O RESULTADO PARA SUBIR PARA O TRACKER
             resultado_download = salvar_arquivo_visual(diretorio_destino=diretorio, nome_arquivo_final=nome_arquivo)
         else:
@@ -439,7 +499,7 @@ class RotinaPage(BasePage):
             self.js_set_select_by_name(nome_select, str(item))
             btn = self.find_element((By.NAME, nome_botao))
             self.js_click_ie(btn)
-            time.sleep(0.8)
+            self.aguardar_loader_oculto(timeout=3)
 
     # --- MÉTODOS DE ASSERÇÃO (VALIDAÇÃO) ---
     def _assert_checkbox(self, name, esperado: bool, tentativas=2):
@@ -448,7 +508,11 @@ class RotinaPage(BasePage):
             if bool(el.is_selected()) == bool(esperado): return True
             self.logger.warning(f"Refazendo Checkbox {name} -> {esperado}")
             self.js_set_checkbox_by_name(name, bool(esperado), force_click=True)
-            time.sleep(0.3)
+            self.wait_for_js_condition(
+                f"var el=document.getElementsByName('{name}')[0]; return !!el && (!!el.checked === {str(bool(esperado)).lower()});",
+                timeout=2,
+                description=f"checkbox {name} estabilizar",
+            )
         raise RuntimeError(f"Checkbox {name} falhou após {tentativas} tentativas.")
 
     def _assert_checked_by_name_value(self, name, value, esperado: bool, tentativas=2):
@@ -457,7 +521,15 @@ class RotinaPage(BasePage):
             atual = self.driver.execute_script(js_get, str(name), str(value))
             if bool(atual) == bool(esperado): return True
             self.js_set_checked_by_name_value(name, value, bool(esperado), force_click=True)
-            time.sleep(0.3)
+            self.wait_for_js_condition(
+                (
+                    f"var els=document.getElementsByName('{name}'); "
+                    f"for(var i=0;i<els.length;i++){{if(els[i].value=='{value}') return (!!els[i].checked === {str(bool(esperado)).lower()});}} "
+                    "return false;"
+                ),
+                timeout=2,
+                description=f"radio/check {name}[{value}] estabilizar",
+            )
         raise RuntimeError(f"Radio/Check {name}[{value}] falhou após {tentativas} tentativas.")
     
     def registrar_log_csv(self, caminho_arquivo, colunas, dados_linha):
@@ -493,16 +565,19 @@ class RotinaPage(BasePage):
                 alert.accept()
                 sucesso = any(w in msg.lower() for w in ["sucesso", "salvo", "confirm", "ok", "processado"])
                 return sucesso, msg
-            except: pass
+            except Exception as e:
+                self.logger.debug(f"Alerta não presente ao aguardar gatilho: {e}")
 
             # 2. Checa Loader (imgWait)
             try:
                 display = self.driver.execute_script("var el = document.getElementById('imgWait'); return el ? el.style.display : 'none';")
                 if display == 'none': return True, "OK"
-            except: return True, "Reloaded"
+            except Exception as e:
+                self.logger.debug(f"Fallback de loader após gatilho: {e}")
+                return True, "Reloaded"
             
             time.sleep(0.1)
-        return True, "Timeout"
+        return False, f"Timeout aguardando confirmação do sistema após {timeout:.1f}s"
 
     def preencher_campo_com_gatilho(self, nome_campo, valor, script_gatilho):
         """Atalho para Set Input + Trigger + Wait"""

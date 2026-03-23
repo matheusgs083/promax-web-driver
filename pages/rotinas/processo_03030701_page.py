@@ -1,6 +1,8 @@
 import time
 from selenium.common.exceptions import NoAlertPresentException
+from core.execution_result import ExecutionResult, ExecutionStatus
 from pages.rotina_page import RotinaPage
+
 
 class Processo03030701Page(RotinaPage):
 
@@ -8,7 +10,7 @@ class Processo03030701Page(RotinaPage):
 
     def _esperar_campo_habilitado_js(self, nome_elemento, timeout_segundos=15):
         """
-        Injeta JS para aguardar ativamente até que um campo exista e esteja livre para digitação.
+        Injeta JS para aguardar ativamente atÃ© que um campo exista e esteja livre para digitaÃ§Ã£o.
         Retorna True se ficou pronto, False se esgotou o tempo.
         """
         script = f"""
@@ -16,7 +18,6 @@ class Processo03030701Page(RotinaPage):
             if (!el) return false;
             if (el.disabled) return false;
             if (el.readOnly) return false;
-            // Verifica a classe CSS (o Promax usa 'clsDisabled')
             if (el.className && typeof el.className === 'string' && el.className.toLowerCase().indexOf('disabled') !== -1) return false;
             if (el.style.display === 'none' || el.style.visibility === 'hidden') return false;
             return true;
@@ -30,11 +31,11 @@ class Processo03030701Page(RotinaPage):
             except Exception:
                 pass
             time.sleep(0.5)
-            
+
         return False
 
     def _lidar_com_alerta_ie(self):
-        """Verifica se o Promax lançou um alerta de erro (Ex: 'Informação inválida') e fecha."""
+        """Verifica se o Promax lanÃ§ou um alerta de erro (Ex: 'InformaÃ§Ã£o invÃ¡lida') e fecha."""
         try:
             alerta = self.driver.switch_to.alert
             texto = alerta.text
@@ -45,18 +46,23 @@ class Processo03030701Page(RotinaPage):
         except Exception:
             return None
 
+    def _reentrar_frame_apos_postback(self, nome_campo_esperado=None, timeout=10):
+        self.entrar_frame_rotina_blindado(self.FRAME_ROTINA, timeout=timeout)
+        if nome_campo_esperado:
+            return self._esperar_campo_habilitado_js(nome_campo_esperado, timeout)
+        return True
+
     def alterar_condicao(self, mapa, numero_nota, nova_condicao, serie="003"):
         try:
             self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
-            self.logger.info(f"Carregando Nota: Mapa={mapa}, Num={numero_nota}, Série={serie}")
+            self.logger.info(f"Carregando Nota: Mapa={mapa}, Num={numero_nota}, SÃ©rie={serie}")
 
             if not self._esperar_campo_habilitado_js("mapa", 5):
-                return False, "Formulário inicial não carregou."
+                return ExecutionResult(
+                    status=ExecutionStatus.TECHNICAL_FAILURE,
+                    message="FormulÃ¡rio inicial nÃ£o carregou.",
+                )
 
-            # =====================================================================
-            # PASSO 1: INJEÇÃO E CARREGAMENTO
-            # =====================================================================
-            # Usa JS puro para inserir os dados de uma vez (muito mais rápido e seguro)
             script_carga = f"""
                 document.getElementsByName('mapa')[0].value = '{mapa}';
                 document.getElementsByName('numero')[0].value = '{numero_nota}';
@@ -64,78 +70,78 @@ class Processo03030701Page(RotinaPage):
                 CarregaNota();
             """
             self.driver.execute_script(script_carga)
-            
-            # PAUSA VITAL: Dá tempo para o Promax processar o POST e recarregar a tela
+
             self.logger.info("Aguardando servidor...")
-            time.sleep(3)
+            self._reentrar_frame_apos_postback(nome_campo_esperado="condNova", timeout=15)
 
-            # O iframe recarregou, o Selenium perdeu a referência. Precisamos entrar de novo.
-            try: self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
-            except: pass
-
-            # Verifica se o Promax estourou um pop-up de erro
             alerta_texto = self._lidar_com_alerta_ie()
             if alerta_texto:
-                return False, f"Recusado pelo sistema: {alerta_texto}"
+                return ExecutionResult(
+                    status=ExecutionStatus.BUSINESS_FAILURE,
+                    message=f"Recusado pelo sistema: {alerta_texto}",
+                )
 
-            # =====================================================================
-            # PASSO 2: APLICAR CONDIÇÃO E VALIDAR REGRAS DE NEGÓCIO
-            # =====================================================================
-            # Agora com 15 segundos, o robô vai ter paciência se o Promax estiver lento
             if not self._esperar_campo_habilitado_js("condNova", 15):
-                self.logger.warning(f"Rejeitado: Nota {numero_nota} já alterada, faturada ou não encontrada.")
-                return False, "Nota bloqueada para edição ou não encontrada."
+                self.logger.warning(f"Rejeitado: Nota {numero_nota} jÃ¡ alterada, faturada ou nÃ£o encontrada.")
+                return ExecutionResult(
+                    status=ExecutionStatus.BUSINESS_FAILURE,
+                    message="Nota bloqueada para ediÃ§Ã£o ou nÃ£o encontrada.",
+                )
 
-            self.logger.info(f"Aplicando Condição: {nova_condicao}")
-            
+            self.logger.info(f"Aplicando CondiÃ§Ã£o: {nova_condicao}")
+
             script_condicao = f"""
                 document.getElementsByName('condNova')[0].value = '{nova_condicao}';
                 CarregaNovaCond();
             """
             self.driver.execute_script(script_condicao)
-            
-            time.sleep(2) # Outra recarga de tela
-            
-            try: self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
-            except: pass
-            
+
+            self._reentrar_frame_apos_postback(nome_campo_esperado="BotSalvar", timeout=10)
+
             alerta_texto = self._lidar_com_alerta_ie()
             if alerta_texto:
-                return False, f"Condição inválida: {alerta_texto}"
+                return ExecutionResult(
+                    status=ExecutionStatus.BUSINESS_FAILURE,
+                    message=f"CondiÃ§Ã£o invÃ¡lida: {alerta_texto}",
+                )
 
-            # =====================================================================
-            # PASSO 3: CONFIRMAÇÃO E SALVAMENTO
-            # =====================================================================
-            # Se o botão Salvar não habilitar após injetar a condição, a regra quebrou
             if not self._esperar_campo_habilitado_js("BotSalvar", 5):
-                return False, "Botão Salvar bloqueado. Regra de negócio não permitiu a conversão."
+                return ExecutionResult(
+                    status=ExecutionStatus.BUSINESS_FAILURE,
+                    message="BotÃ£o Salvar bloqueado. Regra de negÃ³cio nÃ£o permitiu a conversÃ£o.",
+                )
 
-            # Sobrescreve a caixinha de pergunta do Promax para responder "Sim" silenciosamente
             self.driver.execute_script("""
-                if(typeof window.msgbxSimNao === 'function'){ 
-                    window.msgbxSimNao = function(tela, msg, fnSim, fnNao){ fnSim(); }; 
+                if(typeof window.msgbxSimNao === 'function'){
+                    window.msgbxSimNao = function(tela, msg, fnSim, fnNao){ fnSim(); };
                 }
                 Salvar();
             """)
 
             self.logger.info("Salvando no banco...")
-            time.sleep(2)
-            
-            try: self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
-            except: pass
+            self._reentrar_frame_apos_postback(nome_campo_esperado="mapa", timeout=10)
 
             alerta_texto = self._lidar_com_alerta_ie()
             if alerta_texto:
-                return False, f"Erro ao salvar: {alerta_texto}"
+                return ExecutionResult(
+                    status=ExecutionStatus.BUSINESS_FAILURE,
+                    message=f"Erro ao salvar: {alerta_texto}",
+                )
 
             self.logger.info(f"Nota {numero_nota} gravada com SUCESSO!")
             self.switch_to_default_content()
-            return True, "Alterada com sucesso"
+            return ExecutionResult(
+                status=ExecutionStatus.SUCCESS,
+                message="Alterada com sucesso",
+            )
 
         except Exception as e:
             self.logger.error(f"Erro inesperado no processamento da nota {numero_nota}: {e}")
             try:
                 self.switch_to_default_content()
-            except:
-                pass
-            return False, f"Falha sistêmica (Crash): {str(e)}"
+            except Exception as switch_error:
+                self.logger.debug(f"NÃ£o foi possÃ­vel voltar ao conteÃºdo padrÃ£o apÃ³s falha da nota {numero_nota}: {switch_error}")
+            return ExecutionResult(
+                status=ExecutionStatus.TECHNICAL_FAILURE,
+                message=f"Falha sistÃªmica (Crash): {str(e)}",
+            )

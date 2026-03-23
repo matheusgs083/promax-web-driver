@@ -28,6 +28,7 @@ build/
 # Testing
 .coverage
 .pytest_cache/
+.pytest_tmp/
 
 # Temp
 *.tmp

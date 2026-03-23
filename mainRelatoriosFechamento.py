@@ -6,8 +6,10 @@ from datetime import datetime, timedelta
 
 from selenium.common.exceptions import UnexpectedAlertPresentException, NoSuchWindowException, WebDriverException
 from core.driver_factory import DriverFactory
+from core.execution_result import normalize_execution_result
 from core.logger import get_logger
 from core.relatorio_execucao import tracker
+from core.settings import get_settings
 from pages.login_page import LoginPage
 from core.renomeador import limpar_nomes_relatorios
 from core.movimentador import mover_relatorios
@@ -22,6 +24,7 @@ from pages.rotinas.relatorio_020220_page import Relatorio020220Page
 
 dotenv.load_dotenv()
 logger = get_logger("MAIN_PROMAX")
+settings = get_settings()
 
 driver = None
 menu_page = None
@@ -61,14 +64,14 @@ def iniciar_sessao():
     driver.maximize_window()
 
     login_page = LoginPage(driver)
-    usuario = os.getenv("PROMAX_USER")
-    senha = os.getenv("PROMAX_PASS")
+    usuario = settings.promax_user
+    senha = settings.promax_pass
     
-    menu_page = login_page.fazer_login(usuario, senha, nome_unidade="SOUSA")
+    menu_page = login_page.fazer_login(usuario, senha, nome_unidade=settings.unidade_relatorios)
     logger.info("Sessão iniciada com sucesso.")
     return driver, menu_page
 
-def executar_tarefa_com_retry(nome_tarefa, funcao_logica, tentativas=3):
+def executar_tarefa_com_retry(nome_tarefa, funcao_logica, tentativas=3, espera_segundos=3):
     global driver, menu_page
 
     for tentativa in range(1, tentativas + 1):
@@ -77,9 +80,30 @@ def executar_tarefa_com_retry(nome_tarefa, funcao_logica, tentativas=3):
             if not driver:
                 iniciar_sessao()
 
-            funcao_logica()
-            logger.info(f"Status: {nome_tarefa} CONCLUÍDA.")
-            return True
+            resultado = normalize_execution_result(
+                funcao_logica(),
+                success_message=f"{nome_tarefa} concluída com sucesso",
+                failure_message=f"{nome_tarefa} retornou falha sem detalhamento",
+            )
+
+            if resultado.ok:
+                logger.info(f"Status: {nome_tarefa} CONCLUÍDA. Detalhe: {resultado.message}")
+                return resultado
+
+            logger.warning(
+                f"{nome_tarefa} retornou status '{resultado.status.value}'. "
+                f"Detalhe: {resultado.message}"
+            )
+
+            if tentativa < tentativas and resultado.should_retry:
+                logger.warning(
+                    f"Nova tentativa agendada para {nome_tarefa} em {espera_segundos}s "
+                    f"por retorno de execução não conclusivo."
+                )
+                time.sleep(espera_segundos)
+                continue
+
+            raise RuntimeError(f"{nome_tarefa} finalizou com status '{resultado.status.value}': {resultado.message}")
 
         except (UnexpectedAlertPresentException, NoSuchWindowException, WebDriverException) as e:
             msg_erro = str(e)
@@ -108,28 +132,30 @@ def main():
         def tarefa_0513(unidades_alvo=None):
             janela = menu_page.acessar_rotina("0513")
             page = Relatorio0513Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 opcao_rel="12", volume_fin="F", tp_equipe="E", 
                 mes_ano_inicial=mes_ano_passado, mes_ano_final=mes_ano_passado,
                 quantos_clientes="99999", nome_arquivo=f"{ultimo_dia_mes_passado.replace('/','-')} (nUnidade) nomeUnidade0513"
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_120616(unidades_alvo=None):
             janela = menu_page.acessar_rotina("120616")
             page = Relatorio120616Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo, 
                 opcao_rel="3", mes_ano=mes_ano_passado, 
                 nome_arquivo=f"{ultimo_dia_mes_passado.replace('/','-')} (nUnidade) 120616_nomeUnidade120616"
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_120601(unidades_alvo=None):
             janela = menu_page.acessar_rotina("120601")
             page = Relatorio120601Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 opcao_rel="01", id_notas_tit_nao_atu=False, 
                 ini_vencimento=primeiro_dia_mes_retrasado, fim_vencimento=ultimo_dia_mes_passado, 
@@ -137,58 +163,64 @@ def main():
                 nome_arquivo=f"{ultimo_dia_mes_passado.replace('/','-')} 120601_nomeUnidade120601"
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_0512(unidades_alvo=None):
             janela = menu_page.acessar_rotina("0512")
             page = Relatorio0512Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 opcao_rel="11", ano=ano_atual, id_converte_hecto=True, 
                 nome_arquivo=f"0512 {ano_atual} nomeUnidade0512"
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_150501(unidades_alvo=None):
             janela = menu_page.acessar_rotina("150501")
             page = Relatorio150501Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo, visao="02",
                 periodo="M", mes_ano=mes_ano_passado, totaliza_periodo=True, 
                 nome_arquivo=f"{ano_mes_passado}-{mes_passado} nomeUnidade150501"
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_030237(unidades_alvo=None):
             janela = menu_page.acessar_rotina("030237")
             page = Relatorio030237Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 quebra1="14", quebra2="12", quebra3="16", 
                 data_inicial=primeiro_dia_mes_passado, data_final=ultimo_dia_mes_passado, 
                 nome_arquivo=f"{mes_passado}-{ano_mes_passado} nomeUnidade030237"
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_030237_Giro(unidades_alvo=["3610006", "3610007", "3610008"]):
             janela = menu_page.acessar_rotina("030237")
             page = Relatorio030237Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo,
                 quebra1="14", itens=True,
                 data_inicial=primeiro_dia_mes_passado, data_final=ultimo_dia_mes_passado,   
                 nome_arquivo=f"{mes_passado}-{ano_mes_passado} nUnidade"
             )
             page.fechar_e_voltar()
+            return resultado
 
         def tarefa_020220(unidades_alvo=None):
             janela = menu_page.acessar_rotina("020220")
             page = Relatorio020220Page(janela.driver, janela.handle_menu)
-            page.gerar_relatorio(
+            resultado = page.gerar_relatorio(
                 unidade=unidades_alvo, opcao_rel="01", mercadoria_todos=False,
                 mercadoria_garrafeira=True, mercadoria_vasilhame=True,
                 selecao_comodatos="T", nome_arquivo="020220 - nomeUnidade020220"
             )
             page.fechar_e_voltar()
+            return resultado
 
         mapa_tarefas = {
             #"Rotina 0513": tarefa_0513,
@@ -241,7 +273,7 @@ def main():
 
         pasta_destino = os.path.join(os.getcwd(), "logs", "relatorios_baixados")
         os.makedirs(pasta_destino, exist_ok=True)
-        pasta_download = os.getenv("DOWNLOAD_DIR", r"C:\Users\caixa.patos\Documents\Relatorios")
+        pasta_download = str(settings.download_dir)
         
         try:
             caminho_csv = tracker.gerar_csv(pasta_destino)
