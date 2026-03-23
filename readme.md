@@ -1,83 +1,114 @@
-﻿# Sistema de Automacao Promax
+﻿# Promax Web Driver
 
-Projeto de RPA em Python para o sistema legado Promax, com Selenium WebDriver, Edge em IE Mode, Page Object Model e servicos auxiliares para download, publicacao e rastreio de execucao.
+Automacao RPA em Python para o sistema legado Promax, com Selenium em Edge IE Mode, arquitetura Page Object Model e servicos de download, publicacao e rastreio de execucao.
 
-## Estrutura
+## Visao Geral
 
-- `entrypoints/`
-  - Implementacao real dos fluxos executaveis, organizada por dominio.
-  - Subpastas principais: `reports/`, `processes/`, `maintenance/` e `tools/`.
-  - `main*.py` e `alterarCEMC.py` na raiz ficaram como wrappers de compatibilidade.
-- `core/`
-  - Infraestrutura compartilhada: driver, configuracao, logs, resultados de execucao, download, publicacao, paths e orquestracao.
-- `pages/`
-  - Page Objects e rotinas especificas do Promax.
-- `tests/`
-  - Testes unitarios e contratos basicos de regressao, agrupados em `core/`, `pages/` e `support/`.
-- `docs/`
-  - Contexto do projeto, code review e historico de melhorias.
-- `agents/`
-  - Prompts e instrucoes para agentes especializados.
+Este repositorio centraliza fluxos operacionais de:
 
-## Fluxos principais
+- geracao de relatorios;
+- digitacao de pedidos;
+- alteracao em lote de condicao/CEMC;
+- reprocessamento de publicacoes pendentes.
 
-- `entrypoints/reports/relatorios.py`
-  - Fluxo principal de relatorios.
-- `entrypoints/reports/relatorios_fechamento.py`
-  - Fluxo de fechamento.
-- `entrypoints/reports/repescagem_relatorios.py`
-  - Repescagem manual de relatorios.
-- `entrypoints/maintenance/reprocessar_publicacao.py`
-  - Reprocessamento de `logs/publicacao_pendente`.
-- `entrypoints/processes/pedidos.py`
-  - Digitacao de pedidos.
-- `entrypoints/processes/lote_condicao.py`
-  - Alteracao em lote de condicao/CEMC.
+O projeto prioriza estabilidade operacional em ambiente legado (frames, alertas assincronos, postbacks e UI nativa de download).
 
-## Como executar
+## Sumario
 
-Fluxo recomendado:
+- [Arquitetura](#arquitetura)
+- [Fluxos Disponiveis](#fluxos-disponiveis)
+- [Execucao Rapida](#execucao-rapida)
+- [Configuracao](#configuracao)
+- [Compatibilidade](#compatibilidade)
+- [Documentacao](#documentacao)
+
+## Arquitetura
+
+```
+promax-web-driver/
+|-- entrypoints/   # fluxos executaveis reais
+|-- core/          # infraestrutura e servicos compartilhados
+|-- pages/         # page objects (common, auth, reports, processes)
+|-- tests/         # testes unitarios e de contrato
+|-- docs/          # contexto tecnico e historico
+`-- agents/        # prompts de agentes especializados
+```
+
+Referencias internas:
+
+- `entrypoints/README.md`
+- `core/README.md`
+- `pages/README.md`
+- `tests/README.md`
+
+## Fluxos Disponiveis
+
+| Comando CLI | Entrada real | Objetivo |
+| --- | --- | --- |
+| `python cli.py relatorios` | `entrypoints/reports/relatorios.py` | Fluxo principal de relatorios |
+| `python cli.py fechamento` | `entrypoints/reports/relatorios_fechamento.py` | Fluxo de fechamento |
+| `python cli.py repescagem` | `entrypoints/reports/repescagem_relatorios.py` | Repescagem manual de relatorios |
+| `python cli.py reprocessar-publicacao` | `entrypoints/maintenance/reprocessar_publicacao.py` | Reprocessa pendencias de publicacao |
+| `python cli.py pedidos` | `entrypoints/processes/pedidos.py` | Digitacao de pedidos |
+| `python cli.py lote-condicao` | `entrypoints/processes/lote_condicao.py` | Alteracao em lote de condicao/CEMC |
+
+## Execucao Rapida
+
+### 1) Preparar ambiente
+
+```bash
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 2) Configurar variaveis
+
+Defina o arquivo `.env` conforme esperado em `core/config/settings.py`.
+
+### 3) Executar um fluxo
 
 ```bash
 python cli.py relatorios
-python cli.py fechamento
-python cli.py repescagem
-python cli.py reprocessar-publicacao
-python cli.py pedidos
-python cli.py lote-condicao
-```
-
-Compatibilidade mantida:
-
-```bash
-python mainRelatorios.py
-python mainRelatoriosFechamento.py
-python main.py
-python mainPedidos.py
-python alterarCEMC.py
 ```
 
 ## Configuracao
 
-O projeto le configuracoes via `.env` usando `core/config/settings.py`.
+O projeto le configuracoes centralmente por `core/config/settings.py`.
 
-Pontos importantes:
+Pontos operacionais importantes:
 
-- `DOWNLOAD_DIR` e a pasta intermediaria de captura.
-- A publicacao final ocorre fora dela, conforme o `PublicationPlan` de cada entrypoint.
-- O ambiente esperado e Windows com Edge/IE Mode, compartilhamentos de rede e desktop interativo para os fluxos de download visual.
+- `DOWNLOAD_DIR` e pasta intermediaria de captura;
+- a publicacao final segue o `PublicationPlan` definido por entrypoint;
+- o ambiente esperado e Windows com Edge IE Mode, desktop interativo e acesso a compartilhamentos de rede.
 
-## Documentacao util
+## Compatibilidade
+
+Os scripts da raiz foram preservados para chamadas antigas, mas hoje funcionam como wrappers:
+
+- `main.py`
+- `mainRelatorios.py`
+- `mainRelatoriosFechamento.py`
+- `mainPedidos.py`
+- `mainReprocessarPublicacao.py`
+- `main140510.py`
+- `alterarCEMC.py`
+
+Para novos usos, prefira sempre `cli.py` e `entrypoints/`.
+
+## Documentacao
 
 - `docs/PROJECT_CONTEXT.md`
 - `docs/code_review_tecnico.md`
 - `docs/ATUALIZACOES_2026-03-23.md`
-- `entrypoints/README.md`
-- `tests/README.md`
+- `docs/plano_elevacao_nota_rpa.md`
+- `docs/status_plano_melhoria.md`
 
-## Observacao operacional
+## Notas de Operacao
 
-A automacao ainda precisa conviver com limitacoes do Promax legado: frames, alertas assincronos, eventos de onchange/onblur, cliques bloqueados e dependencias de UI nativa em parte do fluxo de download.
+O comportamento do Promax exige cuidados especificos de automacao:
 
-
-
+- troca frequente de frame apos postback;
+- tratamento resiliente de alertas;
+- uso de helpers de interacao via JS;
+- fluxo de download com componentes de UI nativa em parte das rotinas.

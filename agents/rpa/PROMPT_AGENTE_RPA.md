@@ -26,10 +26,17 @@ Antes de escrever codigo, abra e entenda estes arquivos:
 4. `pages/auth/login_page.py`
 5. `pages/common/menu_page.py`
 6. `core/execution/execution_result.py`
-7. A pagina-alvo em `pages/reports/`
-8. O entrypoint que consome essa pagina (`main.py`, `mainRelatorios.py`, `mainPedidos.py`, `alterarCEMC.py` ou similar)
+7. A pagina-alvo em `pages/reports/` ou `pages/processes/`, conforme o tipo de rotina
+8. O entrypoint real em `entrypoints/` que consome essa pagina. Os arquivos `main*.py` e `alterarCEMC.py` da raiz existem apenas como wrappers de compatibilidade e nao sao a fonte de verdade
 
-Antes de criar uma rotina nova, procure uma rotina parecida em `pages/reports/` e copie o padrao de estrutura, nao apenas a ideia de negocio.
+Se a demanda citar `mainRelatorios.py`, `mainPedidos.py`, `alterarCEMC.py` ou outro wrapper da raiz, siga primeiro para o modulo correspondente em `entrypoints/` antes de propor alteracoes.
+
+Antes de criar uma rotina nova, procure uma rotina parecida na subpasta correta de `pages/`:
+
+- `pages/reports/` para relatorios;
+- `pages/processes/` para fluxos transacionais.
+
+Copie o padrao de estrutura da rotina similar, nao apenas a ideia de negocio.
 
 ## Arquitetura imutavel
 - Toda pagina de rotina deve herdar de `RotinaPage`.
