@@ -3,11 +3,12 @@ import importlib
 
 
 COMMANDS: dict[str, tuple[str, str]] = {
-    "relatorios": ("mainRelatorios", "Executa o fluxo principal de relatorios."),
-    "fechamento": ("mainRelatoriosFechamento", "Executa o fluxo de fechamento."),
-    "repescagem": ("main", "Executa a repescagem manual de relatorios."),
-    "pedidos": ("mainPedidos", "Executa a digitacao de pedidos."),
-    "lote-condicao": ("alterarCEMC", "Executa a alteracao em lote de condicao/CEMC."),
+    "relatorios": ("entrypoints.reports.relatorios", "Executa o fluxo principal de relatorios."),
+    "fechamento": ("entrypoints.reports.relatorios_fechamento", "Executa o fluxo de fechamento."),
+    "repescagem": ("entrypoints.reports.repescagem_relatorios", "Executa a repescagem manual de relatorios."),
+    "reprocessar-publicacao": ("entrypoints.maintenance.reprocessar_publicacao", "Reprocessa itens em logs/publicacao_pendente."),
+    "pedidos": ("entrypoints.processes.pedidos", "Executa a digitacao de pedidos."),
+    "lote-condicao": ("entrypoints.processes.lote_condicao", "Executa a alteracao em lote de condicao/CEMC."),
 }
 
 

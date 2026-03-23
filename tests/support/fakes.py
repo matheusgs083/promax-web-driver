@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass, field
 
@@ -87,3 +87,5 @@ class FakeDriver:
 
     def find_element(self, *_args, **_kwargs):
         return FakeElement()
+
+

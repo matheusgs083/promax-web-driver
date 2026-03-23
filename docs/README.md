@@ -1,12 +1,20 @@
-# Documentacao
+﻿# Documentacao
 
-Documentos de contexto, revisao tecnica e plano de melhoria do projeto Promax.
+Documentos de contexto, revisao tecnica e historico de melhoria do projeto Promax.
+
+Referencias relacionadas:
+
+- [../entrypoints/README.md](../entrypoints/README.md): fluxos executaveis e wrappers
+- [../core/README.md](../core/README.md): infraestrutura e servicos compartilhados
+- [../pages/README.md](../pages/README.md): page objects e separacao por dominio
 
 Arquivos principais:
 
 - `PROJECT_CONTEXT.md`
 - `code_review_tecnico.md`
+- `ATUALIZACOES_2026-03-23.md`
 - `plano_elevacao_nota_rpa.md`
 - `status_plano_melhoria.md`
 
-Os links internos nesses documentos continuam apontando para os arquivos do codigo-fonte e para a estrutura real do projeto.
+A estrutura real de execucao do projeto agora fica em `entrypoints/`, com wrappers de compatibilidade mantidos na raiz.
+

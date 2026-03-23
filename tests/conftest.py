@@ -1,11 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
 from selenium.webdriver.ie.options import Options as IEOptions
 
-from core import movimentador
+from core.files import movimentador
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def ie_mode_options() -> IEOptions:
     options.ensure_clean_session = False
     options.ignore_protected_mode_settings = True
     options.ignore_zoom_level = True
-    options.require_window_focus = True
+    options.require_window_focus = False
     options.page_load_strategy = "none"
     return options
 
@@ -41,3 +41,5 @@ def isolated_publication_paths(tmp_path, monkeypatch):
         "pending": pending,
         "event": event,
     }
+
+
