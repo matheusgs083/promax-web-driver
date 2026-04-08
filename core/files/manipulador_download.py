@@ -36,6 +36,14 @@ def _validar_arquivo_final(caminho_final: Path) -> tuple[bool, str]:
     return True, f"Download validado com sucesso ({tamanho} bytes)"
 
 
+def _houve_atividade_download(pasta_downloads: Path, arquivos_antes: set[Path]) -> bool:
+    try:
+        arquivos_agora = set(pasta_downloads.iterdir())
+    except Exception:
+        return False
+    return any(arquivo not in arquivos_antes for arquivo in arquivos_agora)
+
+
 def salvar_arquivo_visual(diretorio_destino, nome_arquivo_final):
     logger.info("--- INICIANDO SALVAMENTO OTIMIZADO (WATCHER DE PASTA) ---")
 
@@ -64,8 +72,20 @@ def salvar_arquivo_visual(diretorio_destino, nome_arquivo_final):
         pyautogui.moveTo(x, y, duration=0.3)
         time.sleep(0.2)
         pyautogui.click()
-        time.sleep(0.5)
-        pyautogui.hotkey("alt", "s")
+
+        # Evita ativar duas vezes a mesma barra de download.
+        tempo_limite_fallback = time.time() + 2.5
+        iniciou_download = False
+        while time.time() < tempo_limite_fallback:
+            if _houve_atividade_download(pasta_downloads, arquivos_antes):
+                iniciou_download = True
+                logger.info("Atividade de download detectada após clique visual. Fallback Alt+S ignorado.")
+                break
+            time.sleep(0.2)
+
+        if not iniciou_download:
+            logger.info("Nenhuma atividade detectada após clique visual. Enviando Alt+S como fallback.")
+            pyautogui.hotkey("alt", "s")
     else:
         logger.error("Timeout Crítico: A barra de download do IE não apareceu após 2 minutos.")
         return False, "Barra de download nativa não apareceu"
