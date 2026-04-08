@@ -66,7 +66,15 @@ pip install -r requirements.txt
 
 Defina o arquivo `.env` conforme esperado em `core/config/settings.py`.
 
-### 3) Executar um fluxo
+### 3) Configurar o Internet Explorer / IE Mode
+
+Para o fluxo de download funcionar corretamente, execute o comando abaixo no Windows:
+
+```bat
+reg add "HKCU\Software\Microsoft\Internet Explorer\Main" /v TabProcGrowth /t REG_DWORD /d 0 /f
+```
+
+### 4) Executar um fluxo
 
 ```bash
 python cli.py relatorios
