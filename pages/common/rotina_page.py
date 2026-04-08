@@ -58,6 +58,7 @@ class RotinaPage(BasePage):
     def __init__(self, driver, handle_menu_original):
         super().__init__(driver)
         self.handle_menu = handle_menu_original
+        self.subpasta_download = None
         
         try:
             self.driver.switch_to.window(self.driver.current_window_handle)
@@ -522,9 +523,14 @@ class RotinaPage(BasePage):
         
         # Chama a rotina visual de download (que agora usa a barra do IE)
         if validar_elemento and salvar_arquivo_visual:
-            diretorio = str(get_settings().download_dir)
+            diretorio_base = get_settings().download_dir
+            subpasta = getattr(self, "subpasta_download", None)
+            diretorio = diretorio_base / subpasta if subpasta else diretorio_base
             # RECEBE O RESULTADO PARA SUBIR PARA O TRACKER
-            resultado_download = salvar_arquivo_visual(diretorio_destino=diretorio, nome_arquivo_final=nome_arquivo)
+            resultado_download = salvar_arquivo_visual(
+                diretorio_destino=str(diretorio),
+                nome_arquivo_final=nome_arquivo,
+            )
         else:
             self.logger.warning("Módulos visuais não carregados.")
 
@@ -635,7 +641,6 @@ class RotinaPage(BasePage):
         if not sucesso:
             self.logger.error(f"Erro no campo {nome_campo}: {msg}")
         return sucesso, msg
-
 
 
 

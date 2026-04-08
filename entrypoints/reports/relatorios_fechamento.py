@@ -155,10 +155,10 @@ def main():
         )
         page.fechar_e_voltar()
         return resultado
-
     def tarefa_030237(unidades_alvo=None):
         janela = menu_page.acessar_rotina("030237")
         page = Relatorio030237Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "030237"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             quebra1="14",
@@ -171,16 +171,17 @@ def main():
         page.fechar_e_voltar()
         return resultado
 
-    def tarefa_030237_Giro(unidades_alvo=["3610006", "3610007", "3610008"]):
+    def tarefa_030237_Giro(unidades_alvo=None):
         janela = menu_page.acessar_rotina("030237")
         page = Relatorio030237Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "030237 Giro"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             quebra1="14",
-            itens=True,
+            itens="s",
             data_inicial=primeiro_dia_mes_passado,
             data_final=ultimo_dia_mes_passado,
-            nome_arquivo=f"{mes_passado}-{ano_mes_passado} nUnidade",
+            nome_arquivo=f"{mes_passado}-{ano_mes_passado} nomeUnidade150501",
         )
         page.fechar_e_voltar()
         return resultado
@@ -201,12 +202,12 @@ def main():
         return resultado
 
     tarefas = {
-        "0513": RoutineTask(key="0513", name="Rotina 0513", runner=tarefa_0513),
-        "120616": RoutineTask(key="120616", name="Rotina 120616", runner=tarefa_120616),
-        "120601": RoutineTask(key="120601", name="Rotina 120601", runner=tarefa_120601),
-        "0512": RoutineTask(key="0512", name="Rotina 0512", runner=tarefa_0512),
+        #"0513": RoutineTask(key="0513", name="Rotina 0513", runner=tarefa_0513),
+        #"120616": RoutineTask(key="120616", name="Rotina 120616", runner=tarefa_120616),
+        #"120601": RoutineTask(key="120601", name="Rotina 120601", runner=tarefa_120601),
+        #"0512": RoutineTask(key="0512", name="Rotina 0512", runner=tarefa_0512),
         "150501": RoutineTask(key="150501", name="Rotina 150501", runner=tarefa_150501),
-        "030237": RoutineTask(key="030237", name="Rotina 030237", runner=tarefa_030237),
+        #"030237": RoutineTask(key="030237", name="Rotina 030237", runner=tarefa_030237),
         #"020220": RoutineTask(key="020220", name="Rotina 020220", runner=tarefa_020220),
         #"030237_GIRO": RoutineTask(key="030237_GIRO", name="Rotina 030237 Giro", runner=tarefa_030237_Giro),
     }
@@ -237,6 +238,14 @@ def main():
             os.path.join(str(pasta_intermediaria), "150501", f"{ano_mes_passado}-{mes_passado} Barra.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\OBZ\Fato\15.05.01\{ano_mes_passado}\7. BARRA",
             os.path.join(str(pasta_intermediaria), "150501", f"{ano_mes_passado}-{mes_passado} Caculé.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\OBZ\Fato\15.05.01\{ano_mes_passado}\8. CACULÉ",
             os.path.join(str(pasta_intermediaria), "030237"): r"\\dc01n\PUBLICO\REVENDA\Power BI\ADF",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 1.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\01. Sousa",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 2.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\02. Itaporanga",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 3.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\03. Patos",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 4.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\04. Sumé",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 5.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\05. Guarabira",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 6.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\06. Brumado",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 7.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\07. Barra",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 8.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\08. Caculé",
             os.path.join(str(pasta_intermediaria), "020220"): r"M:\ADMINISTRATIVO\FINANCEIRO\GERÊNCIA\Relatorios\02.02.20 - Recolhas",
         },
         success_message="Movimentação concluída com sucesso.",
@@ -262,4 +271,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

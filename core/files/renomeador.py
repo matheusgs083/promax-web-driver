@@ -61,8 +61,8 @@ def limpar_nomes_relatorios(pasta_relatorios, caminho_excel_auxiliar):
 
     arquivos_processados = 0
     
-    for arquivo in pasta.iterdir():
-        if arquivo.is_file() and arquivo.suffix.lower() == '.csv':
+    for arquivo in pasta.rglob("*.csv"):
+        if arquivo.is_file():
             nome_original = arquivo.name
             
             # Ignora o log consolidado ou arquivos ocultos
@@ -70,6 +70,8 @@ def limpar_nomes_relatorios(pasta_relatorios, caminho_excel_auxiliar):
                 continue
             
             pasta_sub = None
+            if arquivo.parent != pasta:
+                pasta_sub = arquivo.parent.relative_to(pasta).parts[0]
             novo_nome = nome_original
             
             # Tenta descobrir o código da revenda no final do arquivo (Ex: _0640001.csv)
@@ -80,11 +82,23 @@ def limpar_nomes_relatorios(pasta_relatorios, caminho_excel_auxiliar):
                 
                 if cod in mapa_revendas:
                     row = mapa_revendas[cod]
+                    substituiu_n_unidade_bruta = False
                     
                     # 1. Substitui a tag (nUnidade) pelo número da filial -> (1)
                     if "(nUnidade)" in novo_nome and "nUnidade" in row:
                         n_unidade = row["nUnidade"]
                         novo_nome = novo_nome.replace("(nUnidade)", f"({n_unidade})")
+
+                    # 1.1 Suporta arquivos no formato "02.02.20_nUnidade_2210004.csv" -> "02.02.20_4.csv"
+                    if "nUnidade" in row:
+                        n_unidade = row["nUnidade"]
+                        novo_nome_ajustado = re.sub(
+                            r'(?<![A-Za-z0-9])nUnidade(?![A-Za-z0-9])',
+                            n_unidade,
+                            novo_nome,
+                        )
+                        substituiu_n_unidade_bruta = novo_nome_ajustado != novo_nome
+                        novo_nome = novo_nome_ajustado
                     
                     # 2. Descobre qual coluna do Excel usar e extrai o Nº da Rotina para criar a pasta
                     for coluna, valor_real in row.items():
@@ -95,9 +109,9 @@ def limpar_nomes_relatorios(pasta_relatorios, caminho_excel_auxiliar):
                                 
                                 # ---> A MÁGICA DO PREFIXO AQUI <---
                                 # Se o arquivo tiver " - ", tudo antes do traço vira a pasta!
-                                if " - " in nome_original:
+                                if arquivo.parent == pasta and " - " in nome_original:
                                     pasta_sub = nome_original.split(" - ")[0].strip()
-                                else:
+                                elif arquivo.parent == pasta:
                                     # Fallback (caso esqueça do traço, extrai só os números como antes)
                                     match_rotina = re.search(r'nomeUnidade(\d+)', coluna)
                                     if match_rotina:
@@ -105,13 +119,15 @@ def limpar_nomes_relatorios(pasta_relatorios, caminho_excel_auxiliar):
                     
                     # ---> TROCA DE VÍRGULA POR PONTO NO NOME DO ARQUIVO AQUI <---
                     novo_nome = novo_nome.replace(',', '.')
+                    if substituiu_n_unidade_bruta:
+                        novo_nome = re.sub(fr"_{cod}(?=\.csv$)", "", novo_nome, flags=re.IGNORECASE)
                     novo_nome = re.sub(r'\s+', ' ', novo_nome).strip()
 
             else:
                 # ---> A MÁGICA DO PREFIXO PARA ARQUIVOS GLOBAIS AQUI <---
-                if " - " in nome_original:
+                if arquivo.parent == pasta and " - " in nome_original:
                     pasta_sub = nome_original.split(" - ")[0].strip()
-                else:
+                elif arquivo.parent == pasta:
                     # Fallback para relatórios globais sem traço
                     match_global = re.search(r'^(\d{4,})', nome_original)
                     if match_global:

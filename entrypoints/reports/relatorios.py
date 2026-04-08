@@ -40,6 +40,7 @@ mes_atual = hoje.strftime("%m")
 mes_ano_atual = hoje.strftime("%m/%Y")
 data_hoje_arquivo = hoje.strftime("%d-%m-%Y")
 data_ontem_formatada = ontem.strftime("%d/%m/%Y")
+data_hoje_formatada = hoje.strftime("%d/%m/%Y")
 primeiro_dia_mes_atual = hoje.replace(day=1).strftime("%d/%m/%Y")
 
 ultimo_dia_mes_passado_dt = hoje.replace(day=1) - timedelta(days=1)
@@ -87,7 +88,7 @@ def encerrar_sessao():
 def main():
     logger.info("=== INICIANDO ROBÔ PROMAX (COM AUTO-RECOVERY) ===")
 
-    def tarefa_0513(unidades_alvo=["2210003", "2210004"]):
+    def tarefa_0513(unidades_alvo=None):
         janela = menu_page.acessar_rotina("0513")
         page = Relatorio0513Page(janela.driver, janela.handle_menu)
         resultado = page.gerar_relatorio(
@@ -161,6 +162,7 @@ def main():
     def tarefa_030237(unidades_alvo=None):
         janela = menu_page.acessar_rotina("030237")
         page = Relatorio030237Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "030237"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             quebra1="14",
@@ -176,21 +178,22 @@ def main():
     def tarefa_030237_Giro(unidades_alvo=None):
         janela = menu_page.acessar_rotina("030237")
         page = Relatorio030237Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "030237 Giro"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             quebra1="14",
-            quebra2="12",
-            quebra3="16",
-            data_inicial=primeiro_dia_mes_passado,
-            data_final=ultimo_dia_mes_passado,
-            nome_arquivo=f"{mes_passado}-{ano_mes_passado}_nUnidade",
+            itens="s",
+            data_inicial=primeiro_dia_mes_atual,
+            data_final=data_hoje_formatada,
+            nome_arquivo=f"{mes_atual}-{ano_atual} nomeUnidade030237",
         )
         page.fechar_e_voltar()
         return resultado
 
-    def tarefa_020220_Auditool(unidades_alvo=None):
+    def tarefa_020220_Auditool(unidades_alvo=["3610008"]):
         janela = menu_page.acessar_rotina("020220")
         page = Relatorio020220Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "020220 Auditool"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             opcao_rel="01",
@@ -198,6 +201,7 @@ def main():
             mercadoria_garrafeira=True,
             mercadoria_vasilhame=True,
             mercadoria_sopi_visa=True,
+            exibe_inf_documentos=True,
             selecao_comodatos="P",
             nome_arquivo="020220 Auditool - nomeUnidade020220",
         )
@@ -207,14 +211,15 @@ def main():
     def tarefa_020220_Giro(unidades_alvo=None):
         janela = menu_page.acessar_rotina("020220")
         page = Relatorio020220Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "020220 Giro"
         resultado = page.gerar_relatorio(
-            unidade=unidades_alvo or ["3610007"],
+            unidade=unidades_alvo,
             opcao_rel="01",
             mercadoria_todos=False,
             mercadoria_garrafeira=True,
             mercadoria_sopi_visa=True,
             selecao_comodatos="T",
-            nome_arquivo="020220_nUnidade",
+            nome_arquivo="02,02,20_nUnidade",
         )
         page.fechar_e_voltar()
         return resultado
@@ -222,6 +227,7 @@ def main():
     def tarefa_020220_Recolhas(unidades_alvo=None):
         janela = menu_page.acessar_rotina("020220")
         page = Relatorio020220Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "020220 Recolhas"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             opcao_rel="01",
@@ -235,16 +241,21 @@ def main():
         return resultado
 
     tarefas = {
-        "120601": RoutineTask(key="120601", name="Rotina 120601", runner=tarefa_120601),
-        # "0513": RoutineTask(key="0513", name="Rotina 0513", runner=tarefa_0513),
-        # "120616": RoutineTask(key="120616", name="Rotina 120616", runner=tarefa_120616),
-        # "0512": RoutineTask(key="0512", name="Rotina 0512", runner=tarefa_0512),
-        # "150501": RoutineTask(key="150501", name="Rotina 150501", runner=tarefa_150501),
-        # "030237": RoutineTask(key="030237", name="Rotina 030237", runner=tarefa_030237),
-        # "020220": RoutineTask(key="020220", name="Rotina 020220 Auditool", runner=tarefa_020220_Auditool),
+        #inadimplencia
+        #"0513": RoutineTask(key="0513", name="Rotina 0513", runner=tarefa_0513),
+        #"120616": RoutineTask(key="120616", name="Rotina 120616", runner=tarefa_120616),
+        #"120601": RoutineTask(key="120601", name="Rotina 120601", runner=tarefa_120601),
+        # OBZ
+        "0512": RoutineTask(key="0512", name="Rotina 0512", runner=tarefa_0512),
+        "150501": RoutineTask(key="150501", name="Rotina 150501", runner=tarefa_150501),
+        #adf
+        #"030237": RoutineTask(key="030237", name="Rotina 030237", runner=tarefa_030237),
+        #outros
+        #"020220": RoutineTask(key="020220", name="Rotina 020220 Auditool", runner=tarefa_020220_Auditool),
         # "020220_RECOLHAS": RoutineTask(key="020220_RECOLHAS", name="Rotina 020220 Recolhas", runner=tarefa_020220_Recolhas),
-        # "030237_GIRO": RoutineTask(key="030237_GIRO", name="Rotina 030237 Giro", runner=tarefa_030237_Giro),
-        # "020220_GIRO": RoutineTask(key="020220_GIRO", name="Rotina 020220 Giro", runner=tarefa_020220_Giro),
+        #Giro
+        #"030237 Giro": RoutineTask(key="030237_GIRO", name="Rotina 030237 Giro", runner=tarefa_030237_Giro),
+        #"020220 Giro": RoutineTask(key="020220_GIRO", name="Rotina 020220 Giro", runner=tarefa_020220_Giro),
     }
 
     pasta_intermediaria = Path(settings.download_dir)
@@ -262,9 +273,9 @@ def main():
 
     publication_plan = PublicationPlan(
         mapping={
-            os.path.join(str(pasta_intermediaria), "0513"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Inadimplência\05.13\{ano_atual}\{mes_atual}. {nome_mes_atual}",
-            os.path.join(str(pasta_intermediaria), "120616"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Inadimplência\12.06.16\{ano_atual}\{mes_atual}. {nome_mes_atual}",
-            os.path.join(str(pasta_intermediaria), "120601"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Inadimplência\12.06.01\{ano_atual}\{mes_atual}. {nome_mes_atual}",
+            os.path.join(str(pasta_intermediaria), "0513"): r"\\dc01n\PUBLICO\REVENDA\Power BI\Inadimplência\05.13",
+            os.path.join(str(pasta_intermediaria), "120616"): r"\\dc01n\PUBLICO\REVENDA\Power BI\Inadimplência\12.06.16",
+            os.path.join(str(pasta_intermediaria), "120601"): r"\\dc01n\PUBLICO\REVENDA\Power BI\Inadimplência\12.06.01",
             os.path.join(str(pasta_intermediaria), "0512"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\OBZ\Fato\05.12\{ano_atual}",
             os.path.join(str(pasta_intermediaria), "150501", f"{ano_atual}-{mes_atual} Sousa.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\OBZ\Fato\15.05.01\{ano_atual}\1. SOUSA",
             os.path.join(str(pasta_intermediaria), "150501", f"{ano_atual}-{mes_atual} Itaporanga.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\OBZ\Fato\15.05.01\{ano_atual}\2. ITAPORANGA",
@@ -277,6 +288,15 @@ def main():
             os.path.join(str(pasta_intermediaria), "030237"): r"\\dc01n\PUBLICO\REVENDA\Power BI\ADF",
             os.path.join(str(pasta_intermediaria), "020220 Auditool"): r"M:\ADMINISTRATIVO\FINANCEIRO\GERÊNCIA\Relatorios\02.02.20 - auditool",
             os.path.join(str(pasta_intermediaria), "020220 Recolhas"): r"M:\ADMINISTRATIVO\FINANCEIRO\GERÊNCIA\Relatorios\02.02.20 - recolhas",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_atual}-{ano_atual} Sousa.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_atual}\01. Sousa",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_atual}-{ano_atual} Itaporanga.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_atual}\02. Itaporanga",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_atual}-{ano_atual} Patos.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_atual}\03. Patos",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_atual}-{ano_atual} Sumé.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_atual}\04. Sumé",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_atual}-{ano_atual} Guarabira.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_atual}\05. Guarabira",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_atual}-{ano_atual} Brumado.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_atual}\06. Brumado",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_atual}-{ano_atual} Barra.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_atual}\07. Barra",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_atual}-{ano_atual} Caculé.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_atual}\08. Caculé",
+            os.path.join(str(pasta_intermediaria), "020220 Giro"): r"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\02.02.20"
         },
         success_message="Movimentação concluída com sucesso.",
         partial_prefix="Movimentação concluída com pendências de publicação.",
