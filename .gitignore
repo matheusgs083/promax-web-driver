@@ -51,6 +51,7 @@ logs/
 *.csv
 *.xlsx
 erro_*.png
+!data/dRevendas.xlsx
 
 # VS Code / IDE
 .vscode/
