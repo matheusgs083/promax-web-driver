@@ -190,7 +190,7 @@ def main():
         page.fechar_e_voltar()
         return resultado
 
-    def tarefa_020220_Auditool(unidades_alvo=["3610008"]):
+    def tarefa_020220_Auditool(unidades_alvo=None):
         janela = menu_page.acessar_rotina("020220")
         page = Relatorio020220Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "020220 Auditool"
@@ -244,10 +244,10 @@ def main():
         #inadimplencia
         #"0513": RoutineTask(key="0513", name="Rotina 0513", runner=tarefa_0513),
         #"120616": RoutineTask(key="120616", name="Rotina 120616", runner=tarefa_120616),
-        #"120601": RoutineTask(key="120601", name="Rotina 120601", runner=tarefa_120601),
+        "120601": RoutineTask(key="120601", name="Rotina 120601", runner=tarefa_120601),
         # OBZ
-        "0512": RoutineTask(key="0512", name="Rotina 0512", runner=tarefa_0512),
-        "150501": RoutineTask(key="150501", name="Rotina 150501", runner=tarefa_150501),
+        #"0512": RoutineTask(key="0512", name="Rotina 0512", runner=tarefa_0512),
+        #"150501": RoutineTask(key="150501", name="Rotina 150501", runner=tarefa_150501),
         #adf
         #"030237": RoutineTask(key="030237", name="Rotina 030237", runner=tarefa_030237),
         #outros

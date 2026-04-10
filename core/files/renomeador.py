@@ -2,11 +2,12 @@
 import re
 import json
 import sys
+import argparse
 import pandas as pd
 from pathlib import Path
 
 # --- HACK PARA RODAR DIRETO ---
-sys.path.append(str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parents[2]))
 # ------------------------------
 
 from core.observability.logger import get_logger
@@ -223,40 +224,82 @@ if __name__ == "__main__":
     import dotenv
     
     dotenv.load_dotenv()
-    
-    projeto_raiz = Path(__file__).resolve().parent.parent
-    pasta_intermediaria = os.getenv("DOWNLOAD_DIR", r"C:\Users\caixa.patos\Documents\Relatorios")
+
+    parser = argparse.ArgumentParser(
+        description="Ferramenta de higienizacao e organizacao de relatorios.",
+    )
+    parser.add_argument(
+        "--pasta-intermediaria",
+        dest="pasta_intermediaria",
+        help="Pasta onde os relatorios CSV estao salvos.",
+    )
+    parser.add_argument(
+        "--planilha",
+        dest="planilha",
+        help="Caminho da planilha auxiliar .xlsx.",
+    )
+    parser.add_argument(
+        "--acao",
+        choices=("renomear", "desfazer"),
+        help="Executa direto sem abrir o menu interativo.",
+    )
+    args = parser.parse_args()
+
+    projeto_raiz = Path(__file__).resolve().parents[2]
+    pasta_intermediaria = Path(
+        args.pasta_intermediaria or os.getenv("DOWNLOAD_DIR", r"C:\Users\caixa.patos\Documents\Relatorios")
+    ).expanduser()
     pasta_data = projeto_raiz / "data"
-    
-    arquivos_excel = list(pasta_data.glob("*.xlsx"))
-    arquivos_excel = [f for f in arquivos_excel if not f.name.startswith("~$")]
-    
-    if not arquivos_excel:
-        print("=" * 50)
-        print(f"ERRO CRITICO: Nenhum ficheiro .xlsx encontrado na pasta:\n{pasta_data}")
-        print("=" * 50)
-        exit()
-        
-    caminho_planilha = arquivos_excel[0] 
-    
+
+    if args.planilha:
+        caminho_planilha = Path(args.planilha).expanduser()
+        if not caminho_planilha.is_file():
+            print("=" * 50)
+            print(f"ERRO CRITICO: Planilha auxiliar nao encontrada:\n{caminho_planilha}")
+            print("=" * 50)
+            raise SystemExit(1)
+    else:
+        arquivos_excel = sorted(
+            arquivo
+            for arquivo in pasta_data.glob("*.xlsx")
+            if not arquivo.name.startswith("~$")
+        )
+
+        if not arquivos_excel:
+            print("=" * 50)
+            print(f"ERRO CRITICO: Nenhum ficheiro .xlsx encontrado na pasta:\n{pasta_data}")
+            print("Use --planilha para apontar um arquivo especifico.")
+            print("=" * 50)
+            raise SystemExit(1)
+
+        caminho_planilha = arquivos_excel[0]
+
     print("=" * 50)
     print("FERRAMENTA DE HIGIENIZACAO DE RELATORIOS (USANDO PANDAS)")
     print("=" * 50)
     print(f"Pasta intermediaria: {pasta_intermediaria}")
-    print(f"Planilha encontrada: {caminho_planilha.name}")
+    print(f"Planilha encontrada: {caminho_planilha}")
     print("-" * 50)
-    print("[1] - Renomear e Organizar Arquivos em Pastas")
-    print("[2] - Desfazer Tudo (Voltar nomes e jogar pra raiz)")
-    print("[0] - Sair")
-    
-    opcao = input("\nEscolha uma opção (0, 1 ou 2): ").strip()
-    
-    print("\n")
-    if opcao == "1":
+
+    if args.acao == "renomear":
         limpar_nomes_relatorios(pasta_intermediaria, str(caminho_planilha))
         print("\nProcesso de organizacao finalizado! Olhe a sua pasta intermediaria.")
-    elif opcao == "2":
+    elif args.acao == "desfazer":
         desfazer_renomeacoes(pasta_intermediaria)
         print("\nProcesso de reversao finalizado! Os arquivos voltaram a forma original.")
     else:
-        print("Saindo sem fazer nada...")
+        print("[1] - Renomear e Organizar Arquivos em Pastas")
+        print("[2] - Desfazer Tudo (Voltar nomes e jogar pra raiz)")
+        print("[0] - Sair")
+
+        opcao = input("\nEscolha uma opção (0, 1 ou 2): ").strip()
+
+        print("\n")
+        if opcao == "1":
+            limpar_nomes_relatorios(pasta_intermediaria, str(caminho_planilha))
+            print("\nProcesso de organizacao finalizado! Olhe a sua pasta intermediaria.")
+        elif opcao == "2":
+            desfazer_renomeacoes(pasta_intermediaria)
+            print("\nProcesso de reversao finalizado! Os arquivos voltaram a forma original.")
+        else:
+            print("Saindo sem fazer nada...")
