@@ -491,14 +491,29 @@ class RotinaPage(BasePage):
         if locators_export is None:
             locators_export = (self.BTN_GERA_EXCEL_1, self.BTN_GERA_EXCEL_2)
 
+        def _falha_alerta_pos_visualizacao():
+            mensagens_alerta = self.lidar_com_alertas(
+                tentativas=2,
+                timeout=2,
+                timeout_entre_alertas=1,
+                max_alertas=10,
+            )
+            detalhe = " | ".join(mensagens_alerta) if mensagens_alerta else "Alerta sem texto capturado"
+            self.switch_to_default_content()
+            return (
+                False,
+                f"Alerta apos visualizar antes da exportacao CSV. Unidade sera deixada para retry: {detalhe}",
+            )
+
         try:
             WebDriverWait(self.driver, timeout_csv).until(
                 EC.frame_to_be_available_and_switch_to_it(frame_index)
             )
         except UnexpectedAlertPresentException:
-            self.lidar_com_alertas()
-            self.switch_to_default_content()
-            self.driver.switch_to.frame(frame_index)
+            self.logger.warning(
+                "Alerta detectado apos visualizar, antes da tela de exportacao. Unidade sera marcada para retry."
+            )
+            return _falha_alerta_pos_visualizacao()
         except TimeoutException:
             self.driver.switch_to.frame(frame_index)
 
@@ -512,6 +527,11 @@ class RotinaPage(BasePage):
 
         try:
             btn_csv = WebDriverWait(self.driver, timeout_botao).until(_achar_botao)
+        except UnexpectedAlertPresentException:
+            self.logger.warning(
+                "Alerta detectado enquanto aguardava o botao CSV/Excel. Unidade sera marcada para retry."
+            )
+            return _falha_alerta_pos_visualizacao()
         except TimeoutException:
             raise RuntimeError("Botão de exportação HTML (GeraExcel/GerExecl) não apareceu na tela.")
 
@@ -641,6 +661,5 @@ class RotinaPage(BasePage):
         if not sucesso:
             self.logger.error(f"Erro no campo {nome_campo}: {msg}")
         return sucesso, msg
-
 
 
