@@ -1,7 +1,11 @@
-import re
+﻿import re
 import shutil
 import time
 from pathlib import Path
+
+from core.tools.windows_display import ensure_windows_dpi_aware
+
+ensure_windows_dpi_aware()
 
 import pyautogui
 
@@ -87,12 +91,12 @@ def salvar_arquivo_visual(diretorio_destino, nome_arquivo_final):
             logger.info("Nenhuma atividade detectada após clique visual. Enviando Alt+S como fallback.")
             pyautogui.hotkey("alt", "s")
     else:
-        logger.error("Timeout Crítico: A barra de download do IE não apareceu após 2 minutos.")
+        logger.error("Timeout Crítico: A barra de download do IE não apareceu após 1 minuto.")
         return False, "Barra de download nativa não apareceu"
 
     time.sleep(1)
 
-    timeout_segundos = 500
+    timeout_segundos = 550
     tempo_limite = time.time() + timeout_segundos
     logger.info(f"Aguardando arquivo novo em: {pasta_downloads}")
 

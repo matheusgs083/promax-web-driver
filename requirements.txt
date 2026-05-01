@@ -3,6 +3,7 @@ comtypes==1.4.15
 opencv-python==4.13.0.90
 openpyxl==3.1.5
 pandas==3.0.1
+Pillow==12.2.0
 PyAutoGUI==0.9.54
 python-dotenv==1.2.1
 pywinauto==0.6.9
