@@ -2,6 +2,7 @@
 import dotenv
 from datetime import datetime, timedelta
 from pathlib import Path
+import pandas as pd
 
 from core.execution.entrypoint_helpers import (
     encerrar_driver,
@@ -47,6 +48,9 @@ mes_passado = data_ultimo_dia_mes_passado.strftime('%m')
 mes_ano_passado = data_ultimo_dia_mes_passado.strftime("%m/%Y")
 ultimo_dia_mes_passado = data_ultimo_dia_mes_passado.strftime('%d/%m/%Y')
 primeiro_dia_mes_passado = data_ultimo_dia_mes_passado.replace(day=1).strftime('%d/%m/%Y')
+ultimo_dia_util_mes_passado = (
+    pd.Timestamp(data_ultimo_dia_mes_passado) + pd.offsets.BMonthEnd(0)
+).strftime('%d/%m/%Y')
 
 data_ultimo_dia_mes_retrasado = data_ultimo_dia_mes_passado.replace(day=1) - timedelta(days=1)
 primeiro_dia_mes_retrasado = data_ultimo_dia_mes_retrasado.replace(day=1).strftime('%d/%m/%Y')
@@ -208,8 +212,7 @@ def main():
         #"0512": RoutineTask(key="0512", name="Rotina 0512", runner=tarefa_0512),
         #"150501": RoutineTask(key="150501", name="Rotina 150501", runner=tarefa_150501),
         #"030237": RoutineTask(key="030237", name="Rotina 030237", runner=tarefa_030237),
-        #"020220": RoutineTask(key="020220", name="Rotina 020220", runner=tarefa_020220),
-        "030237_GIRO": RoutineTask(key="030237_GIRO", name="Rotina 030237 Giro", runner=tarefa_030237_Giro),
+        #"030237_GIRO": RoutineTask(key="030237_GIRO", name="Rotina 030237 Giro", runner=tarefa_030237_Giro),
     }
 
     pasta_intermediaria = Path(settings.download_dir)
@@ -238,15 +241,14 @@ def main():
             os.path.join(str(pasta_intermediaria), "150501", f"{ano_mes_passado}-{mes_passado} Barra.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\OBZ\Fato\15.05.01\{ano_mes_passado}\7. BARRA",
             os.path.join(str(pasta_intermediaria), "150501", f"{ano_mes_passado}-{mes_passado} Caculé.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\OBZ\Fato\15.05.01\{ano_mes_passado}\8. CACULÉ",
             os.path.join(str(pasta_intermediaria), "030237"): r"\\dc01n\PUBLICO\REVENDA\Power BI\ADF",
-            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 1.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\01. Sousa",
-            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 2.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\02. Itaporanga",
-            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 3.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\03. Patos",
-            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 4.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\04. Sumé",
-            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 5.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\05. Guarabira",
-            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 6.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\06. Brumado",
-            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 7.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\07. Barra",
-            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} 8.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\08. Caculé",
-            os.path.join(str(pasta_intermediaria), "020220"): r"M:\ADMINISTRATIVO\FINANCEIRO\GERÊNCIA\Relatorios\02.02.20 - Recolhas",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} Sousa.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\01. Sousa",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} Itaporanga.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\02. Itaporanga",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} Patos.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\03. Patos",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} Sumé.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\04. Sumé",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} Guarabira.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\05. Guarabira",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} Brumado.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\06. Brumado",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} Barra.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\07. Barra",
+            os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} Caculé.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\08. Caculé",
         },
         success_message="Movimentação concluída com sucesso.",
         partial_prefix="Movimentação concluída com pendências de publicação.",

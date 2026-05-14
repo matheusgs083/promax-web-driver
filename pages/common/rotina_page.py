@@ -521,6 +521,8 @@ class RotinaPage(BasePage):
             for locator in locators_export:
                 try:
                     return d.find_element(*locator)
+                except UnexpectedAlertPresentException:
+                    raise
                 except Exception:
                     pass
             return False
