@@ -27,12 +27,12 @@ def _arquivo_pronto_para_mover(arquivo: Path) -> bool:
         return False
 
 
-def _validar_arquivo_final(caminho_final: Path) -> tuple[bool, str]:
+def _validar_arquivo_final(caminho_final: Path, extensao_esperada: str = ".csv") -> tuple[bool, str]:
     if not caminho_final.exists():
         return False, "Arquivo final não existe após a movimentação"
     if not caminho_final.is_file():
         return False, "Caminho final não é um arquivo"
-    if caminho_final.suffix.lower() != ".csv":
+    if caminho_final.suffix.lower() != extensao_esperada.lower():
         return False, f"Extensão final inválida: {caminho_final.suffix}"
     tamanho = caminho_final.stat().st_size
     if tamanho <= 0:
@@ -48,7 +48,7 @@ def _houve_atividade_download(pasta_downloads: Path, arquivos_antes: set[Path]) 
     return any(arquivo not in arquivos_antes for arquivo in arquivos_agora)
 
 
-def salvar_arquivo_visual(diretorio_destino, nome_arquivo_final):
+def salvar_arquivo_visual(diretorio_destino, nome_arquivo_final, extensao_final=".csv"):
     logger.info("--- INICIANDO SALVAMENTO OTIMIZADO (WATCHER DE PASTA) ---")
 
     pasta_downloads = Path.home() / "Downloads"
@@ -61,8 +61,9 @@ def salvar_arquivo_visual(diretorio_destino, nome_arquivo_final):
     logger.info(f"Pasta intermediaria configurada em: {pasta_intermediaria}")
 
     nome_limpo = re.sub(r'[\\/*?:"<>|]', "_", nome_arquivo_final)
-    if not nome_limpo.lower().endswith(".csv"):
-        nome_limpo += ".csv"
+    extensao_final = extensao_final if str(extensao_final).startswith(".") else f".{extensao_final}"
+    if not nome_limpo.lower().endswith(extensao_final.lower()):
+        nome_limpo += extensao_final
 
     caminho_final = pasta_intermediaria / nome_limpo
     arquivos_antes = set(pasta_downloads.iterdir())
@@ -123,7 +124,7 @@ def salvar_arquivo_visual(diretorio_destino, nome_arquivo_final):
                     caminho_final.unlink()
 
                 shutil.move(str(arquivo), str(caminho_final))
-                ok_validacao, motivo_validacao = _validar_arquivo_final(caminho_final)
+                ok_validacao, motivo_validacao = _validar_arquivo_final(caminho_final, extensao_final)
                 if not ok_validacao:
                     logger.error(f"Arquivo movido, mas inválido: {motivo_validacao}")
                     return False, motivo_validacao

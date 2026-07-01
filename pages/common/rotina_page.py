@@ -67,22 +67,23 @@ class RotinaPage(BasePage):
             self.logger.debug(f"Não foi possível maximizar/focar a janela da rotina: {e}")
         
         try:
-            atual = self.obter_unidade_atual()
+            atual = self.obter_unidade_atual(timeout=1)
             self.logger.info(f"Janela aberta. Unidade ativa: {atual}")
         except Exception as e:
             self.logger.debug(f"Não foi possível ler a unidade ativa ao abrir a rotina: {e}")
 
-    def _entrar_frame_topo(self):
+    def _entrar_frame_topo(self, timeout=None):
         self.switch_to_default_content()
+        wait = self.wait if timeout is None else WebDriverWait(self.driver, timeout)
         try:
-            self.wait.until(EC.frame_to_be_available_and_switch_to_it(self.FRAME_TOP_ROTINA))
+            wait.until(EC.frame_to_be_available_and_switch_to_it(self.FRAME_TOP_ROTINA))
         except Exception as e:
             self.logger.debug(f"Falha ao entrar no frame '{self.FRAME_TOP_ROTINA}', usando fallback frame[0]: {e}")
             self.driver.switch_to.default_content()
             self.driver.switch_to.frame(0)
 
-    def obter_unidade_atual(self):
-        self._entrar_frame_topo()
+    def obter_unidade_atual(self, timeout=None):
+        self._entrar_frame_topo(timeout=timeout)
         js = "var els=document.getElementsByName('unidade'); if(els && els.length>0) return els[0].value; return null;"
         return self.driver.execute_script(js)
 

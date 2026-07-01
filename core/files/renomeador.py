@@ -62,7 +62,13 @@ def limpar_nomes_relatorios(pasta_relatorios, caminho_excel_auxiliar):
 
     arquivos_processados = 0
     
-    for arquivo in pasta.rglob("*.csv"):
+    arquivos_relatorio = [
+        arquivo
+        for padrao in ("*.csv", "*.xlsx")
+        for arquivo in pasta.rglob(padrao)
+    ]
+
+    for arquivo in arquivos_relatorio:
         if arquivo.is_file():
             nome_original = arquivo.name
             
@@ -76,7 +82,7 @@ def limpar_nomes_relatorios(pasta_relatorios, caminho_excel_auxiliar):
             novo_nome = nome_original
             
             # Tenta descobrir o código da revenda no final do arquivo (Ex: _0640001.csv)
-            match_revenda = re.search(r'_?(\d{7})\.csv$', nome_original, re.IGNORECASE)
+            match_revenda = re.search(r'_?(\d{7})\.(csv|xlsx)$', nome_original, re.IGNORECASE)
             
             if match_revenda:
                 cod = match_revenda.group(1)
@@ -121,7 +127,7 @@ def limpar_nomes_relatorios(pasta_relatorios, caminho_excel_auxiliar):
                     # ---> TROCA DE VÍRGULA POR PONTO NO NOME DO ARQUIVO AQUI <---
                     novo_nome = novo_nome.replace(',', '.')
                     if substituiu_n_unidade_bruta:
-                        novo_nome = re.sub(fr"_{cod}(?=\.csv$)", "", novo_nome, flags=re.IGNORECASE)
+                        novo_nome = re.sub(fr"_{cod}(?=\.(csv|xlsx)$)", "", novo_nome, flags=re.IGNORECASE)
                     novo_nome = re.sub(r'\s+', ' ', novo_nome).strip()
 
             else:

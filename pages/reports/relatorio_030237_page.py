@@ -37,6 +37,11 @@ class Relatorio030237Page(RotinaPage):
         quebra2_final=None,
         quebra3_inicial=None,
         quebra3_final=None,
+        visao=None,
+        cd_visao=None,
+        tp_consolidacao=None,
+        visao_multi_cdd=None,
+        selecao_multi_cdd=None,
         acao="BotVisualizar",
         timeout=15,
         clicar_csv_apos_visualizar=True,
@@ -64,6 +69,11 @@ class Relatorio030237Page(RotinaPage):
                     quebra2_final=quebra2_final,
                     quebra3_inicial=quebra3_inicial,
                     quebra3_final=quebra3_final,
+                    visao=visao,
+                    cd_visao=cd_visao,
+                    tp_consolidacao=tp_consolidacao,
+                    visao_multi_cdd=visao_multi_cdd,
+                    selecao_multi_cdd=selecao_multi_cdd,
                     acao=acao,
                     timeout=timeout,
                     clicar_csv_apos_visualizar=clicar_csv_apos_visualizar,
@@ -95,8 +105,14 @@ class Relatorio030237Page(RotinaPage):
         # 3) Preenchimento
         try:
             self.js_set_select_by_name("quebra1", quebra1)
+            if quebra1 is not None:
+                self.driver.execute_script("if (typeof Carrega === 'function') Carrega('1');")
             self.js_set_select_by_name("quebra2", quebra2)
+            if quebra2 is not None:
+                self.driver.execute_script("if (typeof Carrega === 'function') Carrega('2');")
             self.js_set_select_by_name("quebra3", quebra3)
+            if quebra3 is not None:
+                self.driver.execute_script("if (typeof Carrega === 'function') Carrega('3');")
 
             campos_faixa = [
                 ("quebra1Inicial", quebra1_inicial),
@@ -117,6 +133,19 @@ class Relatorio030237Page(RotinaPage):
                 self.js_set_radio_by_name("itens", itens)
             if tipo_nota:
                 self.js_set_radio_by_name("notas", tipo_nota)
+            if visao:
+                self.js_set_radio_by_name("visao", visao)
+            if cd_visao is not None:
+                self.js_set_input_by_name("cdVisao", cd_visao)
+            if tp_consolidacao is not None:
+                self.driver.execute_script(
+                    "if (typeof Disabled === 'function') Disabled('blocoConsolidacao', false);"
+                )
+                self.js_set_radio_by_name("tpConsolidacao", str(tp_consolidacao))
+            if visao_multi_cdd is not None:
+                self.js_set_radio_by_name("idVisaoMultiCdd", str(visao_multi_cdd))
+            if selecao_multi_cdd is not None:
+                self.js_set_select_by_name("idSelecaoMultiCdd", str(selecao_multi_cdd))
 
             # Click Botão
             botao = self.find_element((By.NAME, acao))
@@ -186,5 +215,3 @@ class Relatorio030237Page(RotinaPage):
 38 â†’ Codigo Contabil
 39 â†’ Veiculo
 40 â†’ VDE -"""
-
-

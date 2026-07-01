@@ -13,6 +13,7 @@ def capturar_download_relatorio(
     diretorio_intermediario=None,
     *,
     diretorio_destino=None,
+    extensao_final=".csv",
 ):
     """
     Centraliza a captura do arquivo baixado pelo IE na pasta intermediaria.
@@ -21,9 +22,12 @@ def capturar_download_relatorio(
         return False, "Modulos visuais ausentes"
 
     pasta_intermediaria = diretorio_destino or diretorio_intermediario or get_settings().download_dir
-    return salvar_arquivo_visual(
-        diretorio_destino=str(pasta_intermediaria),
-        nome_arquivo_final=nome_arquivo_final,
-    )
+    kwargs = {
+        "diretorio_destino": str(pasta_intermediaria),
+        "nome_arquivo_final": nome_arquivo_final,
+    }
+    if str(extensao_final).lower() != ".csv":
+        kwargs["extensao_final"] = extensao_final
+    return salvar_arquivo_visual(**kwargs)
 
 

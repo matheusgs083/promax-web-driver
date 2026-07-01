@@ -48,6 +48,7 @@ data_hoje_arquivo = hoje.strftime("%d-%m-%Y")
 data_ontem_formatada = ontem.strftime("%d/%m/%Y")
 data_hoje_formatada = hoje.strftime("%d/%m/%Y")
 primeiro_dia_mes_atual = hoje.replace(day=1).strftime("%d/%m/%Y")
+primeiro_dia_mes_atual_traco = hoje.replace(day=1).strftime("%d-%m-%Y")
 ultimo_dia_util_mes_atual = data_anterior.strftime("%d/%m/%Y")
 
 ultimo_dia_mes_passado_dt = hoje.replace(day=1) - timedelta(days=1)
@@ -106,7 +107,7 @@ def main():
             mes_ano_inicial=mes_ano_atual,
             mes_ano_final=mes_ano_atual,
             quantos_clientes="99999",
-            nome_arquivo=f"{data_hoje_arquivo} (nUnidade) nomeUnidade0513",
+            nome_arquivo=f"{primeiro_dia_mes_atual_traco} (nUnidade) nomeUnidade0513",
         )
         page.fechar_e_voltar()
         return resultado
@@ -118,7 +119,7 @@ def main():
             unidade=unidades_alvo,
             opcao_rel="3",
             mes_ano=mes_ano_atual,
-            nome_arquivo=f"{data_hoje_arquivo} (nUnidade) 120616_nomeUnidade120616",
+            nome_arquivo=f"{primeiro_dia_mes_atual_traco} (nUnidade) 120616_nomeUnidade120616",
         )
         page.fechar_e_voltar()
         return resultado
@@ -134,7 +135,7 @@ def main():
             fim_vencimento=data_ontem_formatada,
             ini_especie=4,
             fim_especie=4,
-            nome_arquivo=f"{data_hoje_arquivo} 120601_nomeUnidade120601",
+            nome_arquivo=f"{primeiro_dia_mes_atual_traco} 120601_nomeUnidade120601",
         )
         page.fechar_e_voltar()
         return resultado
@@ -155,6 +156,7 @@ def main():
     def tarefa_150501(unidades_alvo=None):
         janela = menu_page.acessar_rotina("150501")
         page = Relatorio150501Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "150501"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             visao="02",
@@ -287,8 +289,8 @@ def main():
             unidade=unidades_alvo,
             opcao_rel="01",
             tipo_data="C",
-            iniDat=primeiro_dia_mes_atual,
-            fimDat=ultimo_dia_util_mes_atual,
+            iniDat=primeiro_dia_mes_passado,
+            fimDat=primeiro_dia_mes_atual,
             nome_arquivo="14,05,06_nUnidade",
         )
         page.fechar_e_voltar()
@@ -303,7 +305,7 @@ def main():
             opcao_rel="01",
             tpData="C",
             idTitulosNormais=True,
-            iniDat=primeiro_dia_mes_atual,
+            iniDat=primeiro_dia_mes_passado,
             fimDat=ultimo_dia_util_mes_atual,
             nome_arquivo="12,06,06_nUnidade",
         )
@@ -339,6 +341,36 @@ def main():
         )
         page.fechar_e_voltar()
         return resultado
+    
+    def tarefa_120601_bot(unidades_alvo=None):
+        janela = menu_page.acessar_rotina("120601")
+        page = Relatorio120601Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "120601 bot"
+        resultado = page.gerar_relatorio(
+            unidade=unidades_alvo,
+            opcao_rel="01",
+            id_notas_tit_nao_atu=False,
+            ini_especie=4,
+            fim_especie=4,
+            nome_arquivo=f"{primeiro_dia_mes_atual_traco} 120601_nomeUnidade120601",
+        )
+        page.fechar_e_voltar()
+        return resultado
+    
+    def tarefa_020220_bot(unidades_alvo=None):
+        janela = menu_page.acessar_rotina("020220")
+        page = Relatorio020220Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "020220 bot"
+        resultado = page.gerar_relatorio(
+            unidade=unidades_alvo,
+            opcao_rel="01",
+            mercadoria_todos=True,
+            selecao_comodatos="T",
+            cd_visao="2",
+            nome_arquivo="020220 bot - nomeUnidade020220",
+        )
+        page.fechar_e_voltar()
+        return resultado
 
     tarefas = {
         #inadimplencia
@@ -359,13 +391,16 @@ def main():
         #"030237 Giro": RoutineTask(key="030237_GIRO", name="Rotina 030237 Giro", runner=tarefa_030237_Giro),
         #"020220 Giro": RoutineTask(key="020220_GIRO", name="Rotina 020220 Giro", runner=tarefa_020220_Giro),
         #Estoque
-        #"030237 Estoque": RoutineTask(key="030237_ESTOQUE", name="Rotina 030237 Estoque", runner=tarefa_030237_estoque),
-        #"020502": RoutineTask(key="020502", name="Rotina 020502", runner=tarefa_020502),
+        "030237 Estoque": RoutineTask(key="030237_ESTOQUE", name="Rotina 030237 Estoque", runner=tarefa_030237_estoque),
+        "020502": RoutineTask(key="020502", name="Rotina 020502", runner=tarefa_020502),
         #fluxo de caixa
-        "140506": RoutineTask(key="140506", name="Rotina 140506", runner=tarefa_140506),
-        "120606": RoutineTask(key="120606", name="Rotina 120606", runner=tarefa_120606),
-        "020502 fluxodecaixa": RoutineTask(key="020502_FLUXO_DE_CAIXA", name="Rotina 020502 Fluxo de Caixa", runner=tarefa_020502_fluxodecaixa),
-        "150501 fluxodecaixa": RoutineTask(key="150501_FLUXO_DE_CAIXA", name="Rotina 150501 Fluxo de Caixa", runner=tarefa_150501),
+        #"140506": RoutineTask(key="140506", name="Rotina 140506", runner=tarefa_140506),
+        #"120606": RoutineTask(key="120606", name="Rotina 120606", runner=tarefa_120606),
+        #"020502 fluxodecaixa": RoutineTask(key="020502_FLUXO_DE_CAIXA", name="Rotina 020502 Fluxo de Caixa", runner=tarefa_020502_fluxodecaixa),
+        #"150501 fluxodecaixa": RoutineTask(key="150501_FLUXO_DE_CAIXA", name="Rotina 150501 Fluxo de Caixa", runner=tarefa_150501_fluxodecaixa),
+        #bot zap
+        #"120601 bot": RoutineTask(key="120601_BOT", name="Rotina 120601 Bot", runner=tarefa_120601_bot),
+        #"020220 bot": RoutineTask(key="020220_BOT", name="Rotina 020220 Bot", runner=tarefa_020220_bot),
     }
 
     pasta_intermediaria = Path(settings.download_dir)
