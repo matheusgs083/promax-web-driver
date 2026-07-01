@@ -81,6 +81,22 @@ class Relatorio030206Page(RotinaPage):
         timeout_download=180,
         nome_arquivo="030206_teste_pdf_intervalo.pdf",
     ):
+        if unidade is None or isinstance(unidade, list):
+            return self.loop_unidades(
+                nome_arquivo=nome_arquivo,
+                unidades_alvo=unidade if isinstance(unidade, list) else None,
+                fn_execucao_unica=lambda cod, arq: self.testar_pdf_intervalo_direto(
+                    unidade=cod,
+                    banco=banco,
+                    armazem=armazem,
+                    emissao_inicial=emissao_inicial,
+                    emissao_final=emissao_final,
+                    por_vencimento=por_vencimento,
+                    timeout_download=timeout_download,
+                    nome_arquivo=arq,
+                ),
+            )
+
         if unidade:
             self.selecionar_unidade(unidade)
 
@@ -193,6 +209,7 @@ class Relatorio030206Page(RotinaPage):
             except Exception as exc:
                 self.logger.warning("Nao foi possivel apagar download intermediario %s: %s", arquivo, exc)
 
+            self._aguardar_e_fechar_popup_pre_download(alertas, timeout=60)
             self._aceitar_alertas_pendentes(alertas)
 
         return False, f"Timeout aguardando PDF real da 030206. Logs ignorados: {logs_ignorados}. Alertas: {alertas}"
@@ -239,3 +256,15 @@ class Relatorio030206Page(RotinaPage):
                 time.sleep(0.5)
             except Exception:
                 return
+
+    def _aguardar_e_fechar_popup_pre_download(self, alertas, timeout=60):
+        prazo = time.time() + timeout
+        while time.time() < prazo:
+            tamanho_antes = len(alertas)
+            self._aceitar_alertas_pendentes(alertas)
+            if len(alertas) > tamanho_antes:
+                return True
+            time.sleep(0.5)
+
+        self.logger.warning("Popup pre-download da 030206 nao apareceu em %ss; seguindo para procurar o PDF.", timeout)
+        return False

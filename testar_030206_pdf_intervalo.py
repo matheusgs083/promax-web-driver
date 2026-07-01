@@ -13,6 +13,9 @@ dotenv.load_dotenv()
 logger = get_logger("TESTE_030206")
 settings = get_settings()
 
+# Use None para todas as revendas ou uma lista para filtrar, ex: ["0640001"].
+unidades_alvo = ["2210004"]
+
 
 def main():
     driver = None
@@ -37,6 +40,7 @@ def main():
         page = Relatorio030206Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "030206_teste"
         resultado = page.testar_pdf_intervalo_direto(
+            unidade=unidades_alvo,
             banco="237",
             armazem="01",
             emissao_inicial=data_inicial,
