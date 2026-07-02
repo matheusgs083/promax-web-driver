@@ -14,7 +14,7 @@ logger = get_logger("TESTE_030206")
 settings = get_settings()
 
 # Use None para todas as revendas ou uma lista para filtrar, ex: ["0640001"].
-unidades_alvo = ["2210004"]
+unidades_alvo = ["2210003","2210004"]
 
 
 def main():

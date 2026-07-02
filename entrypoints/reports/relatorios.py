@@ -391,13 +391,13 @@ def main():
         #"030237 Giro": RoutineTask(key="030237_GIRO", name="Rotina 030237 Giro", runner=tarefa_030237_Giro),
         #"020220 Giro": RoutineTask(key="020220_GIRO", name="Rotina 020220 Giro", runner=tarefa_020220_Giro),
         #Estoque
-        "030237 Estoque": RoutineTask(key="030237_ESTOQUE", name="Rotina 030237 Estoque", runner=tarefa_030237_estoque),
-        "020502": RoutineTask(key="020502", name="Rotina 020502", runner=tarefa_020502),
+        #"030237 Estoque": RoutineTask(key="030237_ESTOQUE", name="Rotina 030237 Estoque", runner=tarefa_030237_estoque),
+        #"020502": RoutineTask(key="020502", name="Rotina 020502", runner=tarefa_020502),
         #fluxo de caixa
-        #"140506": RoutineTask(key="140506", name="Rotina 140506", runner=tarefa_140506),
-        #"120606": RoutineTask(key="120606", name="Rotina 120606", runner=tarefa_120606),
-        #"020502 fluxodecaixa": RoutineTask(key="020502_FLUXO_DE_CAIXA", name="Rotina 020502 Fluxo de Caixa", runner=tarefa_020502_fluxodecaixa),
-        #"150501 fluxodecaixa": RoutineTask(key="150501_FLUXO_DE_CAIXA", name="Rotina 150501 Fluxo de Caixa", runner=tarefa_150501_fluxodecaixa),
+        "140506": RoutineTask(key="140506", name="Rotina 140506", runner=tarefa_140506),
+        "120606": RoutineTask(key="120606", name="Rotina 120606", runner=tarefa_120606),
+        "020502 fluxodecaixa": RoutineTask(key="020502_FLUXO_DE_CAIXA", name="Rotina 020502 Fluxo de Caixa", runner=tarefa_020502_fluxodecaixa),
+        "150501 fluxodecaixa": RoutineTask(key="150501_FLUXO_DE_CAIXA", name="Rotina 150501 Fluxo de Caixa", runner=tarefa_150501_fluxodecaixa),
         #bot zap
         #"120601 bot": RoutineTask(key="120601_BOT", name="Rotina 120601 Bot", runner=tarefa_120601_bot),
         #"020220 bot": RoutineTask(key="020220_BOT", name="Rotina 020220 Bot", runner=tarefa_020220_bot),

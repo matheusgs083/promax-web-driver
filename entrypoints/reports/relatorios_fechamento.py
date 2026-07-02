@@ -24,6 +24,9 @@ from pages.reports.relatorio_120616_page import Relatorio120616Page
 from pages.reports.relatorio_0512_page import Relatorio0512Page
 from pages.reports.relatorio_150501_page import Relatorio150501Page
 from pages.reports.relatorio_020220_page import Relatorio020220Page
+from pages.reports.relatorio_020502_page import Relatorio020502Page
+from pages.reports.relatorio_120606_page import Relatorio120606Page
+from pages.reports.relatorio_140506_page import Relatorio140506Page
 
 dotenv.load_dotenv()
 logger = get_logger("MAIN_PROMAX")
@@ -205,6 +208,67 @@ def main():
         page.fechar_e_voltar()
         return resultado
 
+    def tarefa_140506(unidades_alvo=None):
+        janela = menu_page.acessar_rotina("140506")
+        page = Relatorio140506Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "140506"
+        resultado = page.gerar_relatorio(
+            unidade=unidades_alvo,
+            opcao_rel="01",
+            tipo_data="C",
+            iniDat=primeiro_dia_mes_passado,
+            fimDat=ultimo_dia_mes_passado,
+            nome_arquivo="14,05,06_nUnidade",
+        )
+        page.fechar_e_voltar()
+        return resultado
+
+    def tarefa_120606(unidades_alvo=None):
+        janela = menu_page.acessar_rotina("120606")
+        page = Relatorio120606Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "120606"
+        resultado = page.gerar_relatorio(
+            unidade=unidades_alvo,
+            opcao_rel="01",
+            tpData="C",
+            idTitulosNormais=True,
+            iniDat=primeiro_dia_mes_passado,
+            fimDat=ultimo_dia_mes_passado,
+            nome_arquivo="12,06,06_nUnidade",
+        )
+        page.fechar_e_voltar()
+        return resultado
+
+    def tarefa_020502_fluxodecaixa(unidades_alvo=None):
+        janela = menu_page.acessar_rotina("020502")
+        page = Relatorio020502Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "020502 fluxo de caixa"
+        resultado = page.gerar_relatorio(
+            unidade=unidades_alvo,
+            opcao_rel="1",
+            listar_produtos=True,
+            listar_vasilhames_garrafeiras=False,
+            tipo_data="E",
+            nome_arquivo="02,05,02_nUnidade",
+        )
+        page.fechar_e_voltar()
+        return resultado
+
+    def tarefa_150501_fluxodecaixa(unidades_alvo=None):
+        janela = menu_page.acessar_rotina("150501")
+        page = Relatorio150501Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "150501 fluxo de caixa"
+        resultado = page.gerar_relatorio(
+            unidade=unidades_alvo,
+            visao="01",
+            periodo="M",
+            mes_ano=mes_ano_passado,
+            totaliza_periodo=True,
+            nome_arquivo=f"{ano_mes_passado}-{mes_passado} nomeUnidade150501",
+        )
+        page.fechar_e_voltar()
+        return resultado
+
     tarefas = {
         #"0513": RoutineTask(key="0513", name="Rotina 0513", runner=tarefa_0513),
         #"120616": RoutineTask(key="120616", name="Rotina 120616", runner=tarefa_120616),
@@ -213,6 +277,11 @@ def main():
         #"150501": RoutineTask(key="150501", name="Rotina 150501", runner=tarefa_150501),
         #"030237": RoutineTask(key="030237", name="Rotina 030237", runner=tarefa_030237),
         #"030237_GIRO": RoutineTask(key="030237_GIRO", name="Rotina 030237 Giro", runner=tarefa_030237_Giro),
+        #fluxo de caixa
+        "140506": RoutineTask(key="140506", name="Rotina 140506", runner=tarefa_140506),
+        "120606": RoutineTask(key="120606", name="Rotina 120606", runner=tarefa_120606),
+        "020502 fluxodecaixa": RoutineTask(key="020502_FLUXO_DE_CAIXA", name="Rotina 020502 Fluxo de Caixa", runner=tarefa_020502_fluxodecaixa),
+        "150501 fluxodecaixa": RoutineTask(key="150501_FLUXO_DE_CAIXA", name="Rotina 150501 Fluxo de Caixa", runner=tarefa_150501_fluxodecaixa),
     }
 
     pasta_intermediaria = Path(settings.download_dir)
@@ -249,6 +318,10 @@ def main():
             os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} Brumado.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\06. Brumado",
             os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} Barra.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\07. Barra",
             os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_passado}-{ano_mes_passado} Caculé.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_mes_passado}\08. Caculé",
+            os.path.join(str(pasta_intermediaria), "140506"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_mes_passado}\{mes_passado}. {nome_mes_passado}",
+            os.path.join(str(pasta_intermediaria), "120606"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_mes_passado}\{mes_passado}. {nome_mes_passado}",
+            os.path.join(str(pasta_intermediaria), "020502 fluxo de caixa"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_mes_passado}\{mes_passado}. {nome_mes_passado}",
+            os.path.join(str(pasta_intermediaria), "150501 fluxo de caixa"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_mes_passado}\{mes_passado}. {nome_mes_passado}",
         },
         success_message="Movimentação concluída com sucesso.",
         partial_prefix="Movimentação concluída com pendências de publicação.",
