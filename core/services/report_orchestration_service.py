@@ -45,13 +45,28 @@ class ReportOrchestrationService:
         automatic_repescagem: bool = False,
         manual_repescagem: dict[str, list[str]] | None = None,
         protect_artifacts_on_failure: bool = False,
+        download_workers: int = 5,
+        download_html_retries: int = 1,
     ) -> ExecutionResult:
         execution_result = ExecutionResult(
             status=ExecutionStatus.SUCCESS,
             message="Execucao principal concluida.",
         )
+        download_result = ExecutionResult(
+            status=ExecutionStatus.SUCCESS,
+            message="Nenhum download HTTP pendente.",
+        )
+        pool_downloads_ativo = False
 
         try:
+            from core.services.report_download_service import ativar_pool_downloads
+
+            ativar_pool_downloads(
+                max_workers=download_workers,
+                max_retentativas_html=download_html_retries,
+            )
+            pool_downloads_ativo = True
+
             if tasks or manual_repescagem:
                 self.iniciar_sessao()
 
@@ -80,7 +95,51 @@ class ReportOrchestrationService:
                 message=f"Falha critica na execucao das rotinas: {exc}",
             )
         finally:
+            if pool_downloads_ativo:
+                try:
+                    from core.services.report_download_service import (
+                        aguardar_downloads_pendentes,
+                        desativar_pool_downloads,
+                    )
+
+                    self.logger.info(
+                        "Aguardando a fila HTTP concluir antes de encerrar a sessão e processar os arquivos."
+                    )
+                    download_result = aguardar_downloads_pendentes()
+                except Exception as exc:
+                    self.logger.error(
+                        "Falha ao aguardar a fila de downloads HTTP: %s",
+                        exc,
+                        exc_info=True,
+                    )
+                    download_result = ExecutionResult(
+                        status=ExecutionStatus.TECHNICAL_FAILURE,
+                        message=f"Falha na fila de downloads HTTP: {exc}",
+                    )
+                finally:
+                    try:
+                        desativar_pool_downloads()
+                    except Exception as exc:
+                        self.logger.error(
+                            "Falha ao encerrar o pool de downloads HTTP: %s",
+                            exc,
+                            exc_info=True,
+                        )
+                        download_result = self._merge_results(
+                            download_result,
+                            ExecutionResult(
+                                status=ExecutionStatus.TECHNICAL_FAILURE,
+                                message=f"Falha ao encerrar o pool HTTP: {exc}",
+                            ),
+                            success_message="Fila de downloads HTTP concluida.",
+                        )
             self.encerrar_sessao()
+
+        execution_result = self._merge_results(
+            execution_result,
+            download_result,
+            success_message="Execucao das rotinas e downloads HTTP concluida.",
+        )
 
         tracker_result = exportar_tracker_csv(self.tracker, tracker_output_dir, self.logger)
 
@@ -199,12 +258,21 @@ class ReportOrchestrationService:
 
     def _coletar_falhas_por_rotina(self, tasks: dict[str, RoutineTask]) -> dict[str, list[str]]:
         falhas_por_rotina: dict[str, list[str]] = {}
+        status_sem_repescagem = {"SEM CONTEUDO", "SEM CONTEÚDO", "SEM DADOS"}
         for registro in getattr(self.tracker, "registros", []):
             status = str(registro.get("Status", "")).strip().upper()
             rotina_registrada = registro.get("Rotina", "")
             unidade_falhou = str(registro.get("Unidade", "TODAS")).strip()
 
             if status == "SUCESSO" or rotina_registrada == "RESUMO FINAL":
+                continue
+            if status in status_sem_repescagem:
+                self.logger.info(
+                    "Ignorando registro sem repescagem: rotina=%s unidade=%s status=%s",
+                    rotina_registrada,
+                    unidade_falhou,
+                    status,
+                )
                 continue
 
             key = self._extrair_chave_rotina(rotina_registrada)

@@ -12,10 +12,12 @@ from core.config.settings import get_settings
 
 try:
     from core.services.report_download_service import capturar_download_relatorio as salvar_arquivo_visual
+    from core.services.report_download_service import capturar_download_por_formulario
     from core.observability.relatorio_execucao import tracker
     validar_elemento = True
 except ImportError:
     salvar_arquivo_visual = None
+    capturar_download_por_formulario = None
     validar_elemento = None
     # Fallback seguro caso o tracker não exista ainda
     class MockTracker:
@@ -287,6 +289,7 @@ class RotinaPage(BasePage):
         resultados = []
         falhas_negocio = 0
         falhas_tecnicas = 0
+        falhas_com_retry = 0
 
         for i, item in enumerate(unidades):
             cod = str(item.get("valor", "")).strip()
@@ -320,8 +323,12 @@ class RotinaPage(BasePage):
                 if ok:
                     tracker.anotar(rotina_nome, cod, "SUCESSO", motivo, duracao_unidade)
                 else:
-                    tracker.anotar(rotina_nome, cod, "FALHA DOWNLOAD", motivo, duracao_unidade)
+                    deve_retry = resultado_normalizado.should_retry
+                    status_tracker = "FALHA DOWNLOAD" if deve_retry else "SEM CONTEUDO"
+                    tracker.anotar(rotina_nome, cod, status_tracker, motivo, duracao_unidade)
                     falhas_negocio += 1
+                    if deve_retry:
+                        falhas_com_retry += 1
 
                 resultados.append(ok)
                 time.sleep(sleep_entre)
@@ -340,6 +347,7 @@ class RotinaPage(BasePage):
                 self.lidar_com_alertas(tentativas=tentativas_alertas, timeout=timeout_alertas)
                 resultados.append(False)
                 falhas_tecnicas += 1
+                falhas_com_retry += 1
 
         total_unidades = len(unidades)
         sucessos = sum(1 for item in resultados if item)
@@ -357,6 +365,7 @@ class RotinaPage(BasePage):
                     f"Execução parcial: {sucessos}/{total_unidades} unidade(s) com sucesso, "
                     f"{falhas_negocio} falha(s) de negócio e {falhas_tecnicas} falha(s) técnica(s)"
                 ),
+                retry=falhas_com_retry > 0,
             )
 
         status = ExecutionStatus.TECHNICAL_FAILURE if falhas_tecnicas else ExecutionStatus.BUSINESS_FAILURE
@@ -366,6 +375,7 @@ class RotinaPage(BasePage):
                 f"Nenhuma unidade processada com sucesso. "
                 f"{falhas_negocio} falha(s) de negócio e {falhas_tecnicas} falha(s) técnica(s)"
             ),
+            retry=falhas_com_retry > 0,
         )
 
     # ======================
@@ -492,29 +502,92 @@ class RotinaPage(BasePage):
         if locators_export is None:
             locators_export = (self.BTN_GERA_EXCEL_1, self.BTN_GERA_EXCEL_2)
 
-        def _falha_alerta_pos_visualizacao():
+        def _normalizar_texto_alerta(texto):
+            return (
+                str(texto or "")
+                .lower()
+                .replace("ç", "c")
+                .replace("ã", "a")
+                .replace("á", "a")
+                .replace("à", "a")
+                .replace("â", "a")
+                .replace("é", "e")
+                .replace("ê", "e")
+                .replace("í", "i")
+                .replace("ó", "o")
+                .replace("ô", "o")
+                .replace("õ", "o")
+                .replace("ú", "u")
+            )
+
+        def _alerta_indica_sem_conteudo(texto):
+            texto_normalizado = _normalizar_texto_alerta(texto)
+            indicadores = (
+                "nenhuma informacao",
+                "sem conteudo",
+                "sem dados",
+                "nao existem dados",
+                "nao ha informacoes",
+                "nao ha dados",
+                "relatorio vazio",
+            )
+            return any(indicador in texto_normalizado for indicador in indicadores)
+
+        def _falha_alerta_pos_visualizacao(texto_excecao=None):
+            texto_alerta_atual = None
+            try:
+                texto_alerta_atual = self.driver.switch_to.alert.text
+            except Exception:
+                texto_alerta_atual = None
+
             mensagens_alerta = self.lidar_com_alertas(
                 tentativas=2,
                 timeout=2,
                 timeout_entre_alertas=1,
                 max_alertas=10,
             )
-            detalhe = " | ".join(mensagens_alerta) if mensagens_alerta else "Alerta sem texto capturado"
+            mensagens = []
+            if texto_excecao:
+                mensagens.append(str(texto_excecao))
+            if texto_alerta_atual and texto_alerta_atual not in mensagens:
+                mensagens.append(str(texto_alerta_atual))
+            mensagens.extend(
+                mensagem
+                for mensagem in mensagens_alerta
+                if mensagem and mensagem not in mensagens
+            )
+            detalhe = " | ".join(mensagens) if mensagens else "Alerta sem texto capturado"
             self.switch_to_default_content()
-            return (
-                False,
-                f"Alerta apos visualizar antes da exportacao CSV. Unidade sera deixada para retry: {detalhe}",
+            if _alerta_indica_sem_conteudo(detalhe):
+                self.logger.warning("Relatorio sem conteudo apos visualizar: %s", detalhe)
+                return ExecutionResult(
+                    status=ExecutionStatus.BUSINESS_FAILURE,
+                    message=f"Relatorio sem conteudo apos visualizar: {detalhe}",
+                    retry=False,
+                )
+
+            self.logger.warning(
+                "Alerta apos visualizar antes da exportacao CSV. Unidade sera marcada para retry: %s",
+                detalhe,
+            )
+            return ExecutionResult(
+                status=ExecutionStatus.BUSINESS_FAILURE,
+                message=(
+                    "Alerta apos visualizar antes da exportacao CSV. "
+                    f"Unidade sera deixada para retry: {detalhe}"
+                ),
+                retry=True,
             )
 
         try:
             WebDriverWait(self.driver, timeout_csv).until(
                 EC.frame_to_be_available_and_switch_to_it(frame_index)
             )
-        except UnexpectedAlertPresentException:
+        except UnexpectedAlertPresentException as exc:
             self.logger.warning(
-                "Alerta detectado apos visualizar, antes da tela de exportacao. Unidade sera marcada para retry."
+                "Alerta detectado apos visualizar, antes da tela de exportacao."
             )
-            return _falha_alerta_pos_visualizacao()
+            return _falha_alerta_pos_visualizacao(getattr(exc, "alert_text", None))
         except TimeoutException:
             self.driver.switch_to.frame(frame_index)
 
@@ -530,13 +603,33 @@ class RotinaPage(BasePage):
 
         try:
             btn_csv = WebDriverWait(self.driver, timeout_botao).until(_achar_botao)
-        except UnexpectedAlertPresentException:
+        except UnexpectedAlertPresentException as exc:
             self.logger.warning(
-                "Alerta detectado enquanto aguardava o botao CSV/Excel. Unidade sera marcada para retry."
+                "Alerta detectado enquanto aguardava o botao CSV/Excel."
             )
-            return _falha_alerta_pos_visualizacao()
+            return _falha_alerta_pos_visualizacao(getattr(exc, "alert_text", None))
         except TimeoutException:
             raise RuntimeError("Botão de exportação HTML (GeraExcel/GerExecl) não apareceu na tela.")
+
+        diretorio_base = get_settings().download_dir
+        subpasta = getattr(self, "subpasta_download", None)
+        diretorio = diretorio_base / subpasta if subpasta else diretorio_base
+
+        if capturar_download_por_formulario:
+            resultado_http = capturar_download_por_formulario(
+                self.driver,
+                btn_csv,
+                nome_arquivo,
+                diretorio_intermediario=diretorio,
+            )
+            if resultado_http[0]:
+                self.logger.info("Exportação concluída diretamente por HTTP: %s", resultado_http[1])
+                self.switch_to_default_content()
+                return resultado_http
+            self.logger.warning(
+                "Exportação HTTP direta indisponível (%s). Mantendo fluxo visual.",
+                resultado_http[1],
+            )
 
         # clique pelo helper padrão (Botão da Página)
         self.js_click_ie(btn_csv)
@@ -546,13 +639,11 @@ class RotinaPage(BasePage):
         
         # Chama a rotina visual de download (que agora usa a barra do IE)
         if validar_elemento and salvar_arquivo_visual:
-            diretorio_base = get_settings().download_dir
-            subpasta = getattr(self, "subpasta_download", None)
-            diretorio = diretorio_base / subpasta if subpasta else diretorio_base
             # RECEBE O RESULTADO PARA SUBIR PARA O TRACKER
             resultado_download = salvar_arquivo_visual(
                 diretorio_destino=str(diretorio),
                 nome_arquivo_final=nome_arquivo,
+                driver=self.driver,
             )
         else:
             self.logger.warning("Módulos visuais não carregados.")

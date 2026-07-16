@@ -149,7 +149,7 @@ def main():
         page.fechar_e_voltar()
         return resultado
 
-    def tarefa_150501(unidades_alvo=None):
+    def tarefa_150501(unidades_alvo=["3610006", "3610007", "3610008"]):
         janela = menu_page.acessar_rotina("150501")
         page = Relatorio150501Page(janela.driver, janela.handle_menu)
         resultado = page.gerar_relatorio(
@@ -278,10 +278,10 @@ def main():
         #"030237": RoutineTask(key="030237", name="Rotina 030237", runner=tarefa_030237),
         #"030237_GIRO": RoutineTask(key="030237_GIRO", name="Rotina 030237 Giro", runner=tarefa_030237_Giro),
         #fluxo de caixa
-        "140506": RoutineTask(key="140506", name="Rotina 140506", runner=tarefa_140506),
-        "120606": RoutineTask(key="120606", name="Rotina 120606", runner=tarefa_120606),
-        "020502 fluxodecaixa": RoutineTask(key="020502_FLUXO_DE_CAIXA", name="Rotina 020502 Fluxo de Caixa", runner=tarefa_020502_fluxodecaixa),
-        "150501 fluxodecaixa": RoutineTask(key="150501_FLUXO_DE_CAIXA", name="Rotina 150501 Fluxo de Caixa", runner=tarefa_150501_fluxodecaixa),
+        #"140506": RoutineTask(key="140506", name="Rotina 140506", runner=tarefa_140506),
+        #"120606": RoutineTask(key="120606", name="Rotina 120606", runner=tarefa_120606),
+        #"020502 fluxodecaixa": RoutineTask(key="020502_FLUXO_DE_CAIXA", name="Rotina 020502 Fluxo de Caixa", runner=tarefa_020502_fluxodecaixa),
+        #"150501 fluxodecaixa": RoutineTask(key="150501_FLUXO_DE_CAIXA", name="Rotina 150501 Fluxo de Caixa", runner=tarefa_150501_fluxodecaixa),
     }
 
     pasta_intermediaria = Path(settings.download_dir)

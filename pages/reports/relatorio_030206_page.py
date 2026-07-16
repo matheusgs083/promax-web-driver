@@ -141,6 +141,27 @@ class Relatorio030206Page(RotinaPage):
         subpasta = getattr(self, "subpasta_download", None)
         diretorio = diretorio_base / subpasta if subpasta else diretorio_base
 
+        try:
+            from core.services.report_download_service import capturar_url_temporaria
+
+            resultado_http = capturar_url_temporaria(
+                self.driver,
+                nome_arquivo,
+                diretorio_intermediario=diretorio,
+                extensao_final=".pdf",
+                timeout_segundos=15,
+            )
+        except Exception as exc:
+            resultado_http = False, f"Captura HTTP indisponível: {exc}"
+
+        if resultado_http[0]:
+            self.logger.info("PDF 030206 capturado diretamente por HTTP: %s", resultado_http[1])
+            return True, f"DOWNLOAD_OK: {diretorio / nome_arquivo}"
+
+        self.logger.info(
+            "PDF HTTP direto não localizado na 030206 (%s). Mantendo captura especial de logs.",
+            resultado_http[1],
+        )
         resultado_download = self._capturar_pdf_ignorando_logs(
             nome_arquivo=nome_arquivo,
             diretorio_destino=diretorio,

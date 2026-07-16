@@ -88,14 +88,7 @@ class Relatorio150501Page(RotinaPage):
             )
 
         self.selecionar_unidade(unidade)
-        self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
-
-        try:
-            WebDriverWait(self.driver, 15).until(
-                EC.presence_of_element_located((By.NAME, "opcaoRel"))
-            )
-        except TimeoutException:
-            self.logger.warning("O formulário demorou a renderizar. O preenchimento pode falhar.")
+        self._aguardar_tela_pronta()
 
         # 1) CONFIGURAÇÕES INICIAIS
         if opcao_rel:
@@ -105,6 +98,7 @@ class Relatorio150501Page(RotinaPage):
         if periodo:
             self.js_set_select_by_name("idPeriodo", str(periodo))
             self.driver.execute_script("VerificaPeriodo();")
+            self._aguardar_reload_pagina()
 
         # 2) DATAS
         if data_inicial:
@@ -121,6 +115,7 @@ class Relatorio150501Page(RotinaPage):
         self._aguardar_reload_pagina()
 
         self._adicionar_itens_lista("cdDepto", "AdicionaDepto()", lista_depto)
+        self._aguardar_reload_pagina()
 
         self._adicionar_itens_lista("cdPacote", "AdicionaPacote()", lista_pacote)
         self._aguardar_reload_pagina()
@@ -176,15 +171,50 @@ class Relatorio150501Page(RotinaPage):
 
         for item in itens:
             try:
+                self._aguardar_tela_pronta(campo_referencia=nome_select)
                 self.logger.info(f"Selecionando '{item}' em {nome_select} e chamando {funcao_js}")
                 self.js_set_select_by_name(nome_select, str(item))
                 self.driver.execute_script(funcao_js)
+                self._aguardar_reload_pagina(campo_referencia=nome_select)
             except Exception as e:
                 self.logger.warning(f"Não foi possível adicionar item {item} em {nome_select}. Erro: {e}")
 
-    def _aguardar_reload_pagina(self):
-        self.logger.info("Aguardando reload da página (Postback)...")
-        time.sleep(2)
-        self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
+    def _aguardar_tela_pronta(self, campo_referencia="opcaoRel", timeout=45):
+        """
+        A rotina 150501 dispara vários postbacks internos. Esta espera só libera
+        o fluxo quando o frame volta, o loader some e o campo de referência existe.
+        """
+        self.switch_to_default_content()
+        self.lidar_com_alertas(tentativas=1, timeout=1, timeout_entre_alertas=1, max_alertas=5)
+        self.entrar_frame_rotina_blindado(self.FRAME_ROTINA, timeout=timeout)
+        WebDriverWait(self.driver, timeout, poll_frequency=0.3).until(
+            lambda driver: driver.execute_script(
+                """
+                var campo = document.getElementsByName(arguments[0])[0];
+                var loader = document.getElementById('imgWait');
+                var loaderOculto = !loader || loader.style.display === 'none' || loader.style.visibility === 'hidden';
+                return !!campo && loaderOculto;
+                """,
+                campo_referencia,
+            )
+        )
+        return True
 
+    def _aguardar_reload_pagina(self, campo_referencia="opcaoRel", timeout=45):
+        self.logger.info("Aguardando estabilização da página (Postback)...")
+        fim = time.time() + timeout
+        ultimo_erro = None
 
+        while time.time() < fim:
+            try:
+                return self._aguardar_tela_pronta(campo_referencia=campo_referencia, timeout=5)
+            except UnexpectedAlertPresentException:
+                self.lidar_com_alertas(tentativas=2, timeout=2, timeout_entre_alertas=1, max_alertas=10)
+            except Exception as exc:
+                ultimo_erro = exc
+                self.switch_to_default_content()
+                time.sleep(0.5)
+
+        raise TimeoutException(
+            f"Timeout aguardando estabilização da 150501 no campo '{campo_referencia}'. Último erro: {ultimo_erro}"
+        )

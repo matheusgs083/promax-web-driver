@@ -28,6 +28,7 @@ class ExecutionStatus(str, Enum):
 class ExecutionResult:
     status: ExecutionStatus
     message: str
+    retry: bool | None = None
 
     @property
     def ok(self) -> bool:
@@ -35,6 +36,8 @@ class ExecutionResult:
 
     @property
     def should_retry(self) -> bool:
+        if self.retry is not None:
+            return self.retry
         return self.status.should_retry
 
 

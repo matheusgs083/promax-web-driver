@@ -43,14 +43,14 @@ Referencias internas:
 
 ## Fluxos Disponiveis
 
-| Comando CLI | Entrada real | Objetivo |
-| --- | --- | --- |
-| `python cli.py relatorios` | `entrypoints/reports/relatorios.py` | Fluxo principal de relatorios |
-| `python cli.py fechamento` | `entrypoints/reports/relatorios_fechamento.py` | Fluxo de fechamento |
-| `python cli.py repescagem` | `entrypoints/reports/repescagem_relatorios.py` | Repescagem manual de relatorios |
+| Comando CLI                              | Entrada real                                          | Objetivo                            |
+| ---------------------------------------- | ----------------------------------------------------- | ----------------------------------- |
+| `python cli.py relatorios`             | `entrypoints/reports/relatorios.py`                 | Fluxo principal de relatorios       |
+| `python cli.py fechamento`             | `entrypoints/reports/relatorios_fechamento.py`      | Fluxo de fechamento                 |
+| `python cli.py repescagem`             | `entrypoints/reports/repescagem_relatorios.py`      | Repescagem manual de relatorios     |
 | `python cli.py reprocessar-publicacao` | `entrypoints/maintenance/reprocessar_publicacao.py` | Reprocessa pendencias de publicacao |
-| `python cli.py pedidos` | `entrypoints/processes/pedidos.py` | Digitacao de pedidos |
-| `python cli.py lote-condicao` | `entrypoints/processes/lote_condicao.py` | Alteracao em lote de condicao/CEMC |
+| `python cli.py pedidos`                | `entrypoints/processes/pedidos.py`                  | Digitacao de pedidos                |
+| `python cli.py lote-condicao`          | `entrypoints/processes/lote_condicao.py`            | Alteracao em lote de condicao/CEMC  |
 
 ## Execucao Rapida
 

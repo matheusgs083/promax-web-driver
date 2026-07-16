@@ -1,7 +1,10 @@
 ﻿import re
 import shutil
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlencode, urljoin, urlsplit
+from urllib.request import Request, urlopen
 
 from core.tools.windows_display import ensure_windows_dpi_aware
 
@@ -13,6 +16,24 @@ from core.observability.logger import get_logger
 from core.tools.validador_visual import validar_elemento
 
 logger = get_logger(__name__)
+
+URL_RELATORIO_RE = re.compile(
+    r"""(?P<url>(?:https?://[^"'<> ]+)?(?:\.\./)*(?:/pw)?/tmp/rels/[^"'<> ]+\.(?:csv|pdf)(?:\.inf)?)""",
+    re.IGNORECASE,
+)
+
+
+@dataclass(frozen=True)
+class DownloadHttpPreparado:
+    """Requisicao completa, sem dependencia posterior do WebDriver."""
+
+    nome_arquivo: str
+    caminho_final: Path
+    extensao_final: str
+    metodo: str
+    action: str = field(repr=False)
+    dados: bytes = field(repr=False)
+    headers: dict[str, str] = field(repr=False)
 
 
 def _arquivo_pronto_para_mover(arquivo: Path) -> bool:
@@ -48,7 +69,357 @@ def _houve_atividade_download(pasta_downloads: Path, arquivos_antes: set[Path]) 
     return any(arquivo not in arquivos_antes for arquivo in arquivos_agora)
 
 
-def salvar_arquivo_visual(diretorio_destino, nome_arquivo_final, extensao_final=".csv"):
+def _extrair_urls_relatorio(texto: str, url_base: str) -> list[str]:
+    urls = []
+    for match in URL_RELATORIO_RE.finditer(texto or ""):
+        url = urljoin(url_base, match.group("url").replace("&amp;", "&"))
+        if url not in urls:
+            urls.append(url)
+    return urls
+
+
+def _coletar_urls_relatorio_driver(driver) -> list[str]:
+    urls = []
+    url_base = getattr(driver, "current_url", "")
+
+    def adicionar_texto(texto):
+        for url in _extrair_urls_relatorio(texto, url_base):
+            if url not in urls:
+                urls.append(url)
+
+    try:
+        adicionar_texto(driver.page_source)
+        adicionar_texto(getattr(driver, "current_url", ""))
+    except Exception as exc:
+        logger.debug("Não foi possível inspecionar o contexto atual para download direto: %s", exc)
+
+    try:
+        driver.switch_to.default_content()
+        adicionar_texto(driver.page_source)
+        frames = driver.find_elements("tag name", "frame")
+        frames += driver.find_elements("tag name", "iframe")
+        for indice in range(len(frames)):
+            try:
+                driver.switch_to.default_content()
+                frames_atuais = driver.find_elements("tag name", "frame")
+                frames_atuais += driver.find_elements("tag name", "iframe")
+                if indice >= len(frames_atuais):
+                    continue
+                driver.switch_to.frame(frames_atuais[indice])
+                adicionar_texto(driver.page_source)
+            except Exception as exc:
+                logger.debug("Frame %s ignorado durante busca da URL de relatório: %s", indice, exc)
+    except Exception as exc:
+        logger.debug("Não foi possível percorrer os frames para download direto: %s", exc)
+    finally:
+        try:
+            driver.switch_to.default_content()
+        except Exception:
+            pass
+
+    return urls
+
+
+def _cabecalho_cookies(driver) -> str:
+    try:
+        cookies = driver.get_cookies()
+        pares = [
+            f"{cookie['name']}={cookie['value']}"
+            for cookie in cookies
+            if isinstance(cookie, dict)
+            and cookie.get("name")
+            and cookie.get("value") is not None
+        ]
+        if pares:
+            return "; ".join(pares)
+    except Exception as exc:
+        logger.debug("Cookies WebDriver indisponíveis: %s", exc)
+    try:
+        return str(driver.execute_script("return document.cookie || ''") or "")
+    except Exception:
+        return ""
+
+
+def _baixar_url_com_headers(
+    url: str,
+    caminho_final: Path,
+    extensao_final: str,
+    headers: dict[str, str],
+) -> tuple[bool, str]:
+    caminho_final.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        with urlopen(Request(url, headers=headers), timeout=180) as resposta:
+            conteudo = resposta.read()
+            content_type = str(resposta.headers.get("Content-Type", "")).lower()
+    except Exception as exc:
+        return False, f"Falha no GET direto: {exc}"
+
+    if not conteudo:
+        return False, "GET direto retornou arquivo vazio"
+
+    extensao = extensao_final.lower()
+    if extensao == ".pdf" and not conteudo.startswith(b"%PDF-"):
+        return False, f"GET direto não retornou PDF válido ({content_type or 'sem Content-Type'})"
+    if extensao == ".csv":
+        inicio = conteudo[:200].lstrip().lower()
+        if inicio.startswith((b"<html", b"<!doctype", b"<script")) or "text/html" in content_type:
+            return False, f"GET direto retornou HTML em vez de CSV ({content_type or 'sem Content-Type'})"
+
+    caminho_final.write_bytes(conteudo)
+    ok, motivo = _validar_arquivo_final(caminho_final, extensao_final)
+    if not ok:
+        caminho_final.unlink(missing_ok=True)
+        return False, motivo
+    return True, f"Download HTTP direto validado ({len(conteudo)} bytes)"
+
+
+def _baixar_url_relatorio(driver, url: str, caminho_final: Path, extensao_final: str) -> tuple[bool, str]:
+    cookies = _cabecalho_cookies(driver)
+    try:
+        user_agent = driver.execute_script("return navigator.userAgent") or ""
+    except Exception:
+        user_agent = ""
+
+    headers = {"Accept": "*/*", "Referer": getattr(driver, "current_url", "")}
+    if cookies:
+        headers["Cookie"] = cookies
+    if user_agent:
+        headers["User-Agent"] = user_agent
+    return _baixar_url_com_headers(url, caminho_final, extensao_final, headers)
+
+
+def _dados_formulario_exportacao(driver, botao) -> dict:
+    script = r"""
+    var botao = arguments[0];
+    var form = botao && botao.form;
+    if (!form) return {ok:false, error:"botao sem formulario"};
+    var submitOriginal = form.submit;
+    var openOriginal = window.open;
+    try {
+        form.submit = function() { return false; };
+        window.open = function() { return null; };
+        if (typeof botao.onclick === "function") botao.onclick();
+    } catch (eOnClick) {
+        return {ok:false, error:"onclick: " + (eOnClick.message || String(eOnClick))};
+    } finally {
+        form.submit = submitOriginal;
+        window.open = openOriginal;
+    }
+    var pares = [];
+    var elementos = form.elements || [];
+    for (var i = 0; i < elementos.length; i++) {
+        var el = elementos[i];
+        if (!el.name || el.disabled) continue;
+        var tipo = String(el.type || "").toLowerCase();
+        if (tipo === "file" || tipo === "reset") continue;
+        if ((tipo === "checkbox" || tipo === "radio") && !el.checked) continue;
+        if (tipo === "submit" || tipo === "button" || tipo === "image") continue;
+        if (tipo === "select-multiple") {
+            for (var j = 0; j < el.options.length; j++) {
+                if (el.options[j].selected) pares.push([el.name, el.options[j].value]);
+            }
+            continue;
+        }
+        pares.push([el.name, el.value == null ? "" : String(el.value)]);
+    }
+    if (botao.name) pares.push([botao.name, botao.value == null ? "" : String(botao.value)]);
+    return {
+        ok:true,
+        action:form.action || document.location.href,
+        method:String(form.method || "GET").toUpperCase(),
+        pairs:pares
+    };
+    """
+    resultado = driver.execute_script(script, botao)
+    if not resultado or not resultado.get("ok"):
+        raise RuntimeError(f"Não foi possível serializar o formulário: {resultado}")
+    return resultado
+
+
+def preparar_download_http_formulario(
+    driver,
+    botao,
+    diretorio_destino,
+    nome_arquivo_final,
+    extensao_final=".csv",
+) -> DownloadHttpPreparado:
+    pasta_destino = Path(diretorio_destino)
+    pasta_destino.mkdir(parents=True, exist_ok=True)
+    extensao_final = extensao_final if str(extensao_final).startswith(".") else f".{extensao_final}"
+    nome_limpo = re.sub(r'[\\/*?:"<>|]', "_", nome_arquivo_final)
+    if not nome_limpo.lower().endswith(extensao_final.lower()):
+        nome_limpo += extensao_final
+    caminho_final = pasta_destino / nome_limpo
+
+    formulario = _dados_formulario_exportacao(driver, botao)
+    pares = [(str(nome), str(valor)) for nome, valor in formulario["pairs"]]
+    dados = urlencode(pares).encode("ascii")
+    url_atual = getattr(driver, "current_url", "")
+    action = urljoin(url_atual, formulario["action"])
+
+    cookies = _cabecalho_cookies(driver)
+    try:
+        user_agent = driver.execute_script("return navigator.userAgent") or ""
+    except Exception:
+        user_agent = ""
+    headers = {
+        "Accept": "*/*",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Referer": url_atual,
+    }
+    if cookies:
+        headers["Cookie"] = cookies
+    if user_agent:
+        headers["User-Agent"] = user_agent
+
+    return DownloadHttpPreparado(
+        nome_arquivo=nome_limpo,
+        caminho_final=caminho_final,
+        extensao_final=extensao_final,
+        metodo=formulario["method"],
+        action=action,
+        dados=dados,
+        headers=headers,
+    )
+
+
+def executar_download_http_preparado(download: DownloadHttpPreparado) -> tuple[bool, str]:
+    try:
+        action = download.action
+        metodo = download.metodo
+        request = Request(
+            action
+            if metodo != "GET"
+            else f"{action}{'&' if '?' in action else '?'}{download.dados.decode('ascii')}",
+            data=download.dados if metodo != "GET" else None,
+            headers=download.headers,
+            method=metodo,
+        )
+        action_partes = urlsplit(action)
+        action_segura = f"{action_partes.scheme}://{action_partes.netloc}{action_partes.path}"
+        logger.info(
+            "Enviando formulário de exportação diretamente: %s %s [%s]",
+            metodo,
+            action_segura,
+            download.nome_arquivo,
+        )
+        with urlopen(request, timeout=180) as resposta:
+            conteudo = resposta.read()
+            content_type = str(resposta.headers.get("Content-Type", "")).lower()
+            url_resposta = resposta.geturl()
+
+        if conteudo and "text/html" not in content_type:
+            extensao = download.extensao_final.lower()
+            inicio = conteudo[:200].lstrip().lower()
+            if extensao == ".pdf" and not conteudo.startswith(b"%PDF-"):
+                return False, f"POST não retornou PDF válido ({content_type or 'sem Content-Type'})"
+            if extensao == ".csv" and inicio.startswith((b"<html", b"<!doctype", b"<script")):
+                return False, f"POST retornou HTML em vez de CSV ({content_type or 'sem Content-Type'})"
+
+            download.caminho_final.write_bytes(conteudo)
+            ok, motivo = _validar_arquivo_final(download.caminho_final, download.extensao_final)
+            if not ok:
+                download.caminho_final.unlink(missing_ok=True)
+                return False, motivo
+            return True, f"Download HTTP direto validado ({len(conteudo)} bytes)"
+
+        html = conteudo.decode("latin-1", errors="ignore")
+        urls = _extrair_urls_relatorio(html, url_resposta or action)
+        if not urls:
+            return False, "Resposta HTML sem URL temporária"
+
+        headers_get = dict(download.headers)
+        headers_get.pop("Content-Type", None)
+        return _baixar_url_com_headers(
+            urls[-1],
+            download.caminho_final,
+            download.extensao_final,
+            headers_get,
+        )
+    except Exception as exc:
+        return False, f"Falha ao reproduzir formulário de exportação: {exc}"
+
+
+def salvar_arquivo_http_formulario(
+    driver,
+    botao,
+    diretorio_destino,
+    nome_arquivo_final,
+    extensao_final=".csv",
+) -> tuple[bool, str]:
+    try:
+        download = preparar_download_http_formulario(
+            driver,
+            botao,
+            diretorio_destino,
+            nome_arquivo_final,
+            extensao_final,
+        )
+        return executar_download_http_preparado(download)
+    except Exception as exc:
+        return False, f"Falha ao preparar formulário de exportação: {exc}"
+
+
+def _tentar_download_http(
+    driver,
+    caminho_final: Path,
+    extensao_final: str,
+    timeout_segundos: float = 12,
+) -> tuple[bool, str]:
+    if driver is None:
+        return False, "Driver não informado"
+
+    prazo = time.time() + timeout_segundos
+    ultimo_motivo = "URL temporária não encontrada"
+    urls_testadas = set()
+
+    while time.time() < prazo:
+        for url in reversed(_coletar_urls_relatorio_driver(driver)):
+            if url in urls_testadas:
+                continue
+            urls_testadas.add(url)
+            logger.info("URL temporária encontrada; tentando download HTTP direto: %s", url)
+            ok, motivo = _baixar_url_relatorio(driver, url, caminho_final, extensao_final)
+            if ok:
+                return True, motivo
+            ultimo_motivo = motivo
+            logger.warning("Download HTTP direto rejeitado: %s", motivo)
+        time.sleep(0.5)
+
+    return False, ultimo_motivo
+
+
+def salvar_url_temporaria_relatorio(
+    driver,
+    diretorio_destino,
+    nome_arquivo_final,
+    extensao_final=".csv",
+    timeout_segundos=15,
+) -> tuple[bool, str]:
+    pasta_destino = Path(diretorio_destino)
+    pasta_destino.mkdir(parents=True, exist_ok=True)
+    extensao_final = extensao_final if str(extensao_final).startswith(".") else f".{extensao_final}"
+    nome_limpo = re.sub(r'[\\/*?:"<>|]', "_", nome_arquivo_final)
+    if not nome_limpo.lower().endswith(extensao_final.lower()):
+        nome_limpo += extensao_final
+    caminho_final = pasta_destino / nome_limpo
+    return _tentar_download_http(
+        driver,
+        caminho_final,
+        extensao_final,
+        timeout_segundos=timeout_segundos,
+    )
+
+
+def salvar_arquivo_visual(
+    diretorio_destino,
+    nome_arquivo_final,
+    extensao_final=".csv",
+    *,
+    driver=None,
+    timeout_http_direto=12,
+):
     logger.info("--- INICIANDO SALVAMENTO OTIMIZADO (WATCHER DE PASTA) ---")
 
     pasta_downloads = Path.home() / "Downloads"
@@ -67,6 +438,19 @@ def salvar_arquivo_visual(diretorio_destino, nome_arquivo_final, extensao_final=
 
     caminho_final = pasta_intermediaria / nome_limpo
     arquivos_antes = set(pasta_downloads.iterdir())
+
+    if driver is not None:
+        logger.info("Tentando capturar o relatório pela URL temporária do Promax...")
+        ok_http, motivo_http = _tentar_download_http(
+            driver,
+            caminho_final,
+            extensao_final,
+            timeout_segundos=timeout_http_direto,
+        )
+        if ok_http:
+            logger.info("Sucesso! Relatório salvo sem interação visual: %s", caminho_final)
+            return True, motivo_http
+        logger.warning("Download HTTP direto indisponível (%s). Usando fallback visual.", motivo_http)
 
     logger.info("Aguardando o servidor processar e a barra do IE aparecer...")
     box_btn = validar_elemento("botaoDownload.png", timeout=60, confidence=0.8)

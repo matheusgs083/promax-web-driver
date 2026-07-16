@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+from core.config.settings import get_settings
 from core.files.conversor_030803 import converter_030803_pdf_para_xlsx
 from pages.common.rotina_page import RotinaPage
 
@@ -72,19 +73,25 @@ class Relatorio030803Page(RotinaPage):
         finally:
             self.switch_to_default_content()
 
-        ok_botao, msg_botao = self._clicar_botao_pdf_pos_visualizacao(timeout_download)
+        ok_botao, msg_botao, pdf_http = self._clicar_botao_pdf_pos_visualizacao(
+            timeout_download,
+            nome_arquivo,
+        )
         if not ok_botao:
             return ok_botao, msg_botao
 
-        ok, mensagem = self._capturar_pdf(nome_arquivo=nome_arquivo, timeout_download=timeout_download)
-        if not ok:
-            return ok, mensagem
+        if pdf_http is not None:
+            mensagem = str(pdf_http)
+        else:
+            ok, mensagem = self._capturar_pdf(nome_arquivo=nome_arquivo, timeout_download=timeout_download)
+            if not ok:
+                return ok, mensagem
 
         pdf_path = Path(mensagem)
         xlsx_path = converter_030803_pdf_para_xlsx(pdf_path, apagar_pdf=True)
         return True, f"PDF convertido para XLSX: {xlsx_path}"
 
-    def _clicar_botao_pdf_pos_visualizacao(self, timeout_download):
+    def _clicar_botao_pdf_pos_visualizacao(self, timeout_download, nome_arquivo):
         self.logger.info("Aguardando tela pos-Visualizar e botao PDF da rotina 030803...")
         self.switch_to_default_content()
 
@@ -96,7 +103,7 @@ class Relatorio030803Page(RotinaPage):
             mensagens = self.lidar_com_alertas(tentativas=2, timeout=2, timeout_entre_alertas=1, max_alertas=10)
             detalhe = " | ".join(mensagens) if mensagens else "Alerta sem texto capturado"
             self.switch_to_default_content()
-            return False, f"Alerta apos visualizar antes do PDF: {detalhe}"
+            return False, f"Alerta apos visualizar antes do PDF: {detalhe}", None
         except TimeoutException:
             self.driver.switch_to.frame(self.FRAME_ROTINA)
 
@@ -106,6 +113,30 @@ class Relatorio030803Page(RotinaPage):
                     "return !!(document.getElementsByName('GerPDF')"
                     " && document.getElementsByName('GerPDF').length > 0);"
                 )
+            )
+            botao_pdf = self.find_element((By.NAME, "GerPDF"))
+            diretorio_base = get_settings().download_dir
+            subpasta = getattr(self, "subpasta_download", None)
+            diretorio = diretorio_base / subpasta if subpasta else diretorio_base
+
+            from core.services.report_download_service import capturar_download_por_formulario
+
+            resultado_http = capturar_download_por_formulario(
+                self.driver,
+                botao_pdf,
+                nome_arquivo,
+                diretorio_intermediario=diretorio,
+                extensao_final=".pdf",
+            )
+            if resultado_http[0]:
+                nome_pdf = nome_arquivo if str(nome_arquivo).lower().endswith(".pdf") else f"{nome_arquivo}.pdf"
+                pdf_path = diretorio / nome_pdf
+                self.logger.info("PDF 030803 capturado diretamente por HTTP: %s", pdf_path)
+                return True, resultado_http[1], pdf_path
+
+            self.logger.info(
+                "PDF HTTP direto indisponível na 030803 (%s). Mantendo clique e captura visual.",
+                resultado_http[1],
             )
             resultado = self.driver.execute_script(
                 """
@@ -131,23 +162,22 @@ class Relatorio030803Page(RotinaPage):
                 """
             )
             if not resultado or not resultado.get("ok"):
-                return False, f"Falha ao acionar PDF da rotina 030803: {resultado}"
+                return False, f"Falha ao acionar PDF da rotina 030803: {resultado}", None
             self.logger.info("Botao PDF da rotina 030803 acionado via %s.", resultado.get("method"))
             time.sleep(1)
-            return True, "Botao PDF clicado"
+            return True, "Botao PDF clicado", None
         except UnexpectedAlertPresentException:
             mensagens = self.lidar_com_alertas(tentativas=2, timeout=2, timeout_entre_alertas=1, max_alertas=10)
             detalhe = " | ".join(mensagens) if mensagens else "Alerta sem texto capturado"
-            return False, f"Alerta ao clicar no botao PDF: {detalhe}"
+            return False, f"Alerta ao clicar no botao PDF: {detalhe}", None
         except TimeoutException:
-            return False, "Botao PDF da rotina 030803 nao apareceu apos visualizar."
+            return False, "Botao PDF da rotina 030803 nao apareceu apos visualizar.", None
         finally:
             self.switch_to_default_content()
 
     def _capturar_pdf(self, nome_arquivo, timeout_download):
         try:
             from core.services.report_download_service import capturar_download_relatorio
-            from core.config.settings import get_settings
         except ImportError as exc:
             self.logger.warning("Servico de download nao carregado: %s", exc)
             return False, "Servico de download nao carregado"
@@ -160,8 +190,9 @@ class Relatorio030803Page(RotinaPage):
         self.logger.info("Aguardando download PDF direto da rotina 030803.")
         resultado = capturar_download_relatorio(
             nome_arquivo_final=nome_arquivo,
-            diretorio_destino=str(diretorio),
+            diretorio_intermediario=str(diretorio),
             extensao_final=".pdf",
+            driver=self.driver,
         )
         if not resultado[0]:
             return resultado

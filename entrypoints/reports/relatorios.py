@@ -112,7 +112,7 @@ def main():
         page.fechar_e_voltar()
         return resultado
 
-    def tarefa_120616(unidades_alvo=["0640001", "0640002", "2210003", "3480005", "3610006", "3610007", "3610008"]):
+    def tarefa_120616(unidades_alvo=None):
         janela = menu_page.acessar_rotina("120616")
         page = Relatorio120616Page(janela.driver, janela.handle_menu)
         resultado = page.gerar_relatorio(
@@ -153,7 +153,7 @@ def main():
         page.fechar_e_voltar()
         return resultado
 
-    def tarefa_150501(unidades_alvo=None):
+    def tarefa_150501(unidades_alvo=["3610006", "3610007", "3610008"]):
         janela = menu_page.acessar_rotina("150501")
         page = Relatorio150501Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "150501"
@@ -215,7 +215,7 @@ def main():
         page.fechar_e_voltar()
         return resultado
 
-    def tarefa_020220_Auditool(unidades_alvo=None):
+    def tarefa_020220_Auditool(unidades_alvo=["3610006", "3610007", "3610008"]):
         janela = menu_page.acessar_rotina("020220")
         page = Relatorio020220Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "020220 Auditool"
@@ -383,7 +383,7 @@ def main():
         #adf
         #"030237": RoutineTask(key="030237", name="Rotina 030237", runner=tarefa_030237),
         #outros
-        #   "020220 auditool": RoutineTask(key="020220", name="Rotina 020220 Auditool", runner=tarefa_020220_Auditool),
+        #"020220 auditool": RoutineTask(key="020220", name="Rotina 020220 Auditool", runner=tarefa_020220_Auditool),
         #"020220_RECOLHAS": RoutineTask(key="020220_RECOLHAS", name="Rotina 020220 Recolhas", runner=tarefa_020220_Recolhas),
         #"140506": RoutineTask(key="140506", name="Rotina 140506", runner=tarefa_140506),
         #"120606": RoutineTask(key="120606", name="Rotina 120606", runner=tarefa_120606),
@@ -394,10 +394,10 @@ def main():
         #"030237 Estoque": RoutineTask(key="030237_ESTOQUE", name="Rotina 030237 Estoque", runner=tarefa_030237_estoque),
         #"020502": RoutineTask(key="020502", name="Rotina 020502", runner=tarefa_020502),
         #fluxo de caixa
-        "140506": RoutineTask(key="140506", name="Rotina 140506", runner=tarefa_140506),
-        "120606": RoutineTask(key="120606", name="Rotina 120606", runner=tarefa_120606),
-        "020502 fluxodecaixa": RoutineTask(key="020502_FLUXO_DE_CAIXA", name="Rotina 020502 Fluxo de Caixa", runner=tarefa_020502_fluxodecaixa),
-        "150501 fluxodecaixa": RoutineTask(key="150501_FLUXO_DE_CAIXA", name="Rotina 150501 Fluxo de Caixa", runner=tarefa_150501_fluxodecaixa),
+        #"140506": RoutineTask(key="140506", name="Rotina 140506", runner=tarefa_140506),
+        #"120606": RoutineTask(key="120606", name="Rotina 120606", runner=tarefa_120606),
+        #"020502 fluxodecaixa": RoutineTask(key="020502_FLUXO_DE_CAIXA", name="Rotina 020502 Fluxo de Caixa", runner=tarefa_020502_fluxodecaixa),
+        #"150501 fluxodecaixa": RoutineTask(key="150501_FLUXO_DE_CAIXA", name="Rotina 150501 Fluxo de Caixa", runner=tarefa_150501_fluxodecaixa),
         #bot zap
         #"120601 bot": RoutineTask(key="120601_BOT", name="Rotina 120601 Bot", runner=tarefa_120601_bot),
         #"020220 bot": RoutineTask(key="020220_BOT", name="Rotina 020220 Bot", runner=tarefa_020220_bot),

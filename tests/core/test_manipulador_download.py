@@ -6,6 +6,70 @@ from pathlib import Path
 from core.files import manipulador_download
 
 
+def test_extrair_urls_relatorio_promax_remove_duplicatas():
+    html = """
+        <a href="/pw/tmp/rels/03.01.11_PW02041R_F7367_22310592.csv.inf">CSV</a>
+        <script>var arquivo='/pw/tmp/rels/03.01.11_PW02041R_F7367_22310592.csv.inf';</script>
+    """
+
+    urls = manipulador_download._extrair_urls_relatorio(
+        html,
+        "http://paubrasil.promaxcloud.com.br/pw/cgi-bin/PP00100.exe",
+    )
+
+    assert urls == [
+        "http://paubrasil.promaxcloud.com.br/pw/tmp/rels/03.01.11_PW02041R_F7367_22310592.csv.inf"
+    ]
+
+
+def test_extrair_url_pdf_promax_sem_inf():
+    html = '<script>window.location="/pw/tmp/rels/bol_237_007544_000000_999999_22502754.pdf";</script>'
+
+    urls = manipulador_download._extrair_urls_relatorio(
+        html,
+        "http://paubrasil.promaxcloud.com.br/pw/cgi-bin/PP00100.exe",
+    )
+
+    assert urls == [
+        "http://paubrasil.promaxcloud.com.br/pw/tmp/rels/bol_237_007544_000000_999999_22502754.pdf"
+    ]
+
+
+def test_tentar_download_http_salva_csv_sem_fluxo_visual(monkeypatch):
+    base = Path.cwd() / ".test_tmp_manipulador_download"
+    shutil.rmtree(base, ignore_errors=True)
+    try:
+        destino = base / "relatorio.csv"
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        url = "http://promax.local/pw/tmp/rels/relatorio.csv.inf"
+
+        monkeypatch.setattr(
+            manipulador_download,
+            "_coletar_urls_relatorio_driver",
+            lambda _driver: [url],
+        )
+
+        def fake_baixar(_driver, url_recebida, caminho_final, extensao):
+            assert url_recebida == url
+            assert extensao == ".csv"
+            caminho_final.write_bytes(b"coluna;valor\n1;2\n")
+            return True, "Download HTTP direto validado (18 bytes)"
+
+        monkeypatch.setattr(manipulador_download, "_baixar_url_relatorio", fake_baixar)
+
+        resultado = manipulador_download._tentar_download_http(
+            object(),
+            destino,
+            ".csv",
+            timeout_segundos=1,
+        )
+
+        assert resultado[0] is True
+        assert destino.read_bytes().startswith(b"coluna;valor")
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+
+
 def test_houve_atividade_download_detecta_novo_arquivo():
     base = Path.cwd() / ".test_tmp_manipulador_download"
     shutil.rmtree(base, ignore_errors=True)
