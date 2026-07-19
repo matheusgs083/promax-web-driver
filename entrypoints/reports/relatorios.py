@@ -218,7 +218,7 @@ def main(
         page.fechar_e_voltar()
         return resultado
 
-    def tarefa_150501(unidades_alvo=["3610006", "3610007", "3610008"]):
+    def tarefa_150501(unidades_alvo=None):
         janela = menu_page.acessar_rotina("150501")
         page = Relatorio150501Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "150501"
@@ -282,7 +282,7 @@ def main(
         page.fechar_e_voltar()
         return resultado
 
-    def tarefa_020220_Auditool(unidades_alvo=["3610006", "3610007", "3610008"]):
+    def tarefa_020220_Auditool(unidades_alvo=None):
         janela = menu_page.acessar_rotina("020220")
         page = Relatorio020220Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "020220 Auditool"
@@ -359,8 +359,8 @@ def main(
             unidade=unidades_alvo,
             opcao_rel="01",
             tipo_data="C",
-            iniDat=report_start_text or primeiro_dia_mes_passado,
-            fimDat=report_end_text or primeiro_dia_mes_atual,
+            iniDat=report_start_text or primeiro_dia_mes_atual,
+            fimDat=report_end_text or data_ontem_formatada,
             nome_arquivo="14,05,06_nUnidade",
         )
         page.fechar_e_voltar()
@@ -375,8 +375,8 @@ def main(
             opcao_rel="01",
             tpData="C",
             idTitulosNormais=True,
-            iniDat=report_start_text or primeiro_dia_mes_passado,
-            fimDat=report_end_text or ultimo_dia_util_mes_atual,
+            iniDat=report_start_text or primeiro_dia_mes_atual,
+            fimDat=report_end_text or data_ontem_formatada,
             nome_arquivo="12,06,06_nUnidade",
         )
         page.fechar_e_voltar()
