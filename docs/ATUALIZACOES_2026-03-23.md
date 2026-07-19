@@ -20,7 +20,7 @@ Responsabilidades concentradas no servico:
 - acionar publicacao final
 - consolidar o status final do job em `ExecutionResult`
 
-O servico expÃµe:
+O servico expõe:
 
 - `RoutineTask`
 - `ReportOrchestrationService`

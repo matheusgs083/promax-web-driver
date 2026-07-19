@@ -53,6 +53,8 @@ def test_reprocessador_publica_e_arquiva_pendencia(monkeypatch):
         )
 
         assert resultado.status == ExecutionStatus.SUCCESS
+        assert "1/1 publicada(s)" in resultado.message
+        assert "0 permanece(m) pendente(s)" in resultado.message
         assert destino_final.exists()
 
         metadata_processado = next((raiz / "publicacao_processada").glob("**/metadata.json"))
@@ -88,6 +90,9 @@ def test_reprocessador_mantem_pendencia_quando_reenvio_falha(monkeypatch):
 
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         assert resultado.status == ExecutionStatus.TECHNICAL_FAILURE
+        assert "0/1 publicada(s)" in resultado.message
+        assert "1 permanece(m) pendente(s)" in resultado.message
+        assert "falha simulada de reprocessamento" in resultado.message
         assert pasta_pendencia.exists()
         assert metadata["status"] == "falha_reprocessamento"
         assert metadata["ultima_tentativa_status"] == ExecutionStatus.TECHNICAL_FAILURE.value

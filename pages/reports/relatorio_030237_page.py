@@ -174,44 +174,44 @@ class Relatorio030237Page(RotinaPage):
         # Retorna a tupla (ou True) para que o loop_unidades possa registrar no Tracker
         return resultado_final
 """
-00 â†’ --Selecionar--
-01 â†’ Geral
-02 â†’ Comercial - NF
-03 â†’ Gte Vendas - NF
-04 â†’ Area - NF
-05 â†’ Setor - NF
-06 â†’ Vendedor
-07 â†’ Cliente
-08 â†’ Municipio
-09 â†’ Categoria
-10 â†’ Segmto Cerv
-11 â†’ Rede
-12 â†’ Tipo Movto
-13 â†’ CTO
-14 â†’ Operacao
-15 â†’ Forma Pagto
-16 â†’ Cond Pagto
-17 â†’ Transp.
-18 â†’ Nivel
-19 â†’ Mapa
-20 â†’ Comercial - Cli
-21 â†’ Gte Vendas - Cli
-22 â†’ Area - Cli
-23 â†’ Setor - Cli
-24 â†’ Grupo de Rede
-25 â†’ Motorista
-26 â†’ Cli Corporativo
-27 â†’ NR Roadashow
-28 â†’ Classe Road
-29 â†’ Codigo Fiscal
-30 â†’ Cli Chave SAP
-31 â†’ Conferencia SAP
-32 â†’ F A D
+00 → --Selecionar--
+01 → Geral
+02 → Comercial - NF
+03 → Gte Vendas - NF
+04 → Area - NF
+05 → Setor - NF
+06 → Vendedor
+07 → Cliente
+08 → Municipio
+09 → Categoria
+10 → Segmto Cerv
+11 → Rede
+12 → Tipo Movto
+13 → CTO
+14 → Operacao
+15 → Forma Pagto
+16 → Cond Pagto
+17 → Transp.
+18 → Nivel
+19 → Mapa
+20 → Comercial - Cli
+21 → Gte Vendas - Cli
+22 → Area - Cli
+23 → Setor - Cli
+24 → Grupo de Rede
+25 → Motorista
+26 → Cli Corporativo
+27 → NR Roadashow
+28 → Classe Road
+29 → Codigo Fiscal
+30 → Cli Chave SAP
+31 → Conferencia SAP
+32 → F A D
 33 → Armazém
-34 â†’ Distrital - NF
-35 â†’ Distrital - Cli
-36 â†’ Ajudante 1
-37 â†’ Ajudante 2
-38 â†’ Codigo Contabil
-39 â†’ Veiculo
-40 â†’ VDE -"""
+34 → Distrital - NF
+35 → Distrital - Cli
+36 → Ajudante 1
+37 → Ajudante 2
+38 → Codigo Contabil
+39 → Veiculo
+40 → VDE -"""

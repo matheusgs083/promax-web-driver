@@ -61,6 +61,7 @@ class RotinaPage(BasePage):
         super().__init__(driver)
         self.handle_menu = handle_menu_original
         self.subpasta_download = None
+        self.tracker_name = None
         
         try:
             self.driver.switch_to.window(self.driver.current_window_handle)
@@ -284,8 +285,7 @@ class RotinaPage(BasePage):
         else:
             unidades = todas_unidades
 
-        # Extrai o nome da rotina dinamicamente (ex: Relatorio0513Page -> Rotina 0513)
-        rotina_nome = self.__class__.__name__.replace("Page", "").replace("Relatorio", "Rotina ")
+        rotina_nome = self.obter_nome_tracker()
         resultados = []
         falhas_negocio = 0
         falhas_tecnicas = 0
@@ -376,6 +376,11 @@ class RotinaPage(BasePage):
                 f"{falhas_negocio} falha(s) de negócio e {falhas_tecnicas} falha(s) técnica(s)"
             ),
             retry=falhas_com_retry > 0,
+        )
+
+    def obter_nome_tracker(self):
+        return self.tracker_name or (
+            self.__class__.__name__.replace("Page", "").replace("Relatorio", "Rotina ")
         )
 
     # ======================

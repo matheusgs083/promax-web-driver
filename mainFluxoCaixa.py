@@ -1,4 +1,4 @@
-﻿from entrypoints.reports.relatorios import main
+from entrypoints.reports.relatorios import main
 
 
 if __name__ == "__main__":

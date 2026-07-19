@@ -41,6 +41,7 @@ class ReportOrchestrationService:
         intermediate_dir,
         auxiliary_sheet=None,
         publication_plan: PublicationPlan | None = None,
+        post_process_dirs: list[str | Path] | tuple[str | Path, ...] | None = None,
         run_initial_execution: bool = True,
         automatic_repescagem: bool = False,
         manual_repescagem: dict[str, list[str]] | None = None,
@@ -153,16 +154,20 @@ class ReportOrchestrationService:
                 success_message="Job finalizado sem pos-processamento.",
             )
 
-        post_process_result = higienizar_relatorios_intermediarios(
-            intermediate_dir,
-            auxiliary_sheet,
-            self.logger,
-        )
+        post_process_targets = list(post_process_dirs or (intermediate_dir,))
+        post_process_results = [
+            higienizar_relatorios_intermediarios(
+                target_dir,
+                auxiliary_sheet,
+                self.logger,
+            )
+            for target_dir in post_process_targets
+        ]
         publication_result = self.publicar(publication_plan)
         return self._merge_results(
             execution_result,
             tracker_result,
-            post_process_result,
+            *post_process_results,
             publication_result,
             success_message="Job concluido com sucesso, incluindo pos-processamento e publicacao.",
         )
@@ -275,8 +280,8 @@ class ReportOrchestrationService:
                 )
                 continue
 
-            key = self._extrair_chave_rotina(rotina_registrada)
-            if not key or key not in tasks:
+            key = self._resolver_chave_rotina(rotina_registrada, tasks)
+            if not key:
                 continue
 
             falhas_por_rotina.setdefault(key, [])
@@ -292,6 +297,23 @@ class ReportOrchestrationService:
                 falhas_por_rotina[key].append(unidade_falhou)
 
         return falhas_por_rotina
+
+    @classmethod
+    def _resolver_chave_rotina(
+        cls,
+        nome_rotina,
+        tasks: dict[str, RoutineTask],
+    ) -> str | None:
+        nome_normalizado = str(nome_rotina or "").strip()
+        if not nome_normalizado:
+            return None
+
+        for key, task in tasks.items():
+            if task.name == nome_normalizado:
+                return key
+
+        legacy_key = cls._extrair_chave_rotina(nome_rotina)
+        return legacy_key if legacy_key in tasks else None
 
     @staticmethod
     def _extrair_chave_rotina(nome_rotina) -> str | None:

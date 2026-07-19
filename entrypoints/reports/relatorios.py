@@ -1,9 +1,13 @@
 ﻿import os
 import dotenv
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 import pandas as pd
 
+from core.config.report_group_loader import (
+    load_report_groups,
+    select_report_group,
+)
 from core.execution.entrypoint_helpers import (
     encerrar_driver,
     executar_tarefa_com_retry as executar_tarefa_com_retry_base,
@@ -93,8 +97,61 @@ def encerrar_sessao():
     menu_page = None
 
 
-def main():
+def _parse_iso_date(value, *, field_name):
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError as exc:
+        raise ValueError(f"{field_name} deve usar o formato YYYY-MM-DD.") from exc
+
+
+def _normalize_list(values):
+    normalized = []
+    for value in values or []:
+        for item in str(value).replace(";", ",").split(","):
+            cleaned = item.strip()
+            if cleaned and cleaned not in normalized:
+                normalized.append(cleaned)
+    return normalized
+
+
+def main(
+    *,
+    profile="fluxo_caixa",
+    date_start=None,
+    date_end=None,
+    units=None,
+    routines=None,
+    publish=True,
+    job_id="",
+    download_workers=5,
+):
     logger.info("=== INICIANDO ROBÔ PROMAX (COM AUTO-RECOVERY) ===")
+    requested_units = _normalize_list(units)
+    requested_routines = _normalize_list(routines)
+    requested_start = _parse_iso_date(date_start, field_name="data-inicial")
+    requested_end = _parse_iso_date(date_end, field_name="data-final")
+    if requested_start and requested_end and requested_start > requested_end:
+        raise ValueError("data-inicial nao pode ser posterior a data-final.")
+    if int(download_workers) < 1 or int(download_workers) > 8:
+        raise ValueError("download-workers deve estar entre 1 e 8.")
+
+    groups = load_report_groups()
+    report_group, selected_routines = select_report_group(
+        groups,
+        profile or "fluxo_caixa",
+        requested_routines,
+    )
+    report_start_text = requested_start.strftime("%d/%m/%Y") if requested_start else None
+    report_end_text = requested_end.strftime("%d/%m/%Y") if requested_end else None
+    logger.info(
+        "Grupo de relatorios selecionado: %s (%s)",
+        report_group.name,
+        report_group.key,
+    )
+    if job_id:
+        logger.info("Job Promax controlado pelo bot_api: %s", job_id)
 
     def tarefa_0513(unidades_alvo=None):
         janela = menu_page.acessar_rotina("0513")
@@ -131,8 +188,8 @@ def main():
             unidade=unidades_alvo,
             opcao_rel="01",
             id_notas_tit_nao_atu=False,
-            ini_vencimento=primeiro_dia_mes_passado,
-            fim_vencimento=data_ontem_formatada,
+            ini_vencimento=report_start_text or primeiro_dia_mes_passado,
+            fim_vencimento=report_end_text or data_ontem_formatada,
             ini_especie=4,
             fim_especie=4,
             nome_arquivo=f"{primeiro_dia_mes_atual_traco} 120601_nomeUnidade120601",
@@ -177,8 +234,8 @@ def main():
             quebra1="14",
             quebra2="12",
             quebra3="16",
-            data_inicial=primeiro_dia_mes_atual,
-            data_final=data_ontem_formatada,
+            data_inicial=report_start_text or primeiro_dia_mes_atual,
+            data_final=report_end_text or data_ontem_formatada,
             nome_arquivo=f"{mes_atual}-{ano_atual} nomeUnidade030237",
         )
         page.fechar_e_voltar()
@@ -188,12 +245,13 @@ def main():
         janela = menu_page.acessar_rotina("030237")
         page = Relatorio030237Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "030237 Giro"
+        page.tracker_name = "Rotina 030237 Giro"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             quebra1="14",
             itens="s",
-            data_inicial=primeiro_dia_mes_atual,
-            data_final=data_hoje_formatada,
+            data_inicial=report_start_text or primeiro_dia_mes_atual,
+            data_final=report_end_text or data_hoje_formatada,
             nome_arquivo=f"{mes_atual}-{ano_atual} nomeUnidade030237",
         )
         page.fechar_e_voltar()
@@ -203,13 +261,14 @@ def main():
         janela = menu_page.acessar_rotina("030237")
         page = Relatorio030237Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "030237 Estoque"
+        page.tracker_name = "Rotina 030237 Estoque"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             quebra1="14",
             quebra2="16",
             itens="s",
-            data_inicial=primeiro_dia_mes_passado,
-            data_final=data_hoje_formatada,
+            data_inicial=report_start_text or primeiro_dia_mes_passado,
+            data_final=report_end_text or data_hoje_formatada,
             nome_arquivo=f"03,02,37_nomeUnidade030237estoque",
         )
         page.fechar_e_voltar()
@@ -219,6 +278,7 @@ def main():
         janela = menu_page.acessar_rotina("020220")
         page = Relatorio020220Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "020220 Auditool"
+        page.tracker_name = "Rotina 020220 Auditool"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             opcao_rel="01",
@@ -237,6 +297,7 @@ def main():
         janela = menu_page.acessar_rotina("020220")
         page = Relatorio020220Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "020220 Giro"
+        page.tracker_name = "Rotina 020220 Giro"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             opcao_rel="01",
@@ -253,6 +314,7 @@ def main():
         janela = menu_page.acessar_rotina("020220")
         page = Relatorio020220Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "020220 Recolhas"
+        page.tracker_name = "Rotina 020220 Recolhas"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             opcao_rel="01",
@@ -289,8 +351,8 @@ def main():
             unidade=unidades_alvo,
             opcao_rel="01",
             tipo_data="C",
-            iniDat=primeiro_dia_mes_passado,
-            fimDat=primeiro_dia_mes_atual,
+            iniDat=report_start_text or primeiro_dia_mes_passado,
+            fimDat=report_end_text or primeiro_dia_mes_atual,
             nome_arquivo="14,05,06_nUnidade",
         )
         page.fechar_e_voltar()
@@ -305,8 +367,8 @@ def main():
             opcao_rel="01",
             tpData="C",
             idTitulosNormais=True,
-            iniDat=primeiro_dia_mes_passado,
-            fimDat=ultimo_dia_util_mes_atual,
+            iniDat=report_start_text or primeiro_dia_mes_passado,
+            fimDat=report_end_text or ultimo_dia_util_mes_atual,
             nome_arquivo="12,06,06_nUnidade",
         )
         page.fechar_e_voltar()
@@ -316,6 +378,7 @@ def main():
         janela = menu_page.acessar_rotina("020502")
         page = Relatorio020502Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "020502 fluxo de caixa"
+        page.tracker_name = "Rotina 020502 Fluxo de Caixa"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             opcao_rel="1",  
@@ -331,6 +394,7 @@ def main():
         janela = menu_page.acessar_rotina("150501")
         page = Relatorio150501Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "150501 fluxo de caixa"
+        page.tracker_name = "Rotina 150501 Fluxo de Caixa"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             visao="01",
@@ -346,6 +410,7 @@ def main():
         janela = menu_page.acessar_rotina("120601")
         page = Relatorio120601Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "120601 bot"
+        page.tracker_name = "Rotina 120601 Bot"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             opcao_rel="01",
@@ -361,6 +426,7 @@ def main():
         janela = menu_page.acessar_rotina("020220")
         page = Relatorio020220Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "020220 bot"
+        page.tracker_name = "Rotina 020220 Bot"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             opcao_rel="01",
@@ -372,35 +438,53 @@ def main():
         page.fechar_e_voltar()
         return resultado
 
+    routine_runners = {
+        "0513": tarefa_0513,
+        "120616": tarefa_120616,
+        "120601": tarefa_120601,
+        "0512": tarefa_0512,
+        "150501": tarefa_150501,
+        "030237": tarefa_030237,
+        "020220_AUDITOOL": tarefa_020220_Auditool,
+        "020220_RECOLHAS": tarefa_020220_Recolhas,
+        "030237_GIRO": tarefa_030237_Giro,
+        "020220_GIRO": tarefa_020220_Giro,
+        "030237_ESTOQUE": tarefa_030237_estoque,
+        "020502": tarefa_020502,
+        "140506": tarefa_140506,
+        "120606": tarefa_120606,
+        "020502_FLUXO_DE_CAIXA": tarefa_020502_fluxodecaixa,
+        "150501_FLUXO_DE_CAIXA": tarefa_150501_fluxodecaixa,
+        "120601_BOT": tarefa_120601_bot,
+        "020220_BOT": tarefa_020220_bot,
+    }
+    missing_runners = [
+        routine.id
+        for routine in selected_routines
+        if routine.id not in routine_runners
+    ]
+    if missing_runners:
+        raise ValueError(
+            "Rotinas sem implementacao no entrypoint: " + ", ".join(missing_runners)
+        )
+
+    def bind_runner(runner):
+        def selected_runner(retry_units=None):
+            if retry_units is not None:
+                return runner(retry_units)
+            if requested_units:
+                return runner(requested_units)
+            return runner()
+
+        return selected_runner
+
     tarefas = {
-        #inadimplencia
-        #"0513": RoutineTask(key="0513", name="Rotina 0513", runner=tarefa_0513),
-        #"120616": RoutineTask(key="120616", name="Rotina 120616", runner=tarefa_120616),
-        #"120601": RoutineTask(key="120601", name="Rotina 120601", runner=tarefa_120601),
-        # OBZ
-        #"0512": RoutineTask(key="0512", name="Rotina 0512", runner=tarefa_0512),
-        #"150501": RoutineTask(key="150501", name="Rotina 150501", runner=tarefa_150501),
-        #adf
-        #"030237": RoutineTask(key="030237", name="Rotina 030237", runner=tarefa_030237),
-        #outros
-        #"020220 auditool": RoutineTask(key="020220", name="Rotina 020220 Auditool", runner=tarefa_020220_Auditool),
-        #"020220_RECOLHAS": RoutineTask(key="020220_RECOLHAS", name="Rotina 020220 Recolhas", runner=tarefa_020220_Recolhas),
-        #"140506": RoutineTask(key="140506", name="Rotina 140506", runner=tarefa_140506),
-        #"120606": RoutineTask(key="120606", name="Rotina 120606", runner=tarefa_120606),
-        #Giro
-        #"030237 Giro": RoutineTask(key="030237_GIRO", name="Rotina 030237 Giro", runner=tarefa_030237_Giro),
-        #"020220 Giro": RoutineTask(key="020220_GIRO", name="Rotina 020220 Giro", runner=tarefa_020220_Giro),
-        #Estoque
-        #"030237 Estoque": RoutineTask(key="030237_ESTOQUE", name="Rotina 030237 Estoque", runner=tarefa_030237_estoque),
-        #"020502": RoutineTask(key="020502", name="Rotina 020502", runner=tarefa_020502),
-        #fluxo de caixa
-        #"140506": RoutineTask(key="140506", name="Rotina 140506", runner=tarefa_140506),
-        #"120606": RoutineTask(key="120606", name="Rotina 120606", runner=tarefa_120606),
-        #"020502 fluxodecaixa": RoutineTask(key="020502_FLUXO_DE_CAIXA", name="Rotina 020502 Fluxo de Caixa", runner=tarefa_020502_fluxodecaixa),
-        #"150501 fluxodecaixa": RoutineTask(key="150501_FLUXO_DE_CAIXA", name="Rotina 150501 Fluxo de Caixa", runner=tarefa_150501_fluxodecaixa),
-        #bot zap
-        #"120601 bot": RoutineTask(key="120601_BOT", name="Rotina 120601 Bot", runner=tarefa_120601_bot),
-        #"020220 bot": RoutineTask(key="020220_BOT", name="Rotina 020220 Bot", runner=tarefa_020220_bot),
+        routine.id: RoutineTask(
+            key=routine.id,
+            name=routine.name,
+            runner=bind_runner(routine_runners[routine.id]),
+        )
+        for routine in selected_routines
     }
 
     pasta_intermediaria = Path(settings.download_dir)
@@ -416,8 +500,7 @@ def main():
     }
     nome_mes_atual = meses_pt[mes_atual]
 
-    publication_plan = PublicationPlan(
-        mapping={
+    publication_mapping = {
             os.path.join(str(pasta_intermediaria), "0513"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Inadimplência\05.13",
             os.path.join(str(pasta_intermediaria), "120616"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Inadimplência\12.06.16",
             os.path.join(str(pasta_intermediaria), "120601"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Inadimplência\12.06.01",
@@ -450,7 +533,31 @@ def main():
             os.path.join(str(pasta_intermediaria), "150501 fluxo de caixa"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_atual}\{mes_atual}. {nome_mes_atual}",
 
 
-        },
+        }
+    selected_output_folders = tuple(
+        folder
+        for routine in selected_routines
+        for folder in routine.output_folders
+    )
+
+    def belongs_to_selected_output(source):
+        try:
+            relative_source = Path(source).relative_to(pasta_intermediaria)
+        except ValueError:
+            return False
+        return any(
+            relative_source == Path(folder) or Path(folder) in relative_source.parents
+            for folder in selected_output_folders
+        )
+
+    publication_mapping = {
+        source: destination
+        for source, destination in publication_mapping.items()
+        if belongs_to_selected_output(source)
+    }
+
+    publication_plan = PublicationPlan(
+        mapping=publication_mapping if publish else {},
         success_message="Movimentação concluída com sucesso.",
         partial_prefix="Movimentação concluída com pendências de publicação.",
         technical_prefix="Movimentação finalizada com falha técnica de publicação.",
@@ -469,8 +576,13 @@ def main():
         intermediate_dir=pasta_intermediaria,
         auxiliary_sheet=caminho_planilha_auxiliar,
         publication_plan=publication_plan,
+        post_process_dirs=[
+            pasta_intermediaria / folder
+            for folder in selected_output_folders
+        ],
         automatic_repescagem=True,
         protect_artifacts_on_failure=True,
+        download_workers=int(download_workers),
     )
 
 if __name__ == "__main__":

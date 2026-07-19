@@ -62,6 +62,84 @@ def test_repescagem_automatica_reexecuta_apenas_unidades_falhas():
     assert chamadas_runner == [["3610007"]]
 
 
+def test_repescagem_distingue_duas_variantes_020220_pelo_nome_exato():
+    chamadas = []
+    tracker = FakeTracker(
+        [
+            {
+                "Status": "FALHA DOWNLOAD",
+                "Rotina": "Rotina 020220 Auditool",
+                "Unidade": "3610006",
+            },
+            {
+                "Status": "ERRO SISTEMA",
+                "Rotina": "Rotina 020220 Recolhas",
+                "Unidade": "3610008",
+            },
+        ]
+    )
+    service = ReportOrchestrationService(
+        logger=DummyLogger(),
+        tracker=tracker,
+        iniciar_sessao=lambda: None,
+        executar_tarefa_com_retry=lambda nome, funcao: (nome, funcao()),
+        encerrar_sessao=lambda: None,
+    )
+    tarefas = {
+        "020220_AUDITOOL": RoutineTask(
+            key="020220_AUDITOOL",
+            name="Rotina 020220 Auditool",
+            runner=lambda unidades=None: chamadas.append(("auditool", unidades)),
+        ),
+        "020220_RECOLHAS": RoutineTask(
+            key="020220_RECOLHAS",
+            name="Rotina 020220 Recolhas",
+            runner=lambda unidades=None: chamadas.append(("recolhas", unidades)),
+        ),
+    }
+
+    resultado = service.executar_repescagem_automatica(tarefas)
+
+    assert resultado.status == ExecutionStatus.SUCCESS
+    assert chamadas == [
+        ("auditool", ["3610006"]),
+        ("recolhas", ["3610008"]),
+    ]
+
+
+def test_repescagem_legada_nao_escolhe_variante_020220_ambiguamente():
+    tracker = FakeTracker(
+        [
+            {
+                "Status": "FALHA DOWNLOAD",
+                "Rotina": "Rotina 020220",
+                "Unidade": "3610006",
+            }
+        ]
+    )
+    service = ReportOrchestrationService(
+        logger=DummyLogger(),
+        tracker=tracker,
+        iniciar_sessao=lambda: None,
+        executar_tarefa_com_retry=lambda _nome, funcao: funcao(),
+        encerrar_sessao=lambda: None,
+    )
+    tarefas = {
+        "020220_AUDITOOL": RoutineTask(
+            key="020220_AUDITOOL",
+            name="Rotina 020220 Auditool",
+            runner=lambda _unidades=None: None,
+        ),
+        "020220_RECOLHAS": RoutineTask(
+            key="020220_RECOLHAS",
+            name="Rotina 020220 Recolhas",
+            runner=lambda _unidades=None: None,
+        ),
+    }
+
+    assert service._coletar_falhas_por_rotina(tarefas) == {}
+
+
 def test_execucao_normal_preserva_defaults_do_runner():
     chamadas_runner = []
     service = ReportOrchestrationService(

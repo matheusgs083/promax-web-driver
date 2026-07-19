@@ -35,23 +35,36 @@ def publicar_mapeamento_relatorios(
 ):
     status_publicacao = ExecutionStatus.SUCCESS
     detalhes_publicacao: list[str] = []
+    total_origens = len(mapeamento_movimentacao)
+    origens_publicadas = 0
+    origens_pendentes = 0
 
     try:
         for origem, destino in mapeamento_movimentacao.items():
-            logger.info(f"Movendo: {origem} -> {destino}")
+            logger.info("Publicando origem: %s -> %s", origem, destino)
             resultado_mov = normalize_execution_result(
                 publicar_origem_para_destino(origem, destino),
                 success_message=success_detail,
                 failure_message=failure_detail,
             )
 
-            if resultado_mov.status is ExecutionStatus.TECHNICAL_FAILURE:
+            if resultado_mov.status is ExecutionStatus.SUCCESS:
+                origens_publicadas += 1
+                logger.info("Publicacao confirmada: %s", resultado_mov.message)
+            elif resultado_mov.status is ExecutionStatus.TECHNICAL_FAILURE:
+                origens_pendentes += 1
                 status_publicacao = ExecutionStatus.TECHNICAL_FAILURE
+                logger.error("Publicacao falhou: %s", resultado_mov.message)
             elif (
                 resultado_mov.status is ExecutionStatus.PARTIAL_SUCCESS
                 and status_publicacao is ExecutionStatus.SUCCESS
             ):
+                origens_pendentes += 1
                 status_publicacao = ExecutionStatus.PARTIAL_SUCCESS
+                logger.warning("Publicacao ficou pendente: %s", resultado_mov.message)
+            else:
+                origens_pendentes += 1
+                logger.warning("Publicacao nao confirmada: %s", resultado_mov.message)
 
             if not resultado_mov.ok:
                 detalhes_publicacao.append(resultado_mov.message)
@@ -61,19 +74,31 @@ def publicar_mapeamento_relatorios(
         detalhes_publicacao.append(str(exc))
 
     if status_publicacao is ExecutionStatus.SUCCESS:
-        logger.info(success_message)
-        return ExecutionResult(status=ExecutionStatus.SUCCESS, message=success_message)
+        mensagem = (
+            f"{success_message} "
+            f"{origens_publicadas}/{total_origens} origem(ns) publicada(s)."
+        )
+        logger.info(mensagem)
+        return ExecutionResult(status=ExecutionStatus.SUCCESS, message=mensagem)
 
     if status_publicacao is ExecutionStatus.PARTIAL_SUCCESS:
-        mensagem = partial_prefix
+        mensagem = (
+            f"{partial_prefix} "
+            f"{origens_publicadas}/{total_origens} origem(ns) publicada(s); "
+            f"{origens_pendentes} pendente(s) para reprocessamento."
+        )
         if detalhes_publicacao:
-            mensagem = f"{mensagem} " + " | ".join(detalhes_publicacao)
+            mensagem = f"{mensagem} Detalhes: " + " | ".join(detalhes_publicacao)
         logger.warning(mensagem)
         return ExecutionResult(status=ExecutionStatus.PARTIAL_SUCCESS, message=mensagem)
 
-    mensagem = technical_prefix
+    mensagem = (
+        f"{technical_prefix} "
+        f"{origens_publicadas}/{total_origens} origem(ns) publicada(s); "
+        f"{origens_pendentes} com falha."
+    )
     if detalhes_publicacao:
-        mensagem = f"{mensagem} " + " | ".join(detalhes_publicacao)
+        mensagem = f"{mensagem} Detalhes: " + " | ".join(detalhes_publicacao)
     logger.error(mensagem)
     return ExecutionResult(status=ExecutionStatus.TECHNICAL_FAILURE, message=mensagem)
 
@@ -139,10 +164,19 @@ def reprocessar_publicacoes_pendentes(
         logger.info(mensagem)
         return ExecutionResult(status=ExecutionStatus.SUCCESS, message=mensagem)
 
+    total_pendencias = len(pastas_pendentes)
+    publicadas = 0
+    permanecem_pendentes = 0
+    pendencias_invalidas = 0
+    falhas_arquivamento = 0
     status_final = ExecutionStatus.SUCCESS
     detalhes: list[str] = []
+    logger.info(
+        "Reprocessamento iniciado: %s publicacao(oes) pendente(s).",
+        total_pendencias,
+    )
 
-    for pasta_pendencia in pastas_pendentes:
+    for indice, pasta_pendencia in enumerate(pastas_pendentes, start=1):
         metadata_path = pasta_pendencia / "metadata.json"
         metadata = _carregar_metadata(metadata_path)
         arquivo_pendente = _resolver_arquivo_pendente(pasta_pendencia, metadata)
@@ -154,10 +188,24 @@ def reprocessar_publicacoes_pendentes(
             metadata["ultima_tentativa_detalhe"] = "Metadata incompleto ou arquivo pendente nao encontrado"
             _salvar_metadata(metadata_path, metadata)
             status_final = ExecutionStatus.TECHNICAL_FAILURE
+            permanecem_pendentes += 1
+            pendencias_invalidas += 1
             detalhes.append(f"Pendencia invalida em {pasta_pendencia}")
+            logger.error(
+                "[%s/%s] Pendencia invalida: %s",
+                indice,
+                total_pendencias,
+                pasta_pendencia,
+            )
             continue
 
-        logger.info(f"Reprocessando pendencia: {arquivo_pendente} -> {destino_original}")
+        logger.info(
+            "[%s/%s] Reprocessando: %s -> %s",
+            indice,
+            total_pendencias,
+            arquivo_pendente,
+            destino_original,
+        )
         resultado = publicar_arquivo_na_rede(
             arquivo_pendente,
             destino_original,
@@ -169,6 +217,7 @@ def reprocessar_publicacoes_pendentes(
         metadata["ultima_tentativa_detalhe"] = resultado.message
 
         if resultado.status is ExecutionStatus.SUCCESS:
+            publicadas += 1
             metadata["status"] = "publicado"
             metadata["reprocessado_em"] = datetime.now().isoformat(timespec="seconds")
             _salvar_metadata(metadata_path, metadata)
@@ -176,35 +225,80 @@ def reprocessar_publicacoes_pendentes(
             try:
                 destino_processado = _arquivar_pasta_processada(pasta_pendencia, processed_dir)
                 detalhes.append(f"Pendencia publicada e arquivada em {destino_processado}")
+                logger.info(
+                    "[%s/%s] Publicacao confirmada e arquivada: %s",
+                    indice,
+                    total_pendencias,
+                    destino_processado,
+                )
             except Exception as exc:
+                falhas_arquivamento += 1
                 status_final = ExecutionStatus.PARTIAL_SUCCESS
                 detalhes.append(
                     f"Pendencia publicada para {destino_original}, mas falhou o arquivamento local: {exc}"
                 )
+                logger.warning(
+                    "[%s/%s] Arquivo publicado, mas o arquivamento local falhou: %s",
+                    indice,
+                    total_pendencias,
+                    exc,
+                )
         else:
+            permanecem_pendentes += 1
             metadata["status"] = "falha_reprocessamento"
             _salvar_metadata(metadata_path, metadata)
             if resultado.status is ExecutionStatus.TECHNICAL_FAILURE:
                 status_final = ExecutionStatus.TECHNICAL_FAILURE
+                logger.error(
+                    "[%s/%s] Publicacao continua indisponivel: %s",
+                    indice,
+                    total_pendencias,
+                    resultado.message,
+                )
             elif status_final is ExecutionStatus.SUCCESS:
                 status_final = ExecutionStatus.PARTIAL_SUCCESS
+                logger.warning(
+                    "[%s/%s] Publicacao continua pendente: %s",
+                    indice,
+                    total_pendencias,
+                    resultado.message,
+                )
             detalhes.append(resultado.message)
 
+    resumo = (
+        f"{publicadas}/{total_pendencias} publicada(s); "
+        f"{permanecem_pendentes} permanece(m) pendente(s)"
+    )
+    if pendencias_invalidas:
+        resumo += f"; {pendencias_invalidas} com metadata invalido"
+    if falhas_arquivamento:
+        resumo += f"; {falhas_arquivamento} com falha no arquivamento local"
+
     if status_final is ExecutionStatus.SUCCESS:
+        mensagem = f"Reprocessamento concluido: {resumo}."
+        logger.info(mensagem)
         return ExecutionResult(
             status=ExecutionStatus.SUCCESS,
-            message="Reprocessamento das publicacoes pendentes concluido com sucesso.",
+            message=mensagem,
         )
 
     if status_final is ExecutionStatus.PARTIAL_SUCCESS:
+        mensagem = f"Reprocessamento parcial: {resumo}."
+        if detalhes:
+            mensagem += " Detalhes: " + " | ".join(detalhes)
+        logger.warning(mensagem)
         return ExecutionResult(
             status=ExecutionStatus.PARTIAL_SUCCESS,
-            message="Reprocessamento concluido com pendencias: " + " | ".join(detalhes),
+            message=mensagem,
         )
 
+    mensagem = f"Reprocessamento com falhas: {resumo}."
+    if detalhes:
+        mensagem += " Detalhes: " + " | ".join(detalhes)
+    logger.error(mensagem)
     return ExecutionResult(
         status=ExecutionStatus.TECHNICAL_FAILURE,
-        message="Reprocessamento com falhas tecnicas: " + " | ".join(detalhes),
+        message=mensagem,
     )
 
 
