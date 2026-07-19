@@ -47,7 +47,7 @@ Referencias internas:
 | Comando CLI                              | Entrada real                                          | Objetivo                            |
 | ---------------------------------------- | ----------------------------------------------------- | ----------------------------------- |
 | `python cli.py relatorios`             | `entrypoints/reports/relatorios.py`                 | Fluxo de caixa (grupo padrao)       |
-| `python cli.py relatorios --grupo giro` | `entrypoints/reports/relatorios.py`                 | Executa um grupo dinamico           |
+| `python cli.py relatorios --perfil giro` | `entrypoints/reports/relatorios.py`                | Executa um grupo dinamico           |
 | `python cli.py catalogo-relatorios`    | `report_groups/*.py`                                | Exibe o catalogo JSON sem Selenium  |
 | `python cli.py fechamento`             | `entrypoints/reports/relatorios_fechamento.py`      | Fluxo de fechamento                 |
 | `python cli.py repescagem`             | `entrypoints/reports/repescagem_relatorios.py`      | Repescagem manual de relatorios     |
@@ -135,6 +135,7 @@ Para novos usos, prefira sempre `cli.py` e `entrypoints/`.
 
 ## Documentacao
 
+- `report_groups/README.md`
 - `docs/PROJECT_CONTEXT.md`
 - `docs/code_review_tecnico.md`
 - `docs/ATUALIZACOES_2026-03-23.md`

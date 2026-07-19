@@ -31,6 +31,7 @@ from pages.reports.relatorio_020220_page import Relatorio020220Page
 from pages.reports.relatorio_020502_page import Relatorio020502Page
 from pages.reports.relatorio_140506_page import Relatorio140506Page
 from pages.reports.relatorio_120606_page import Relatorio120606Page
+from pages.reports.relatorio_030206_page import Relatorio030206Page
 
 dotenv.load_dotenv()
 logger = get_logger("MAIN_PROMAX")
@@ -150,6 +151,13 @@ def main(
         report_group.name,
         report_group.key,
     )
+    if requested_start or requested_end:
+        logger.info(
+            "Periodo recebido pelo job: %s a %s. "
+            "Os filtros informados substituirao as datas padrao das rotinas.",
+            requested_start.isoformat() if requested_start else "-",
+            requested_end.isoformat() if requested_end else "-",
+        )
     if job_id:
         logger.info("Job Promax controlado pelo bot_api: %s", job_id)
 
@@ -389,6 +397,22 @@ def main(
         )
         page.fechar_e_voltar()
         return resultado
+
+    def tarefa_030206_bot(unidades_alvo=None):
+        janela = menu_page.acessar_rotina("030206")
+        page = Relatorio030206Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "030206 bot"
+        page.tracker_name = "Rotina 030206 Bot"
+        resultado = page.testar_pdf_intervalo_direto(
+            unidade=unidades_alvo,
+            banco="237",
+            armazem="01",
+            emissao_inicial=report_start_text or primeiro_dia_mes_passado,
+            emissao_final=report_end_text or data_hoje_formatada,
+            nome_arquivo="03,02,06.pdf",
+        )
+        page.fechar_e_voltar()
+        return resultado
     
     def tarefa_150501_fluxodecaixa(unidades_alvo=None):
         janela = menu_page.acessar_rotina("150501")
@@ -455,6 +479,7 @@ def main(
         "120606": tarefa_120606,
         "020502_FLUXO_DE_CAIXA": tarefa_020502_fluxodecaixa,
         "150501_FLUXO_DE_CAIXA": tarefa_150501_fluxodecaixa,
+        "030206_BOT": tarefa_030206_bot,
         "120601_BOT": tarefa_120601_bot,
         "020220_BOT": tarefa_020220_bot,
     }
@@ -531,6 +556,7 @@ def main(
             os.path.join(str(pasta_intermediaria), "120606"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_atual}\{mes_atual}. {nome_mes_atual}",
             os.path.join(str(pasta_intermediaria), "020502 fluxo de caixa"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_atual}\{mes_atual}. {nome_mes_atual}",
             os.path.join(str(pasta_intermediaria), "150501 fluxo de caixa"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_atual}\{mes_atual}. {nome_mes_atual}",
+            os.path.join(str(pasta_intermediaria), "030206 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\030206",
 
 
         }

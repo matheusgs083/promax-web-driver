@@ -130,13 +130,6 @@ class Relatorio030206Page(RotinaPage):
                 detalhe = " | ".join(mensagens) if mensagens else "Alerta sem texto capturado"
                 return False, f"ALERTA_BACKEND: {detalhe}"
 
-        try:
-            self.wait_for_no_alert(timeout=2)
-        except TimeoutException:
-            mensagens = self.lidar_com_alertas(tentativas=2, timeout=2, timeout_entre_alertas=1, max_alertas=10)
-            detalhe = " | ".join(mensagens) if mensagens else "Alerta sem texto capturado"
-            return False, f"ALERTA_BACKEND: {detalhe}"
-
         diretorio_base = get_settings().download_dir
         subpasta = getattr(self, "subpasta_download", None)
         diretorio = diretorio_base / subpasta if subpasta else diretorio_base

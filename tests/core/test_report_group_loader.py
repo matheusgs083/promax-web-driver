@@ -39,6 +39,11 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
         "020502 fluxo de caixa",
         "150501 fluxo de caixa",
     )
+    assert groups["bot_zap"].output_folders == (
+        "120601 bot",
+        "020220 bot",
+        "030206 bot",
+    )
 
 
 def test_selects_requested_routines_in_requested_order():
