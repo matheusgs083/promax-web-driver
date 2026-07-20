@@ -40,6 +40,17 @@ def test_report_parser_accepts_dynamic_group_contract() -> None:
 
 def test_main_cli_propagates_execution_status(monkeypatch, capsys) -> None:
     calls = []
+    from core.observability.relatorio_execucao import tracker
+
+    tracker.registros.clear()
+    tracker.registros.append(
+        {
+            "Rotina": "Rotina 120601",
+            "Unidade": "3610008",
+            "Status": "FALHA DOWNLOAD",
+            "Detalhes": "Resposta HTML sem URL temporaria",
+        }
+    )
     fake_module = SimpleNamespace(
         main=lambda **kwargs: (
             calls.append(kwargs)
@@ -53,9 +64,15 @@ def test_main_cli_propagates_execution_status(monkeypatch, capsys) -> None:
         ["cli.py", "relatorios", "--perfil", "fluxo_caixa", "--job-id", "job-2"],
     )
 
-    assert cli.main_cli() == 10
-    assert calls[0]["profile"] == "fluxo_caixa"
-    assert '"job_id": "job-2"' in capsys.readouterr().out
+    try:
+        assert cli.main_cli() == 10
+        assert calls[0]["profile"] == "fluxo_caixa"
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["job_id"] == "job-2"
+        assert payload["failed_units"] == ["3610008"]
+        assert payload["failed_unit_details"][0]["detail"] == "Resposta HTML sem URL temporaria"
+    finally:
+        tracker.registros.clear()
 
 
 def test_reprocess_publication_emits_controlled_job_summary(

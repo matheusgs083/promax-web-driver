@@ -72,6 +72,36 @@ def _exit_code(result: ExecutionResult) -> int:
     }[result.status]
 
 
+def _tracker_failed_units() -> tuple[list[str], list[dict[str, str]]]:
+    try:
+        from core.observability.relatorio_execucao import tracker
+    except Exception:
+        return [], []
+
+    failed_units: list[str] = []
+    failed_details: list[dict[str, str]] = []
+    statuses_without_retry = {"SEM CONTEUDO", "SEM CONTEÚDO", "SEM DADOS"}
+    for row in getattr(tracker, "registros", []) or []:
+        status = str(row.get("Status", "")).strip().upper()
+        routine = str(row.get("Rotina", "")).strip()
+        unit = str(row.get("Unidade", "")).strip()
+        if not unit or unit == "TODAS" or status == "SUCESSO" or status in statuses_without_retry:
+            continue
+        if routine == "RESUMO FINAL":
+            continue
+        if unit not in failed_units:
+            failed_units.append(unit)
+        failed_details.append(
+            {
+                "unit": unit,
+                "routine": routine,
+                "status": status,
+                "detail": str(row.get("Detalhes", "")).strip(),
+            }
+        )
+    return failed_units, failed_details
+
+
 def main_cli() -> int:
     parser = build_parser()
     args = parser.parse_args()
@@ -122,6 +152,7 @@ def main_cli() -> int:
             message=f"Falha tecnica ao executar o comando: {exc}",
         )
     if is_controlled_job:
+        failed_units, failed_unit_details = _tracker_failed_units()
         print(
             json.dumps(
                 {
@@ -130,6 +161,8 @@ def main_cli() -> int:
                     "operation": args.command,
                     "status": result.status.value,
                     "message": result.message,
+                    "failed_units": failed_units,
+                    "failed_unit_details": failed_unit_details,
                     "exit_code": _exit_code(result),
                 },
                 ensure_ascii=True,
