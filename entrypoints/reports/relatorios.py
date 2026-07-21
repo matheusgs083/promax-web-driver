@@ -558,6 +558,7 @@ def main(
             os.path.join(str(pasta_intermediaria), "020502 fluxo de caixa"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_atual}\{mes_atual}. {nome_mes_atual}",
             os.path.join(str(pasta_intermediaria), "150501 fluxo de caixa"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_atual}\{mes_atual}. {nome_mes_atual}",
             os.path.join(str(pasta_intermediaria), "030206 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\030206",
+            os.path.join(str(pasta_intermediaria), "120601 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\120601",
 
 
         }

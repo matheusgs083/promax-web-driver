@@ -143,13 +143,13 @@ def limpar_nomes_relatorios(pasta_relatorios, caminho_excel_auxiliar):
 
             else:
                 # ---> A MÁGICA DO PREFIXO PARA ARQUIVOS GLOBAIS AQUI <---
-                if arquivo.parent == pasta and " - " in nome_original:
+                if arquivo.parent != pasta:
+                    continue
+                if " - " in nome_original:
                     pasta_sub = nome_original.split(" - ")[0].strip()
-                elif arquivo.parent == pasta:
+                else:
                     # Fallback para relatórios globais sem traço
-                    match_global = re.search(r'^(\d{4,})', nome_original)
-                    if match_global:
-                        pasta_sub = match_global.group(1)
+                    pasta_sub = _inferir_rotina_por_prefixo(nome_original)
                 
                 # ---> TROCA DE VÍRGULA POR PONTO NO NOME DOS ARQUIVOS GLOBAIS <---
                 novo_nome = novo_nome.replace(',', '.')
