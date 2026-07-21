@@ -254,6 +254,9 @@ def mover_relatorios(origem, destino):
         for item in caminho_origem.iterdir():
             if not item.is_file():
                 continue
+            if item.name.startswith("."):
+                logger.debug("Arquivo oculto/de controle ignorado na publicacao: %s", item)
+                continue
             resultado = publicar_arquivo_na_rede(item, caminho_destino / item.name)
             mensagens.append(resultado.message)
             if resultado.status is ExecutionStatus.TECHNICAL_FAILURE:

@@ -87,3 +87,24 @@ def test_publicacao_falha_vai_para_fila_pendente(monkeypatch):
         shutil.rmtree(raiz.parent, ignore_errors=True)
 
 
+def test_publicacao_de_pasta_ignora_arquivos_ocultos_de_controle(monkeypatch):
+    raiz = Path.cwd() / ".test_tmp_movimentador" / "ocultos"
+    shutil.rmtree(raiz.parent, ignore_errors=True)
+    raiz.mkdir(parents=True, exist_ok=True)
+    try:
+        _isolar_publicacao(monkeypatch, raiz)
+        origem = raiz / "origem"
+        destino = raiz / "rede"
+        origem.mkdir()
+        (origem / ".log_renomeios.json").write_text("{}", encoding="utf-8")
+        (origem / "relatorio.csv").write_text("a,b\n1,2\n", encoding="utf-8")
+
+        resultado = movimentador.mover_relatorios(str(origem), str(destino))
+
+        assert resultado.status == ExecutionStatus.SUCCESS
+        assert (destino / "relatorio.csv").is_file()
+        assert not (destino / ".log_renomeios.json").exists()
+    finally:
+        shutil.rmtree(raiz.parent, ignore_errors=True)
+
+

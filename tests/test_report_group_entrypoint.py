@@ -33,7 +33,7 @@ def test_entrypoint_selects_routine_and_output_from_group_without_browser(
     assert result.status == ExecutionStatus.SUCCESS
     assert list(captured["tasks"]) == ["020220_RECOLHAS"]
     assert captured["tasks"]["020220_RECOLHAS"].name == "Rotina 020220 Recolhas"
-    assert captured["post_process_dirs"] == [tmp_path / "020220 Recolhas"]
+    assert captured["post_process_dirs"] == [tmp_path]
     assert {
         source.relative_to(tmp_path).parts[0]
         for source in map(Path, captured["publication_plan"].mapping)

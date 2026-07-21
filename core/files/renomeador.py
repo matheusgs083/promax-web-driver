@@ -14,6 +14,15 @@ from core.observability.logger import get_logger
 
 logger = get_logger("RENOMEADOR")
 
+def _inferir_rotina_por_prefixo(nome_arquivo):
+    match = re.match(r"^(\d{2})[,.](\d{2})[,.](\d{2})(?=[_\s.-])", str(nome_arquivo))
+    if match:
+        return "".join(match.groups())
+    match = re.match(r"^(\d{4,6})(?=[_\s.-])", str(nome_arquivo))
+    if match:
+        return match.group(1)
+    return None
+
 def carregar_dicionario_revendas(caminho_excel_auxiliar):
     dicionario = {}
     
@@ -125,6 +134,8 @@ def limpar_nomes_relatorios(pasta_relatorios, caminho_excel_auxiliar):
                                         pasta_sub = match_rotina.group(1)
                     
                     # ---> TROCA DE VÍRGULA POR PONTO NO NOME DO ARQUIVO AQUI <---
+                    if arquivo.parent == pasta and not pasta_sub:
+                        pasta_sub = _inferir_rotina_por_prefixo(nome_original)
                     novo_nome = novo_nome.replace(',', '.')
                     if substituiu_n_unidade_bruta:
                         novo_nome = re.sub(fr"_{cod}(?=\.(csv|xlsx)$)", "", novo_nome, flags=re.IGNORECASE)

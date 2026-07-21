@@ -603,10 +603,7 @@ def main(
         intermediate_dir=pasta_intermediaria,
         auxiliary_sheet=caminho_planilha_auxiliar,
         publication_plan=publication_plan,
-        post_process_dirs=[
-            pasta_intermediaria / folder
-            for folder in selected_output_folders
-        ],
+        post_process_dirs=[pasta_intermediaria],
         automatic_repescagem=True,
         protect_artifacts_on_failure=True,
         download_workers=int(download_workers),
