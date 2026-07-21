@@ -29,6 +29,7 @@ class ExecutionResult:
     status: ExecutionStatus
     message: str
     retry: bool | None = None
+    metadata: dict[str, Any] | None = None
 
     @property
     def ok(self) -> bool:

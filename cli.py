@@ -161,6 +161,7 @@ def main_cli() -> int:
                     "operation": args.command,
                     "status": result.status.value,
                     "message": result.message,
+                    "metadata": result.metadata or {},
                     "failed_units": failed_units,
                     "failed_unit_details": failed_unit_details,
                     "exit_code": _exit_code(result),

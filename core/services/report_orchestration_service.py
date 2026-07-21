@@ -326,10 +326,13 @@ class ReportOrchestrationService:
     def _merge_results(*results: ExecutionResult, success_message: str) -> ExecutionResult:
         status_final = ExecutionStatus.SUCCESS
         detalhes: list[str] = []
+        metadata: dict[str, object] = {}
 
         for result in results:
             if not result:
                 continue
+            if result.metadata:
+                metadata.update(result.metadata)
 
             if result.status in {ExecutionStatus.ABORTED, ExecutionStatus.TECHNICAL_FAILURE}:
                 status_final = ExecutionStatus.TECHNICAL_FAILURE
@@ -348,7 +351,11 @@ class ReportOrchestrationService:
                 detalhes.append(result.message)
 
         if status_final is ExecutionStatus.SUCCESS:
-            return ExecutionResult(status=ExecutionStatus.SUCCESS, message=success_message)
+            return ExecutionResult(
+                status=ExecutionStatus.SUCCESS,
+                message=success_message,
+                metadata=metadata or None,
+            )
 
         prefix = {
             ExecutionStatus.PARTIAL_SUCCESS: "Job concluido com pendencias:",
@@ -356,7 +363,7 @@ class ReportOrchestrationService:
             ExecutionStatus.TECHNICAL_FAILURE: "Job concluido com falhas tecnicas:",
         }[status_final]
         mensagem = prefix if not detalhes else f"{prefix} " + " | ".join(detalhes)
-        return ExecutionResult(status=status_final, message=mensagem)
+        return ExecutionResult(status=status_final, message=mensagem, metadata=metadata or None)
 
 
 

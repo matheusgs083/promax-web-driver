@@ -38,6 +38,10 @@ def test_entrypoint_selects_routine_and_output_from_group_without_browser(
         source.relative_to(tmp_path).parts[0]
         for source in map(Path, captured["publication_plan"].mapping)
     } == {"020220 Recolhas"}
+    assert result.metadata["publication_mapping"] == {
+        str(source): str(destination)
+        for source, destination in captured["publication_plan"].mapping.items()
+    }
 
 
 @pytest.mark.parametrize(

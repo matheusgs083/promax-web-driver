@@ -13,6 +13,7 @@ from core.execution.entrypoint_helpers import (
     executar_tarefa_com_retry as executar_tarefa_com_retry_base,
     iniciar_sessao_padrao,
 )
+from core.execution.execution_result import ExecutionResult
 from core.observability.logger import get_logger
 from core.config.project_paths import DATA_DIR, LOGS_DIR
 from core.services.publication_service import PublicationPlan
@@ -596,7 +597,7 @@ def main(
         executar_tarefa_com_retry=executar_tarefa_com_retry,
         encerrar_sessao=encerrar_sessao,
     )
-    return orchestrator.run(
+    result = orchestrator.run(
         tasks=tarefas,
         tracker_output_dir=LOGS_DIR / "relatorios_baixados",
         intermediate_dir=pasta_intermediaria,
@@ -609,6 +610,17 @@ def main(
         automatic_repescagem=True,
         protect_artifacts_on_failure=True,
         download_workers=int(download_workers),
+    )
+    metadata = dict(result.metadata or {})
+    metadata["publication_mapping"] = {
+        str(source): str(destination)
+        for source, destination in publication_mapping.items()
+    }
+    return ExecutionResult(
+        status=result.status,
+        message=result.message,
+        retry=result.retry,
+        metadata=metadata,
     )
 
 if __name__ == "__main__":
