@@ -1,5 +1,5 @@
-from entrypoints.reports.relatorios import main
+from entrypoints.reports.relatorios import main_local
 
 
 if __name__ == "__main__":
-    main(profile="fluxo_caixa")
+    main_local(profile="fluxo_caixa")

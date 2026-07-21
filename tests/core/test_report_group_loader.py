@@ -22,6 +22,7 @@ EXPECTED_GROUPS = {
     "inadimplencia",
     "obz",
     "outros",
+    "relatorios",
 }
 
 
@@ -44,6 +45,28 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
         "020220 bot",
         "0105070402 bot",
         "030206 bot",
+    )
+    assert groups["relatorios"].routine_ids == (
+        "0513",
+        "120616",
+        "120601",
+        "0512",
+        "150501",
+        "030237",
+        "020220_AUDITOOL",
+        "020220_RECOLHAS",
+        "030237_GIRO",
+        "020220_GIRO",
+        "030237_ESTOQUE",
+        "020502",
+        "140506",
+        "120606",
+        "020502_FLUXO_DE_CAIXA",
+        "150501_FLUXO_DE_CAIXA",
+        "120601_BOT",
+        "020220_BOT",
+        "0105070402_BOT",
+        "030206_BOT",
     )
 
 

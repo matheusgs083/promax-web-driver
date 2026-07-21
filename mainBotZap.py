@@ -1,5 +1,5 @@
-from entrypoints.reports.relatorios import main
+from entrypoints.reports.relatorios import main_local
 
 
 if __name__ == "__main__":
-    main(profile="bot_zap")
+    main_local(profile="bot_zap")

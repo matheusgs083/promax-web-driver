@@ -134,12 +134,13 @@ def main(
     publish=True,
     job_id="",
     download_workers=5,
+    use_api_dates=True,
 ):
     logger.info("=== INICIANDO ROBÔ PROMAX (COM AUTO-RECOVERY) ===")
     requested_units = _normalize_list(units)
     requested_routines = _normalize_list(routines)
-    requested_start = _parse_iso_date(date_start, field_name="data-inicial")
-    requested_end = _parse_iso_date(date_end, field_name="data-final")
+    requested_start = _parse_iso_date(date_start, field_name="data-inicial") if use_api_dates else None
+    requested_end = _parse_iso_date(date_end, field_name="data-final") if use_api_dates else None
     if requested_start and requested_end and requested_start > requested_end:
         raise ValueError("data-inicial nao pode ser posterior a data-final.")
     if int(download_workers) < 1 or int(download_workers) > 8:
@@ -164,6 +165,10 @@ def main(
             "Os filtros informados substituirao as datas padrao das rotinas.",
             requested_start.isoformat() if requested_start else "-",
             requested_end.isoformat() if requested_end else "-",
+        )
+    elif not use_api_dates and (date_start or date_end):
+        logger.info(
+            "Datas externas ignoradas no modo local. Rotinas usarao suas datas padrao."
         )
     if job_id:
         logger.info("Job Promax controlado pelo bot_api: %s", job_id)
@@ -642,5 +647,26 @@ def main(
         metadata=metadata,
     )
 
+
+def main_local(
+    *,
+    profile="fluxo_caixa",
+    units=None,
+    routines=None,
+    publish=True,
+    download_workers=5,
+):
+    return main(
+        profile=profile,
+        date_start=None,
+        date_end=None,
+        units=units,
+        routines=routines,
+        publish=publish,
+        job_id="",
+        download_workers=download_workers,
+        use_api_dates=False,
+    )
+
 if __name__ == "__main__":
-    main()
+    main_local()
