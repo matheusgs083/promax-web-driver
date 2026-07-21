@@ -44,6 +44,62 @@ def test_entrypoint_selects_routine_and_output_from_group_without_browser(
     }
 
 
+def test_bot_zap_geo_routines_use_single_download_without_unit_loop(monkeypatch, tmp_path):
+    captured_run = {}
+    captured_reports = {}
+
+    class Fake020220Page:
+        def __init__(self, _driver, _handle_menu):
+            self.subpasta_download = ""
+            self.tracker_name = ""
+
+        def gerar_relatorio(self, **kwargs):
+            captured_reports["020220_BOT"] = kwargs
+            return "ok"
+
+        def fechar_e_voltar(self):
+            return None
+
+    class Fake0105070402Page:
+        def __init__(self, _driver, _handle_menu):
+            self.subpasta_download = ""
+            self.tracker_name = ""
+
+        def gerar_relatorio(self, **kwargs):
+            captured_reports["0105070402_BOT"] = kwargs
+            return "ok"
+
+        def fechar_e_voltar(self):
+            return None
+
+    class FakeMenuPage:
+        @staticmethod
+        def acessar_rotina(_routine_id):
+            return SimpleNamespace(driver=object(), handle_menu=object())
+
+    def fake_run(_self, **kwargs):
+        captured_run.update(kwargs)
+        return ExecutionResult(ExecutionStatus.SUCCESS, "ok")
+
+    monkeypatch.setattr(relatorios, "settings", SimpleNamespace(download_dir=tmp_path))
+    monkeypatch.setattr(relatorios, "menu_page", FakeMenuPage())
+    monkeypatch.setattr(relatorios, "Relatorio020220Page", Fake020220Page)
+    monkeypatch.setattr(relatorios, "Relatorio0105070402Page", Fake0105070402Page)
+    monkeypatch.setattr(ReportOrchestrationService, "run", fake_run)
+
+    relatorios.main(
+        profile="bot_zap",
+        routines=["020220_BOT", "0105070402_BOT"],
+        units=["0640001", "2210003"],
+        publish=False,
+    )
+    captured_run["tasks"]["020220_BOT"].runner()
+    captured_run["tasks"]["0105070402_BOT"].runner()
+
+    assert captured_reports["020220_BOT"]["unidade"] == "0640001"
+    assert "unidade" not in captured_reports["0105070402_BOT"]
+
+
 @pytest.mark.parametrize(
     (
         "profile",

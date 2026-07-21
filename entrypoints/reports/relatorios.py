@@ -33,6 +33,7 @@ from pages.reports.relatorio_020502_page import Relatorio020502Page
 from pages.reports.relatorio_140506_page import Relatorio140506Page
 from pages.reports.relatorio_120606_page import Relatorio120606Page
 from pages.reports.relatorio_030206_page import Relatorio030206Page
+from pages.reports.relatorio_0105070402_page import Relatorio0105070402Page
 
 dotenv.load_dotenv()
 logger = get_logger("MAIN_PROMAX")
@@ -116,6 +117,11 @@ def _normalize_list(values):
             if cleaned and cleaned not in normalized:
                 normalized.append(cleaned)
     return normalized
+
+
+def _primeira_unidade_geo(unidades_alvo):
+    unidades = _normalize_list(unidades_alvo)
+    return unidades[0] if unidades else "0640001"
 
 
 def main(
@@ -452,13 +458,25 @@ def main(
         page = Relatorio020220Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "020220 bot"
         page.tracker_name = "Rotina 020220 Bot"
+        unidade_geo = _primeira_unidade_geo(unidades_alvo)
         resultado = page.gerar_relatorio(
-            unidade=unidades_alvo,
+            unidade=unidade_geo,
             opcao_rel="01",
             mercadoria_todos=True,
             selecao_comodatos="T",
             cd_visao="2",
             nome_arquivo="020220 bot - nomeUnidade020220",
+        )       
+        page.fechar_e_voltar()
+        return resultado
+
+    def tarefa_0105070402_bot(unidades_alvo=None):
+        janela = menu_page.acessar_rotina("0105070402")
+        page = Relatorio0105070402Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "0105070402 bot"
+        page.tracker_name = "Rotina 0105070402 Bot"
+        resultado = page.gerar_relatorio(
+            nome_arquivo="0105070402 bot - dClientes.csv",
         )
         page.fechar_e_voltar()
         return resultado
@@ -483,6 +501,7 @@ def main(
         "030206_BOT": tarefa_030206_bot,
         "120601_BOT": tarefa_120601_bot,
         "020220_BOT": tarefa_020220_bot,
+        "0105070402_BOT": tarefa_0105070402_bot,
     }
     missing_runners = [
         routine.id
@@ -559,6 +578,8 @@ def main(
             os.path.join(str(pasta_intermediaria), "150501 fluxo de caixa"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_atual}\{mes_atual}. {nome_mes_atual}",
             os.path.join(str(pasta_intermediaria), "030206 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\030206",
             os.path.join(str(pasta_intermediaria), "120601 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\120601",
+            os.path.join(str(pasta_intermediaria), "020220 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\020220",
+            os.path.join(str(pasta_intermediaria), "0105070402 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\0105070402",
 
 
         }

@@ -42,6 +42,7 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
     assert groups["bot_zap"].output_folders == (
         "120601 bot",
         "020220 bot",
+        "0105070402 bot",
         "030206 bot",
     )
 

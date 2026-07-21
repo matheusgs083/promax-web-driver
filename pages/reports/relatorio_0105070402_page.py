@@ -5,6 +5,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from pages.common.rotina_page import RotinaPage
+from core.config.settings import get_settings
 
 try:
     from core.services.report_download_service import capturar_download_relatorio as salvar_arquivo_visual
@@ -129,7 +130,14 @@ class Relatorio0105070402Page(RotinaPage):
             self.wait_for_no_alert(timeout=2)
 
             if salvar_arquivo_visual:
-                return salvar_arquivo_visual(nome_arquivo)
+                subpasta = getattr(self, "subpasta_download", None)
+                download_dir = get_settings().download_dir
+                diretorio = download_dir / subpasta if subpasta else download_dir
+                return salvar_arquivo_visual(
+                    nome_arquivo,
+                    diretorio_intermediario=diretorio,
+                    driver=self.driver,
+                )
 
             self.logger.error("Módulo visual não carregado. Download não efetuado.")
             return False, "Módulos visuais ausentes"
@@ -140,7 +148,5 @@ class Relatorio0105070402Page(RotinaPage):
         except Exception as e:
             self.logger.exception(f"Erro durante espera do arquivo: {e}")
             return False, str(e).split("\n")[0]
-
-
 
 

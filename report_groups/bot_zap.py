@@ -14,6 +14,11 @@ REPORT_GROUP = {
             "output_folders": ["020220 bot"],
         },
         {
+            "id": "0105070402_BOT",
+            "name": "Rotina 0105070402 Bot",
+            "output_folders": ["0105070402 bot"],
+        },
+        {
             "id": "030206_BOT",
             "name": "Rotina 030206 Bot",
             "output_folders": ["030206 bot"],
