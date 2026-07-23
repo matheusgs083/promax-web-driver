@@ -131,12 +131,21 @@ class LoginPage(BasePage):
                     self.logger.warning(f"Não foi possível retornar ao frame de login: {e}")
 
             try:
-                frame_index = self._selecionar_unidade_login_js(
-                    codigo_unidade,
-                    frame_index_inicial=frame_index,
-                    timeout=15,
-                )
                 unidade_confirmada = False
+                try:
+                    frame_index = self._selecionar_unidade_login_js(
+                        codigo_unidade,
+                        frame_index_inicial=frame_index,
+                        timeout=15,
+                    )
+                except RuntimeError as e:
+                    if "unidade-select-not-found" in str(e):
+                        self.logger.warning(
+                            "Combo de unidade nao encontrado no login. Seguindo apenas com confirmacao."
+                        )
+                    else:
+                        raise
+
                 try:
                     self._confirmar_selecao_unidade(codigo_unidade, frame_index=frame_index, timeout=2)
                     unidade_confirmada = True
