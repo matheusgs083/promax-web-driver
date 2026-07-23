@@ -149,4 +149,3 @@ class Relatorio0105070402Page(RotinaPage):
             self.logger.exception(f"Erro durante espera do arquivo: {e}")
             return False, str(e).split("\n")[0]
 
-

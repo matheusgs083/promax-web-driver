@@ -287,4 +287,3 @@ class Relatorio0513Page(RotinaPage):
         raise RuntimeError(
             f"Checkbox {name} não ficou {esperado} após {tentativas} tentativas.")
 
-

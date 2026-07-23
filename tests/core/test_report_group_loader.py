@@ -45,6 +45,8 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
         "020220 bot",
         "0105070402 bot",
         "030206 bot",
+        "030111 bot",
+        "031702 bot",
     )
     assert groups["relatorios"].routine_ids == (
         "0513",
@@ -67,6 +69,8 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
         "020220_BOT",
         "0105070402_BOT",
         "030206_BOT",
+        "030111_BOT",
+        "031702_BOT",
     )
 
 

@@ -271,4 +271,3 @@ class Relatorio020220Page(RotinaPage):
         if pitstop is not None:
             self.js_set_checkbox_by_name("idPitStop", bool(pitstop), force_click=True)
 
-

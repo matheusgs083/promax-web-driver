@@ -114,4 +114,3 @@ class Relatorio140510Page(RotinaPage):
             self.switch_to_default_content()
 
         return resultado_final
-

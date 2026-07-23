@@ -11,10 +11,10 @@ from pages.common.menu_page import MenuPage
 
 
 class LoginPage(BasePage):
-    LOCATOR_USUARIO = (By.NAME, "Usuario")
-    LOCATOR_SENHA = (By.NAME, "Senha")
-    LOCATOR_BTN_CONFIRMA = (By.NAME, "cmdConfirma")
-    LOCATOR_UNIDADE = (By.NAME, "unidade")
+    LOCATOR_USUARIO = (By.XPATH, "//*[@name='Usuario']")
+    LOCATOR_SENHA = (By.XPATH, "//*[@name='Senha']")
+    LOCATOR_BTN_CONFIRMA = (By.XPATH, "//*[@name='cmdConfirma']")
+    LOCATOR_UNIDADE = (By.XPATH, "//*[@name='unidade']")
 
     JS_SET_VALUE_IE = """
     var el = arguments[0];
@@ -78,7 +78,7 @@ class LoginPage(BasePage):
 
         self.logger.info("Aguardando carregamento inicial...")
 
-        frames = self.driver.find_elements(By.TAG_NAME, "iframe") or self.driver.find_elements(By.TAG_NAME, "frame")
+        frames = self.driver.find_elements(By.TAG_NAME, "frame") + self.driver.find_elements(By.TAG_NAME, "iframe")
         frame_index = None
 
         try:
@@ -92,9 +92,10 @@ class LoginPage(BasePage):
             self.logger.warning(f"Falha ao entrar no frame, tentando seguir na raiz: {e}")
 
         try:
-            campo_usuario = self.wait.until(EC.presence_of_element_located(self.LOCATOR_USUARIO))
-            campo_senha = self.wait.until(EC.presence_of_element_located(self.LOCATOR_SENHA))
-            botao_confirma = self.wait.until(EC.presence_of_element_located(self.LOCATOR_BTN_CONFIRMA))
+            campo_usuario, campo_senha, botao_confirma, frame_index = self._localizar_campos_login_js(
+                timeout=20,
+                frame_index_inicial=frame_index,
+            )
 
             self.driver.execute_script(self.JS_SET_VALUE_IE, campo_usuario, usuario)
             self.driver.execute_script(self.JS_SET_VALUE_IE, campo_senha, senha)
@@ -130,7 +131,11 @@ class LoginPage(BasePage):
                     self.logger.warning(f"Não foi possível retornar ao frame de login: {e}")
 
             try:
-                self.selecionar_combo_js(self.LOCATOR_UNIDADE, codigo_unidade)
+                frame_index = self._selecionar_unidade_login_js(
+                    codigo_unidade,
+                    frame_index_inicial=frame_index,
+                    timeout=15,
+                )
                 unidade_confirmada = False
                 try:
                     self._confirmar_selecao_unidade(codigo_unidade, frame_index=frame_index, timeout=2)
@@ -144,8 +149,7 @@ class LoginPage(BasePage):
                         self.switch_to_default_content()
                         self.wait.until(EC.frame_to_be_available_and_switch_to_it(frame_index))
 
-                    botao_final = self.find_element(self.LOCATOR_BTN_CONFIRMA)
-                    self.driver.execute_script(self.JS_CLICK_IE, botao_final)
+                    self._clicar_confirmar_login_js()
                     if unidade_confirmada:
                         self.logger.info("Segunda confirmação clicada via JS com unidade previamente confirmada.")
                     else:
@@ -182,6 +186,211 @@ class LoginPage(BasePage):
         self.logger.info("Login concluido sem validacao visual obrigatoria.")
         return MenuPage(self.driver)
 
+    def _localizar_campos_login_js(self, timeout=20, frame_index_inicial=None):
+        primeiro_aviso = {"emitido": False}
+
+        def _procurar(driver):
+            for contexto in self._contextos_login(frame_index_inicial):
+                try:
+                    driver.switch_to.default_content()
+                    if contexto is not None:
+                        WebDriverWait(driver, 2, poll_frequency=0.2).until(
+                            EC.frame_to_be_available_and_switch_to_it(contexto)
+                        )
+
+                    campo_usuario = self._elemento_por_name_ou_id_js("Usuario")
+                    campo_senha = self._elemento_por_name_ou_id_js("Senha")
+                    botao_confirma = self._elemento_por_name_ou_id_js("cmdConfirma")
+                    if campo_usuario and campo_senha and botao_confirma:
+                        self.logger.info(
+                            "Campos de login localizados via JS no contexto: %s",
+                            "raiz" if contexto is None else f"frame index={contexto}",
+                        )
+                        return campo_usuario, campo_senha, botao_confirma, contexto
+                except Exception:
+                    continue
+
+            if not primeiro_aviso["emitido"]:
+                self.logger.warning(
+                    "Campos de login nao encontrados no primeiro contexto. Varrendo raiz e frames via JS."
+                )
+                primeiro_aviso["emitido"] = True
+            return False
+
+        try:
+            return WebDriverWait(self.driver, timeout, poll_frequency=0.5).until(_procurar)
+        except TimeoutException as exc:
+            try:
+                self.driver.switch_to.default_content()
+            except Exception:
+                pass
+            raise TimeoutException(
+                "Campos de login Usuario/Senha/cmdConfirma nao foram encontrados via JS"
+            ) from exc
+
+    def _contextos_login(self, frame_index_inicial=None):
+        contextos = []
+        if frame_index_inicial is not None:
+            contextos.append(frame_index_inicial)
+        contextos.append(None)
+
+        try:
+            self.driver.switch_to.default_content()
+            frames = self.driver.find_elements(By.TAG_NAME, "frame") + self.driver.find_elements(By.TAG_NAME, "iframe")
+            contextos.extend(range(len(frames)))
+        except Exception:
+            pass
+
+        unicos = []
+        for contexto in contextos:
+            if contexto not in unicos:
+                unicos.append(contexto)
+        return unicos
+
+    def _elemento_por_name_ou_id_js(self, nome):
+        return self.driver.execute_script(
+            """
+            var nome = arguments[0];
+            var lower = String(nome).toLowerCase();
+            return document.getElementsByName(nome)[0]
+                || document.getElementById(nome)
+                || document.getElementsByName(lower)[0]
+                || document.getElementById(lower)
+                || null;
+            """,
+            nome,
+        )
+
+    def _elemento_por_locator_js(self, locator):
+        by, value = locator
+        return self.driver.execute_script(
+            """
+            var by = arguments[0];
+            var value = arguments[1];
+            try {
+                if (by === 'name') {
+                    return document.getElementsByName(value)[0] || null;
+                }
+                if (by === 'id') {
+                    return document.getElementById(value) || null;
+                }
+                if (by === 'xpath') {
+                    return document.evaluate(
+                        value,
+                        document,
+                        null,
+                        XPathResult.FIRST_ORDERED_NODE_TYPE,
+                        null
+                    ).singleNodeValue || null;
+                }
+                return null;
+            } catch (e) {
+                return null;
+            }
+            """,
+            by,
+            value,
+        )
+
+    def _clicar_confirmar_login_js(self):
+        resultado = self.driver.execute_script(
+            """
+            var btn = document.getElementsByName('cmdConfirma')[0]
+                || document.getElementById('cmdConfirma')
+                || document.getElementsByName('CmdConfirma')[0]
+                || null;
+            if (!btn) return {ok:false, error:'cmdConfirma-not-found'};
+            try {
+                try { btn.focus(); } catch(e) {}
+                if (btn.click) btn.click();
+                else if (btn.fireEvent) btn.fireEvent('onclick');
+                return {ok:true};
+            } catch(e) {
+                return {ok:false, error:String(e)};
+            }
+            """
+        )
+        if not resultado or not resultado.get("ok"):
+            raise RuntimeError(f"Falha ao clicar confirmacao do login via JS: {resultado}")
+        return True
+
+    def _selecionar_unidade_login_js(self, codigo_unidade, frame_index_inicial=None, timeout=15):
+        ultimo_resultado = {"ok": False, "error": "nao-executado"}
+
+        def _procurar_e_selecionar(driver):
+            nonlocal ultimo_resultado
+            for contexto in self._contextos_login(frame_index_inicial):
+                try:
+                    driver.switch_to.default_content()
+                    if contexto is not None:
+                        WebDriverWait(driver, 2, poll_frequency=0.2).until(
+                            EC.frame_to_be_available_and_switch_to_it(contexto)
+                        )
+
+                    resultado = self._selecionar_unidade_no_contexto_js(codigo_unidade)
+                    ultimo_resultado = resultado or {"ok": False, "error": "sem-retorno-js"}
+                    if resultado and resultado.get("ok"):
+                        self.logger.info(
+                            "Unidade selecionada via JS no login: %s (contexto: %s)",
+                            codigo_unidade,
+                            "raiz" if contexto is None else f"frame index={contexto}",
+                        )
+                        return "__ROOT__" if contexto is None else f"__FRAME__:{contexto}"
+                except Exception as exc:
+                    ultimo_resultado = {"ok": False, "error": str(exc).split("\n")[0]}
+                    continue
+            return False
+
+        try:
+            contexto = WebDriverWait(self.driver, timeout, poll_frequency=0.5).until(
+                _procurar_e_selecionar
+            )
+            if contexto == "__ROOT__":
+                return None
+            if isinstance(contexto, str) and contexto.startswith("__FRAME__:"):
+                return int(contexto.split(":", 1)[1])
+            return contexto
+        except TimeoutException as exc:
+            try:
+                self.driver.switch_to.default_content()
+            except Exception:
+                pass
+            raise RuntimeError(
+                f"Falha ao selecionar unidade do login via JS: {ultimo_resultado}"
+            ) from exc
+
+    def _selecionar_unidade_no_contexto_js(self, codigo_unidade):
+        return self.driver.execute_script(
+            """
+            var codigo = String(arguments[0]);
+            var sel = document.getElementsByName('unidade')[0]
+                || document.getElementById('unidade')
+                || null;
+            if (!sel || !sel.options) return {ok:false, error:'unidade-select-not-found'};
+
+            var encontrou = false;
+            for (var i = 0; i < sel.options.length; i++) {
+                if (String(sel.options[i].value).replace(/^\\s+|\\s+$/g, '') === codigo) {
+                    sel.selectedIndex = i;
+                    encontrou = true;
+                    break;
+                }
+            }
+            if (!encontrou) return {ok:false, error:'unidade-not-found', value:codigo};
+
+            try { sel.focus(); } catch(e) {}
+            if (document.createEvent) {
+                var ev = document.createEvent('HTMLEvents');
+                ev.initEvent('change', true, true);
+                sel.dispatchEvent(ev);
+            } else if (sel.fireEvent) {
+                sel.fireEvent('onchange');
+            }
+            return {ok:true, value:sel.value};
+            """,
+            codigo_unidade,
+        )
+
     def _confirmar_selecao_unidade(self, codigo_unidade, frame_index=None, timeout=6):
         codigo_unidade = str(codigo_unidade).strip()
 
@@ -197,7 +406,9 @@ class LoginPage(BasePage):
                     )
 
                 try:
-                    combo = driver.find_element(*self.LOCATOR_UNIDADE)
+                    combo = self._elemento_por_locator_js(self.LOCATOR_UNIDADE)
+                    if not combo:
+                        return self._menu_ja_disponivel(driver)
                 except Exception:
                     return self._menu_ja_disponivel(driver)
 
@@ -229,7 +440,8 @@ class LoginPage(BasePage):
             WebDriverWait(driver, 1, poll_frequency=0.2).until(
                 EC.frame_to_be_available_and_switch_to_it(0)
             )
-            driver.find_element(By.ID, "atalho")
+            if not self._elemento_por_locator_js((By.ID, "atalho")):
+                return False
             driver.switch_to.default_content()
             return True
         except Exception:

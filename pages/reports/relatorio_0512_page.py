@@ -213,4 +213,3 @@ class Relatorio0512Page(RotinaPage):
     value=12>Distrital
     value=13>Município         """
 
-

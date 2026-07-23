@@ -166,4 +166,3 @@ class BasePage:
             self.logger.error(f"Erro ao selecionar combo JS: {e}")
             raise
 
-
