@@ -596,6 +596,10 @@ class RotinaPage(BasePage):
         except TimeoutException:
             self.driver.switch_to.frame(frame_index)
 
+        WebDriverWait(self.driver, timeout_csv).until(
+            lambda d: d.execute_script("return document.readyState") == "complete"
+        )
+
         def _achar_botao(d):
             for locator in locators_export:
                 try:

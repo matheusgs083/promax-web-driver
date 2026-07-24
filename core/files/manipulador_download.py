@@ -194,18 +194,56 @@ def _dados_formulario_exportacao(driver, botao) -> dict:
     var botao = arguments[0];
     var form = botao && botao.form;
     if (!form) return {ok:false, error:"botao sem formulario"};
+    function textoBotao(el) {
+        return String((el && (el.innerText || el.textContent || el.value || el.name)) || '').toUpperCase();
+    }
+    function campo(nome) {
+        return form.elements[nome] || (document.getElementsByName(nome)[0] || null);
+    }
+    function setCampo(nome, valor) {
+        var el = campo(nome);
+        if (!el) return false;
+        el.value = valor;
+        return true;
+    }
+    function aplicarExportacaoPorBotao() {
+        var nome = String((botao && botao.name) || '').toUpperCase();
+        var texto = textoBotao(botao);
+        var csv = nome === 'GEREXECL' || nome === 'GERAEXCEL' || nome === 'GEREXCEL' || texto.indexOf('CSV') >= 0;
+        var pdf = nome === 'GERPDF' || texto.indexOf('PDF') >= 0;
+        if (!csv && !pdf) return {ok:true, mapped:false};
+        setCampo('opcao', '88');
+        setCampo('opcaorelat', csv ? '3' : '6');
+        return {ok:true, mapped:true, tipo:csv ? 'csv' : 'pdf'};
+    }
+    var mapaAntes = aplicarExportacaoPorBotao();
     var submitOriginal = form.submit;
     var openOriginal = window.open;
     try {
         form.submit = function() { return false; };
         window.open = function() { return null; };
-        if (typeof botao.onclick === "function") botao.onclick();
+        if (typeof botao.onclick === "function") {
+            var eventOriginal = window.event;
+            try { window.event = {srcElement: botao, target: botao}; } catch (eEvent) {}
+            try {
+                botao.onclick();
+            } finally {
+                try { window.event = eventOriginal; } catch (eEventRestore) {}
+            }
+        } else {
+            var onclickAttr = botao.getAttribute ? botao.getAttribute('onclick') : '';
+            if (onclickAttr) {
+                var fn = new Function(onclickAttr);
+                fn.call(botao);
+            }
+        }
     } catch (eOnClick) {
         return {ok:false, error:"onclick: " + (eOnClick.message || String(eOnClick))};
     } finally {
         form.submit = submitOriginal;
         window.open = openOriginal;
     }
+    var mapaDepois = aplicarExportacaoPorBotao();
     var pares = [];
     var elementos = form.elements || [];
     for (var i = 0; i < elementos.length; i++) {
@@ -228,7 +266,8 @@ def _dados_formulario_exportacao(driver, botao) -> dict:
         ok:true,
         action:form.action || document.location.href,
         method:String(form.method || "GET").toUpperCase(),
-        pairs:pares
+        pairs:pares,
+        exportMapping: mapaDepois.mapped ? mapaDepois : mapaAntes
     };
     """
     resultado = driver.execute_script(script, botao)
