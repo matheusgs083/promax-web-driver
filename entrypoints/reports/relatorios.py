@@ -36,6 +36,7 @@ from pages.reports.relatorio_030206_page import Relatorio030206Page
 from pages.reports.relatorio_0105070402_page import Relatorio0105070402Page
 from pages.reports.relatorio_030111_page import Relatorio030111Page
 from pages.reports.relatorio_031702_page import Relatorio031702Page
+from pages.reports.relatorio_020304_page import Relatorio020304Page
 
 dotenv.load_dotenv()
 logger = get_logger("MAIN_PROMAX")
@@ -516,6 +517,18 @@ def main(
         page.fechar_e_voltar()
         return resultado
 
+    def tarefa_020304_bot(unidades_alvo=None):
+        janela = menu_page.acessar_rotina("020304")
+        page = Relatorio020304Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "020304 bot"
+        page.tracker_name = "Rotina 020304 Bot"
+        resultado = page.gerar_relatorio(
+            unidade=unidades_alvo,
+            nome_arquivo="020304 bot - nomeUnidade020304",
+        )
+        page.fechar_e_voltar()
+        return resultado
+
     routine_runners = {
         "0513": tarefa_0513,
         "120616": tarefa_120616,
@@ -539,6 +552,7 @@ def main(
         "0105070402_BOT": tarefa_0105070402_bot,
         "030111_BOT": tarefa_030111_bot,
         "031702_BOT": tarefa_031702_bot,
+        "020304_BOT": tarefa_020304_bot,
     }
     missing_runners = [
         routine.id
@@ -619,6 +633,7 @@ def main(
             os.path.join(str(pasta_intermediaria), "0105070402 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\0105070402",
             os.path.join(str(pasta_intermediaria), "030111 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\030111",
             os.path.join(str(pasta_intermediaria), "031702 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\031702",
+            os.path.join(str(pasta_intermediaria), "020304 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\020304",
 
 
         }

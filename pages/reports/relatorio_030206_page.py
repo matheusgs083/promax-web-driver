@@ -78,7 +78,7 @@ class Relatorio030206Page(RotinaPage):
         emissao_inicial=None,
         emissao_final=None,
         por_vencimento=False,
-        timeout_download=180,
+        timeout_download=600,
         nome_arquivo="030206_teste_pdf_intervalo.pdf",
     ):
         if unidade is None or isinstance(unidade, list):
@@ -184,9 +184,26 @@ class Relatorio030206Page(RotinaPage):
         while time.time() < prazo:
             self._aceitar_alertas_pendentes(alertas)
 
-            box_btn = validar_elemento("botaoDownload.png", timeout=15, confidence=0.8)
+            ok_http, motivo_http = self._tentar_capturar_pdf_http(
+                nome_arquivo=nome_limpo,
+                diretorio_destino=diretorio_destino,
+                timeout_segundos=3,
+            )
+            if ok_http:
+                self.logger.info(
+                    "PDF real 030206 capturado via HTTP apos espera: %s (logs ignorados: %s, alertas: %s)",
+                    caminho_final,
+                    logs_ignorados,
+                    alertas,
+                )
+                return True, f"PDF capturado via HTTP: {caminho_final}"
+            if logs_ignorados:
+                self.logger.debug("PDF HTTP 030206 ainda indisponivel: %s", motivo_http)
+
+            box_btn = validar_elemento("botaoDownload.png", timeout=5, confidence=0.8)
             if not box_btn:
                 self._aceitar_alertas_pendentes(alertas)
+                time.sleep(10 if logs_ignorados else 15)
                 continue
 
             x, y = pyautogui.center(box_btn)
@@ -223,10 +240,24 @@ class Relatorio030206Page(RotinaPage):
             except Exception as exc:
                 self.logger.warning("Nao foi possivel apagar download intermediario %s: %s", arquivo, exc)
 
-            self._aguardar_e_fechar_popup_pre_download(alertas, timeout=60)
+            self._aguardar_e_fechar_popup_pre_download(alertas, timeout=10)
             self._aceitar_alertas_pendentes(alertas)
 
         return False, f"Timeout aguardando PDF real da 030206. Logs ignorados: {logs_ignorados}. Alertas: {alertas}"
+
+    def _tentar_capturar_pdf_http(self, nome_arquivo, diretorio_destino, timeout_segundos=3):
+        try:
+            from core.services.report_download_service import capturar_url_temporaria
+
+            return capturar_url_temporaria(
+                self.driver,
+                nome_arquivo,
+                diretorio_intermediario=diretorio_destino,
+                extensao_final=".pdf",
+                timeout_segundos=timeout_segundos,
+            )
+        except Exception as exc:
+            return False, f"Captura HTTP indisponivel: {exc}"
 
     def _aguardar_arquivo_novo(self, pasta_downloads, arquivos_antes, timeout):
         prazo = time.time() + timeout
