@@ -538,6 +538,13 @@ class RotinaPage(BasePage):
             )
             return any(indicador in texto_normalizado for indicador in indicadores)
 
+        def _alerta_indica_informativo(texto):
+            texto_normalizado = _normalizar_texto_alerta(texto)
+            indicadores = (
+                "pedidos que estao sob consulta",
+            )
+            return any(indicador in texto_normalizado for indicador in indicadores)
+
         def _falha_alerta_pos_visualizacao(texto_excecao=None):
             texto_alerta_atual = None
             try:
@@ -563,6 +570,12 @@ class RotinaPage(BasePage):
             )
             detalhe = " | ".join(mensagens) if mensagens else "Alerta sem texto capturado"
             self.switch_to_default_content()
+            if _alerta_indica_informativo(detalhe):
+                self.logger.info(
+                    "Alerta informativo apos visualizar aceito; mantendo exportacao CSV: %s",
+                    detalhe,
+                )
+                return None
             if _alerta_indica_sem_conteudo(detalhe):
                 self.logger.warning("Relatorio sem conteudo apos visualizar: %s", detalhe)
                 return ExecutionResult(
@@ -584,21 +597,31 @@ class RotinaPage(BasePage):
                 retry=True,
             )
 
-        try:
-            WebDriverWait(self.driver, timeout_csv).until(
-                EC.frame_to_be_available_and_switch_to_it(frame_index)
-            )
-        except UnexpectedAlertPresentException as exc:
-            self.logger.warning(
-                "Alerta detectado apos visualizar, antes da tela de exportacao."
-            )
-            return _falha_alerta_pos_visualizacao(getattr(exc, "alert_text", None))
-        except TimeoutException:
-            self.driver.switch_to.frame(frame_index)
+        def _entrar_frame_relatorio():
+            try:
+                WebDriverWait(self.driver, timeout_csv).until(
+                    EC.frame_to_be_available_and_switch_to_it(frame_index)
+                )
+            except TimeoutException:
+                self.driver.switch_to.frame(frame_index)
 
-        WebDriverWait(self.driver, timeout_csv).until(
-            lambda d: d.execute_script("return document.readyState") == "complete"
-        )
+            WebDriverWait(self.driver, timeout_csv).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
+
+        for _tentativa_frame in range(3):
+            try:
+                _entrar_frame_relatorio()
+                break
+            except UnexpectedAlertPresentException as exc:
+                self.logger.warning(
+                    "Alerta detectado apos visualizar, antes da tela de exportacao."
+                )
+                resultado_alerta = _falha_alerta_pos_visualizacao(getattr(exc, "alert_text", None))
+                if resultado_alerta is not None:
+                    return resultado_alerta
+        else:
+            _entrar_frame_relatorio()
 
         def _achar_botao(d):
             for locator in locators_export:
@@ -610,14 +633,21 @@ class RotinaPage(BasePage):
                     pass
             return False
 
-        try:
-            btn_csv = WebDriverWait(self.driver, timeout_botao).until(_achar_botao)
-        except UnexpectedAlertPresentException as exc:
-            self.logger.warning(
-                "Alerta detectado enquanto aguardava o botao CSV/Excel."
-            )
-            return _falha_alerta_pos_visualizacao(getattr(exc, "alert_text", None))
-        except TimeoutException:
+        for _tentativa_botao in range(3):
+            try:
+                btn_csv = WebDriverWait(self.driver, timeout_botao).until(_achar_botao)
+                break
+            except UnexpectedAlertPresentException as exc:
+                self.logger.warning(
+                    "Alerta detectado enquanto aguardava o botao CSV/Excel."
+                )
+                resultado_alerta = _falha_alerta_pos_visualizacao(getattr(exc, "alert_text", None))
+                if resultado_alerta is not None:
+                    return resultado_alerta
+                _entrar_frame_relatorio()
+            except TimeoutException:
+                raise RuntimeError("Botão de exportação HTML (GeraExcel/GerExecl) não apareceu na tela.")
+        else:
             raise RuntimeError("Botão de exportação HTML (GeraExcel/GerExecl) não apareceu na tela.")
 
         diretorio_base = get_settings().download_dir
