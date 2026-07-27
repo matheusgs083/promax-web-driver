@@ -1,5 +1,4 @@
 import re
-import shutil
 import time
 from pathlib import Path
 
@@ -9,10 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from core.config.settings import get_settings
-from core.tools.validador_visual import validar_elemento
 from pages.common.rotina_page import RotinaPage
-
-import pyautogui
 
 
 class Relatorio030206Page(RotinaPage):
@@ -166,9 +162,7 @@ class Relatorio030206Page(RotinaPage):
         return False, f"SEM_DOWNLOAD: {resultado_download[1]}"
 
     def _capturar_pdf_ignorando_logs(self, nome_arquivo, diretorio_destino, timeout_download):
-        pasta_downloads = Path.home() / "Downloads"
         diretorio_destino = Path(diretorio_destino)
-        pasta_downloads.mkdir(parents=True, exist_ok=True)
         diretorio_destino.mkdir(parents=True, exist_ok=True)
 
         nome_limpo = re.sub(r'[\\/*?:"<>|]', "_", str(nome_arquivo))
@@ -176,9 +170,7 @@ class Relatorio030206Page(RotinaPage):
             nome_limpo += ".pdf"
         caminho_final = diretorio_destino / nome_limpo
 
-        arquivos_conhecidos = set(pasta_downloads.iterdir())
         prazo = time.time() + timeout_download
-        logs_ignorados = 0
         alertas = []
 
         while time.time() < prazo:
@@ -187,63 +179,19 @@ class Relatorio030206Page(RotinaPage):
             ok_http, motivo_http = self._tentar_capturar_pdf_http(
                 nome_arquivo=nome_limpo,
                 diretorio_destino=diretorio_destino,
-                timeout_segundos=3,
+                timeout_segundos=5,
             )
             if ok_http:
                 self.logger.info(
-                    "PDF real 030206 capturado via HTTP apos espera: %s (logs ignorados: %s, alertas: %s)",
+                    "PDF real 030206 capturado via HTTP apos espera: %s (alertas: %s)",
                     caminho_final,
-                    logs_ignorados,
                     alertas,
                 )
                 return True, f"PDF capturado via HTTP: {caminho_final}"
-            if logs_ignorados:
-                self.logger.debug("PDF HTTP 030206 ainda indisponivel: %s", motivo_http)
+            self.logger.debug("PDF HTTP 030206 ainda indisponivel: %s", motivo_http)
+            time.sleep(5)
 
-            box_btn = validar_elemento("botaoDownload.png", timeout=5, confidence=0.8)
-            if not box_btn:
-                self._aceitar_alertas_pendentes(alertas)
-                time.sleep(10 if logs_ignorados else 15)
-                continue
-
-            x, y = pyautogui.center(box_btn)
-            pyautogui.moveTo(x, y, duration=0.3)
-            time.sleep(0.2)
-            pyautogui.click()
-
-            arquivo = self._aguardar_arquivo_novo(pasta_downloads, arquivos_conhecidos, timeout=45)
-            if arquivo is None:
-                pyautogui.hotkey("alt", "s")
-                arquivo = self._aguardar_arquivo_novo(pasta_downloads, arquivos_conhecidos, timeout=45)
-
-            if arquivo is None:
-                self._aceitar_alertas_pendentes(alertas)
-                continue
-
-            arquivos_conhecidos.add(arquivo)
-            if self._eh_pdf_real(arquivo):
-                if caminho_final.exists():
-                    caminho_final.unlink()
-                shutil.move(str(arquivo), str(caminho_final))
-                self.logger.info(
-                    "PDF real 030206 capturado: %s (logs ignorados: %s, alertas: %s)",
-                    caminho_final,
-                    logs_ignorados,
-                    alertas,
-                )
-                return True, f"PDF capturado: {caminho_final}"
-
-            logs_ignorados += 1
-            self.logger.info("Download intermediario/log ignorado na 030206: %s", arquivo)
-            try:
-                arquivo.unlink()
-            except Exception as exc:
-                self.logger.warning("Nao foi possivel apagar download intermediario %s: %s", arquivo, exc)
-
-            self._aguardar_e_fechar_popup_pre_download(alertas, timeout=10)
-            self._aceitar_alertas_pendentes(alertas)
-
-        return False, f"Timeout aguardando PDF real da 030206. Logs ignorados: {logs_ignorados}. Alertas: {alertas}"
+        return False, f"Timeout aguardando URL temporaria/PDF HTTP da 030206. Alertas: {alertas}"
 
     def _tentar_capturar_pdf_http(self, nome_arquivo, diretorio_destino, timeout_segundos=3):
         try:
@@ -259,38 +207,8 @@ class Relatorio030206Page(RotinaPage):
         except Exception as exc:
             return False, f"Captura HTTP indisponivel: {exc}"
 
-    def _aguardar_arquivo_novo(self, pasta_downloads, arquivos_antes, timeout):
-        prazo = time.time() + timeout
-        ignoradas = {".tmp", ".crdownload", ".part", ".partial", ".ini"}
-
-        while time.time() < prazo:
-            for arquivo in set(pasta_downloads.iterdir()) - set(arquivos_antes):
-                if not arquivo.is_file() or arquivo.suffix.lower() in ignoradas:
-                    continue
-                if self._arquivo_pronto(arquivo):
-                    return arquivo
-            time.sleep(0.5)
-        return None
-
-    @staticmethod
-    def _arquivo_pronto(arquivo):
-        try:
-            if arquivo.stat().st_size <= 0:
-                return False
-            with arquivo.open("rb"):
-                return True
-        except PermissionError:
-            return False
-
-    @staticmethod
-    def _eh_pdf_real(arquivo):
-        try:
-            with arquivo.open("rb") as fp:
-                return fp.read(5) == b"%PDF-"
-        except Exception:
-            return False
-
     def _aceitar_alertas_pendentes(self, alertas):
+        aceitos = 0
         while True:
             try:
                 alert = self.driver.switch_to.alert
@@ -298,9 +216,10 @@ class Relatorio030206Page(RotinaPage):
                 alertas.append(texto)
                 self.logger.info("Popup/alerta 030206 aceito: %s", texto)
                 alert.accept()
+                aceitos += 1
                 time.sleep(0.5)
             except Exception:
-                return
+                return aceitos
 
     def _aguardar_e_fechar_popup_pre_download(self, alertas, timeout=60):
         prazo = time.time() + timeout
