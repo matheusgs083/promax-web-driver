@@ -274,7 +274,7 @@ def main():
         #"120616": RoutineTask(key="120616", name="Rotina 120616", runner=tarefa_120616),
         #"120601": RoutineTask(key="120601", name="Rotina 120601", runner=tarefa_120601),
         #"0512": RoutineTask(key="0512", name="Rotina 0512", runner=tarefa_0512),
-        #"150501": RoutineTask(key="150501", name="Rotina 150501", runner=tarefa_150501),
+        "150501": RoutineTask(key="150501", name="Rotina 150501", runner=tarefa_150501),
         #"030237": RoutineTask(key="030237", name="Rotina 030237", runner=tarefa_030237),
         #"030237_GIRO": RoutineTask(key="030237_GIRO", name="Rotina 030237 Giro", runner=tarefa_030237_Giro),
         #fluxo de caixa
