@@ -87,32 +87,63 @@ def _coletar_urls_relatorio_driver(driver) -> list[str]:
             if url not in urls:
                 urls.append(url)
 
-    try:
-        adicionar_texto(driver.page_source)
-        adicionar_texto(getattr(driver, "current_url", ""))
-    except Exception as exc:
-        logger.debug("Não foi possível inspecionar o contexto atual para download direto: %s", exc)
+    def inspecionar_contexto():
+        try:
+            adicionar_texto(driver.page_source)
+            adicionar_texto(getattr(driver, "current_url", ""))
+        except Exception as exc:
+            logger.debug("Não foi possível inspecionar o contexto atual para download direto: %s", exc)
 
-    try:
-        driver.switch_to.default_content()
-        adicionar_texto(driver.page_source)
-        frames = driver.find_elements("tag name", "frame")
-        frames += driver.find_elements("tag name", "iframe")
-        for indice in range(len(frames)):
+        try:
+            driver.switch_to.default_content()
+            adicionar_texto(driver.page_source)
+            frames = driver.find_elements("tag name", "frame")
+            frames += driver.find_elements("tag name", "iframe")
+            for indice in range(len(frames)):
+                try:
+                    driver.switch_to.default_content()
+                    frames_atuais = driver.find_elements("tag name", "frame")
+                    frames_atuais += driver.find_elements("tag name", "iframe")
+                    if indice >= len(frames_atuais):
+                        continue
+                    driver.switch_to.frame(frames_atuais[indice])
+                    adicionar_texto(driver.page_source)
+                    adicionar_texto(getattr(driver, "current_url", ""))
+                except Exception as exc:
+                    logger.debug("Frame %s ignorado durante busca da URL de relatório: %s", indice, exc)
+        except Exception as exc:
+            logger.debug("Não foi possível percorrer os frames para download direto: %s", exc)
+        finally:
             try:
                 driver.switch_to.default_content()
-                frames_atuais = driver.find_elements("tag name", "frame")
-                frames_atuais += driver.find_elements("tag name", "iframe")
-                if indice >= len(frames_atuais):
-                    continue
-                driver.switch_to.frame(frames_atuais[indice])
-                adicionar_texto(driver.page_source)
+            except Exception:
+                pass
+
+    handle_original = None
+    try:
+        handle_original = driver.current_window_handle
+    except Exception:
+        handle_original = None
+
+    try:
+        handles = list(driver.window_handles)
+    except Exception:
+        handles = []
+
+    if not handles:
+        inspecionar_contexto()
+    else:
+        for handle in handles:
+            try:
+                driver.switch_to.window(handle)
+                url_base = getattr(driver, "current_url", "") or url_base
+                inspecionar_contexto()
             except Exception as exc:
-                logger.debug("Frame %s ignorado durante busca da URL de relatório: %s", indice, exc)
-    except Exception as exc:
-        logger.debug("Não foi possível percorrer os frames para download direto: %s", exc)
-    finally:
+                logger.debug("Janela %s ignorada durante busca da URL de relatório: %s", handle, exc)
+
+    if handle_original:
         try:
+            driver.switch_to.window(handle_original)
             driver.switch_to.default_content()
         except Exception:
             pass
