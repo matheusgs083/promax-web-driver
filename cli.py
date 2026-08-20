@@ -22,6 +22,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "reprocessar-publicacao": ("entrypoints.maintenance.reprocessar_publicacao", "Reprocessa itens em logs/publicacao_pendente."),
     "pedidos": ("entrypoints.processes.pedidos", "Executa a digitacao de pedidos."),
     "lote-condicao": ("entrypoints.processes.lote_condicao", "Executa a alteracao em lote de condicao/CEMC."),
+    "mapa-030303": ("entrypoints.processes.mapa_030303", "Executa o carregamento e salvamento de mapa na rotina 030303."),
 }
 REPORT_CATALOG_COMMAND = "catalogo-relatorios"
 
@@ -67,6 +68,12 @@ def build_parser() -> argparse.ArgumentParser:
             command_parser.add_argument("--fechar-ao-falhar", action="store_true")
             command_parser.add_argument("--job-id", default="")
         elif nome == "reprocessar-publicacao":
+            command_parser.add_argument("--job-id", default="")
+        elif nome == "mapa-030303":
+            command_parser.add_argument("--mapa", required=True)
+            command_parser.add_argument("--unidade", default=None)
+            command_parser.add_argument("--nao-salvar", action="store_true")
+            command_parser.add_argument("--fechar-ao-falhar", action="store_true")
             command_parser.add_argument("--job-id", default="")
 
     subparsers.add_parser(
@@ -159,6 +166,13 @@ def main_cli() -> int:
             "modo": args.modo,
             "salvar": not args.nao_salvar,
             "sessoes_separadas": args.sessoes_separadas,
+            "manter_aberto_ao_falhar": not args.fechar_ao_falhar,
+        }
+    elif args.command == "mapa-030303":
+        kwargs = {
+            "mapa": args.mapa,
+            "unidade": args.unidade,
+            "salvar": not args.nao_salvar,
             "manter_aberto_ao_falhar": not args.fechar_ao_falhar,
         }
     try:

@@ -6,8 +6,10 @@ from core.config.settings import get_settings
 from core.execution.entrypoint_helpers import encerrar_driver, iniciar_sessao_padrao
 from core.execution.execution_result import ExecutionResult, ExecutionStatus, normalize_execution_result
 from core.observability.logger import get_logger
+from pages.processes.processo_030303_page import Processo030303Page
 from pages.processes.processo_030302_page import Processo030302Page
 from pages.processes.processo_03030702_page import Processo03030702Page
+from entrypoints.processes.mapa_030303 import main as main_030303
 from entrypoints.processes.mapa_030302 import main as main_030302
 from entrypoints.processes.mapa_03030702 import main as main_03030702
 
@@ -50,6 +52,41 @@ def _anexar_metadata_resultado(resultado, **metadata_extra):
         retry=resultado.retry,
         metadata=metadata,
     )
+
+
+def _metadata_resultado(resultado):
+    if resultado is None:
+        return None
+    return {
+        "status": resultado.status.value if hasattr(resultado.status, "value") else str(resultado.status),
+        "message": resultado.message,
+        "retry": resultado.retry,
+        **(resultado.metadata or {}),
+    }
+
+
+def _executar_030303_sessao_unica(menu_page, mapa, salvar=True):
+    logger.info("--- PASSO 0: INICIANDO ROTINA 030303 ---")
+    janela_030303 = menu_page.acessar_rotina("030303")
+    page_030303 = Processo030303Page(janela_030303.driver, janela_030303.handle_menu)
+
+    resultado = normalize_execution_result(page_030303.carregar_mapa(mapa))
+    metadata_carga = resultado.metadata or {}
+    if resultado.ok and salvar:
+        resultado = normalize_execution_result(page_030303.salvar_mapa())
+        resultado = _anexar_metadata_resultado(
+            resultado,
+            mapa=metadata_carga.get("mapa") or str(mapa).strip(),
+            dados_030303=(resultado.metadata or {}).get("dados_030303")
+            or metadata_carga.get("dados_030303"),
+        )
+
+    logger.info(
+        "030303 | Resultado do processo: ok=%s, msg=%s",
+        resultado.ok,
+        resultado.message,
+    )
+    return resultado, janela_030303
 
 
 def _parse_args():
@@ -111,6 +148,7 @@ def fechar_mapa_sessao_unica(
     """
     unidade = (unidade or settings.unidade_pedidos).strip().upper()
     driver = None
+    res_030303 = None
     res_fisico = None
     res_financeiro = None
     dados_fechamento_03030702 = None
@@ -121,6 +159,33 @@ def fechar_mapa_sessao_unica(
         logger.info("=========================================================================")
 
         driver, menu_page = iniciar_sessao_padrao(logger, settings, unidade)
+
+        # ---------------------------------------------------------------------
+        # PASSO 0: PREPARACAO DO MAPA (ROTINA 030303)
+        # ---------------------------------------------------------------------
+        res_030303, janela_030303 = _executar_030303_sessao_unica(menu_page, mapa, salvar=salvar)
+        if not res_030303.ok:
+            logger.error("PASSO 0 FALHOU (030303): %s", res_030303.message)
+            return ExecutionResult(
+                status=res_030303.status,
+                message=f"Falha na rotina 030303 antes do Fechamento Fisico: {res_030303.message}",
+                retry=res_030303.retry,
+                metadata={
+                    "mapa": mapa,
+                    "passo_falha": "030303",
+                    "resultado_030303": _metadata_resultado(res_030303),
+                    "resultado_fisico": None,
+                    "resultado_financeiro": None,
+                    "dados_fechamento_03030702": None,
+                },
+            )
+
+        try:
+            driver.switch_to.window(janela_030303.handle_menu)
+        except Exception:
+            pass
+
+        time.sleep(1.0)
 
         # ---------------------------------------------------------------------
         # PASSO 1: CONFERENCIA E FECHAMENTO FISICO (ROTINA 030302)
@@ -157,6 +222,7 @@ def fechar_mapa_sessao_unica(
                 retry=res_fisico.retry,
                 metadata={
                     "passo_falha": "030302",
+                    "resultado_030303": _metadata_resultado(res_030303),
                     "resultado_fisico": res_fisico,
                     "resultado_financeiro": None,
                     "dados_fechamento_03030702": None,
@@ -209,6 +275,7 @@ def fechar_mapa_sessao_unica(
                 message=f"Falha no Fechamento Financeiro (03030702): {res_financeiro.message}",
                 metadata={
                     "passo_falha": "03030702",
+                    "resultado_030303": _metadata_resultado(res_030303),
                     "resultado_fisico": res_fisico,
                     "resultado_financeiro": res_financeiro,
                     "dados_fechamento_03030702": dados_fechamento_03030702,
@@ -224,6 +291,7 @@ def fechar_mapa_sessao_unica(
             message=f"Fechamento Fisico e Financeiro do Mapa {mapa} executados com sucesso.",
             metadata={
                 "mapa": mapa,
+                "resultado_030303": _metadata_resultado(res_030303),
                 "resultado_fisico": res_fisico,
                 "resultado_financeiro": res_financeiro,
                 "dados_fechamento_03030702": dados_fechamento_03030702,
@@ -240,7 +308,8 @@ def fechar_mapa_sessao_unica(
     finally:
         time.sleep(0.5)
         falhou = bool(
-            (res_fisico and not res_fisico.ok)
+            (res_030303 and not res_030303.ok)
+            or (res_fisico and not res_fisico.ok)
             or (res_financeiro and not res_financeiro.ok)
         )
         if manter_aberto_ao_falhar and falhou:
@@ -260,26 +329,67 @@ def fechar_mapa_sessoes_separadas(
     """
     Executa a conferencia Fisico (030302) e Financeiro (03030702) em sessoes separadas.
     """
-    logger.info("--- EXECUTANDO EM SESSOES SEPARADAS: PASSO 1 (FISICO 030302) ---")
-    res_fisico = main_030302(
-        mapa=mapa,
-        ponto_apoio=ponto_apoio,
-        km_atual=km_atual,
-        unidade=unidade,
-        salvar=salvar,
-        manter_aberto_ao_falhar=manter_aberto_ao_falhar,
+    logger.info("--- EXECUTANDO EM SESSOES SEPARADAS: PASSO 0 (030303) ---")
+    res_030303 = normalize_execution_result(
+        main_030303(
+            mapa=mapa,
+            unidade=unidade,
+            salvar=salvar,
+            manter_aberto_ao_falhar=manter_aberto_ao_falhar,
+        )
     )
+    if not res_030303.ok:
+        return ExecutionResult(
+            status=res_030303.status,
+            message=f"Falha na rotina 030303 antes do Fechamento Fisico: {res_030303.message}",
+            retry=res_030303.retry,
+            metadata={
+                "mapa": mapa,
+                "passo_falha": "030303",
+                "resultado_030303": _metadata_resultado(res_030303),
+                "resultado_fisico": None,
+                "resultado_financeiro": None,
+            },
+        )
+
+    logger.info("--- EXECUTANDO EM SESSOES SEPARADAS: PASSO 1 (FISICO 030302) ---")
+    res_fisico = normalize_execution_result(
+        main_030302(
+            mapa=mapa,
+            ponto_apoio=ponto_apoio,
+            km_atual=km_atual,
+            unidade=unidade,
+            salvar=salvar,
+            manter_aberto_ao_falhar=manter_aberto_ao_falhar,
+        )
+    )
+    if not res_fisico.ok:
+        return _anexar_metadata_resultado(
+            res_fisico,
+            mapa=mapa,
+            passo_falha="030302",
+            resultado_030303=_metadata_resultado(res_030303),
+            resultado_fisico=_metadata_resultado(res_fisico),
+            resultado_financeiro=None,
+        )
 
     logger.info("--- EXECUTANDO EM SESSOES SEPARADAS: PASSO 2 (FINANCEIRO 03030702) ---")
-    res_financeiro = main_03030702(
-        mapa=mapa,
-        ponto_apoio=ponto_apoio,
-        unidade=unidade,
-        salvar=salvar,
-        manter_aberto_ao_falhar=manter_aberto_ao_falhar,
+    res_financeiro = normalize_execution_result(
+        main_03030702(
+            mapa=mapa,
+            ponto_apoio=ponto_apoio,
+            unidade=unidade,
+            salvar=salvar,
+            manter_aberto_ao_falhar=manter_aberto_ao_falhar,
+        )
     )
 
-    return res_financeiro
+    return _anexar_metadata_resultado(
+        res_financeiro,
+        mapa=mapa,
+        resultado_030303=_metadata_resultado(res_030303),
+        resultado_fisico=_metadata_resultado(res_fisico),
+    )
 
 
 def main(
@@ -306,6 +416,21 @@ def main(
 
     modo = str(modo or "completo").strip().lower()
     if modo == "fisico":
+        resultado_030303 = normalize_execution_result(
+            main_030303(
+                mapa=mapa,
+                unidade=unidade,
+                salvar=salvar,
+                manter_aberto_ao_falhar=manter_aberto_ao_falhar,
+            )
+        )
+        if not resultado_030303.ok:
+            return _anexar_metadata_resultado(
+                resultado_030303,
+                mapa=mapa,
+                passo_falha="030303",
+                resultado_030303=_metadata_resultado(resultado_030303),
+            )
         resultado = normalize_execution_result(
             main_030302(
                 mapa=mapa,
@@ -316,7 +441,12 @@ def main(
                 manter_aberto_ao_falhar=manter_aberto_ao_falhar,
             )
         )
-        return _anexar_metadata_resultado(resultado, mapa=mapa, integration_code="MAPA_LIBERADO_FISICO")
+        return _anexar_metadata_resultado(
+            resultado,
+            mapa=mapa,
+            resultado_030303=_metadata_resultado(resultado_030303),
+            integration_code="MAPA_LIBERADO_FISICO",
+        )
     if modo == "financeiro":
         resultado = normalize_execution_result(
             main_03030702(

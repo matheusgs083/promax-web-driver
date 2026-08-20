@@ -33,6 +33,25 @@ def test_fechamento_mapa_inclui_dados_estruturados_da_03030702(monkeypatch):
                 metadata={"fluxo": "final-nao-existem-diferencas"},
             )
 
+    class Fake030303Page:
+        def __init__(self, _driver, _handle_menu):
+            pass
+
+        def carregar_mapa(self, _mapa):
+            return ExecutionResult(
+                ExecutionStatus.SUCCESS,
+                "030303 carregada",
+                metadata={"mapa": "93741", "dados_030303": {"motorista": {"nome": "MATHEUS"}}},
+            )
+
+        def salvar_mapa(self):
+            return ExecutionResult(
+                ExecutionStatus.SUCCESS,
+                "030303 salva",
+                metadata={"dados_030303": {"motorista": {"nome": "MATHEUS"}}},
+            )
+
+
     class Fake03030702Page:
         def __init__(self, _driver, _handle_menu):
             pass
@@ -65,6 +84,7 @@ def test_fechamento_mapa_inclui_dados_estruturados_da_03030702(monkeypatch):
     monkeypatch.setattr(fechamento_mapa, "iniciar_sessao_padrao", lambda *_args: (FakeDriver(), FakeMenuPage()))
     monkeypatch.setattr(fechamento_mapa, "encerrar_driver", lambda _driver: None)
     monkeypatch.setattr(fechamento_mapa.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(fechamento_mapa, "Processo030303Page", Fake030303Page)
     monkeypatch.setattr(fechamento_mapa, "Processo030302Page", Fake030302Page)
     monkeypatch.setattr(fechamento_mapa, "Processo03030702Page", Fake03030702Page)
 
@@ -75,6 +95,7 @@ def test_fechamento_mapa_inclui_dados_estruturados_da_03030702(monkeypatch):
     )
 
     assert result.status == ExecutionStatus.SUCCESS
+    assert result.metadata["resultado_030303"]["dados_030303"]["motorista"]["nome"] == "MATHEUS"
     dados = result.metadata["dados_fechamento_03030702"]
     assert dados["rotina"] == "03030702"
     assert dados["etapa"] == "apos_salvar_financeiro"
@@ -114,6 +135,24 @@ def test_fechamento_mapa_para_quando_030302_falha(monkeypatch):
                 retry=False,
             )
 
+    class Fake030303Page:
+        def __init__(self, _driver, _handle_menu):
+            pass
+
+        def carregar_mapa(self, _mapa):
+            return ExecutionResult(
+                ExecutionStatus.SUCCESS,
+                "030303 carregada",
+                metadata={"mapa": "93741", "dados_030303": {"motorista": {"nome": "MATHEUS"}}},
+            )
+
+        def salvar_mapa(self):
+            return ExecutionResult(
+                ExecutionStatus.SUCCESS,
+                "030303 salva",
+                metadata={"dados_030303": {"motorista": {"nome": "MATHEUS"}}},
+            )
+
     class Fake03030702Page:
         def __init__(self, _driver, _handle_menu):
             raise AssertionError("03030702 nao deve abrir quando a 030302 falha")
@@ -121,6 +160,7 @@ def test_fechamento_mapa_para_quando_030302_falha(monkeypatch):
     monkeypatch.setattr(fechamento_mapa, "iniciar_sessao_padrao", lambda *_args: (FakeDriver(), FakeMenuPage()))
     monkeypatch.setattr(fechamento_mapa, "encerrar_driver", lambda _driver: None)
     monkeypatch.setattr(fechamento_mapa.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(fechamento_mapa, "Processo030303Page", Fake030303Page)
     monkeypatch.setattr(fechamento_mapa, "Processo030302Page", Fake030302Page)
     monkeypatch.setattr(fechamento_mapa, "Processo03030702Page", Fake03030702Page)
 
@@ -136,4 +176,4 @@ def test_fechamento_mapa_para_quando_030302_falha(monkeypatch):
     assert result.metadata["passo_falha"] == "030302"
     assert result.metadata["resultado_financeiro"] is None
     assert result.metadata["dados_fechamento_03030702"] is None
-    assert rotinas_acessadas == ["030302"]
+    assert rotinas_acessadas == ["030303", "030302"]
