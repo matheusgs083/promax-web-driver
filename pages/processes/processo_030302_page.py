@@ -2336,12 +2336,13 @@ class Processo030302Page(RotinaPage):
                 message=f"Falha ao recarregar mapa {mapa} para acerto na 030302: {exc}",
             )
 
-    def _aplicar_diferencas_capturadas_js(self, itens):
+    def _aplicar_diferencas_capturadas_js(self, itens, destinos_permitidos=None):
         try:
             self._reentrar_frame(timeout=10)
             return self.driver.execute_script(
                 """
                 var itens = arguments[0] || [];
+                var destinosPermitidos = arguments[1] || null;
 
                 function soDigitos(valor) {
                     return String(valor || '').replace(/\\D/g, '');
@@ -2469,6 +2470,16 @@ class Processo030302Page(RotinaPage):
                     return null;
                 }
 
+                function destinoPermitido(nome) {
+                    if (!destinosPermitidos || destinosPermitidos.length === 0) return true;
+                    for (var i = 0; i < destinosPermitidos.length; i++) {
+                        if (String(destinosPermitidos[i] || '').toLowerCase() === String(nome || '').toLowerCase()) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+
                 var aplicados = [];
                 var naoAplicados = [];
                 for (var i = 0; i < itens.length; i++) {
@@ -2488,6 +2499,16 @@ class Processo030302Page(RotinaPage):
                             codigo: codigo,
                             linha: aux,
                             motivo: 'nenhuma-coluna-editavel',
+                            item: item
+                        });
+                        continue;
+                    }
+                    if (!destinoPermitido(coluna.nome)) {
+                        naoAplicados.push({
+                            codigo: codigo,
+                            linha: aux,
+                            motivo: 'destino-nao-permitido',
+                            destino: coluna.nome,
                             item: item
                         });
                         continue;
@@ -2544,12 +2565,115 @@ class Processo030302Page(RotinaPage):
                 };
                 """,
                 itens,
+                list(destinos_permitidos or []),
             )
         except Exception as exc:
             return {
                 "encontrou": False,
                 "aplicados": [],
                 "naoAplicados": [{"motivo": str(exc)}],
+            }
+
+    def _classificar_itens_diferencas_030302(self, itens):
+        try:
+            self._reentrar_frame(timeout=10)
+            resultado = self.driver.execute_script(
+                """
+                var itens = arguments[0] || [];
+
+                function soDigitos(valor) {
+                    return String(valor || '').replace(/\\D/g, '');
+                }
+
+                function numero(valor) {
+                    var limpo = soDigitos(valor);
+                    if (limpo === '') return 0;
+                    return parseInt(limpo, 10) || 0;
+                }
+
+                function auxLinha(index) {
+                    if (index < 10) return '00' + index;
+                    if (index < 100) return '0' + index;
+                    return String(index);
+                }
+
+                function localizarLinhaProduto(codigo) {
+                    var codigoNum = numero(codigo);
+                    var lista = document.getElementById('lista') || document.getElementsByName('lista')[0];
+                    if (!lista || !lista.rows) return null;
+                    for (var i = 1; i < lista.rows.length; i++) {
+                        var aux = auxLinha(i);
+                        var campoCod = document.getElementsByName('textcod' + aux)[0];
+                        if (campoCod && numero(campoCod.value) === codigoNum) {
+                            return aux;
+                        }
+                    }
+                    return null;
+                }
+
+                function campoEditavel(nome) {
+                    var campo = document.getElementsByName(nome)[0];
+                    if (!campo) return false;
+                    return campo.disabled !== true && campo.readOnly !== true;
+                }
+
+                function primeiraColunaDisponivel(aux) {
+                    var colunas = [
+                        {nome: 'devolucao', un: 'textdevUn' + aux, av: 'textdevAv' + aux},
+                        {nome: 'troca', un: 'texttroUn' + aux, av: 'texttroAv' + aux},
+                        {nome: 'vazio', un: 'textvazUn' + aux, av: 'textvazAv' + aux}
+                    ];
+                    for (var i = 0; i < colunas.length; i++) {
+                        if (campoEditavel(colunas[i].un) || campoEditavel(colunas[i].av)) {
+                            return colunas[i].nome;
+                        }
+                    }
+                    return '';
+                }
+
+                var produtos = [];
+                var materiais = [];
+                var indefinidos = [];
+                for (var i = 0; i < itens.length; i++) {
+                    var item = itens[i] || {};
+                    var codigo = item.codigo || item.value || '';
+                    var aux = localizarLinhaProduto(codigo);
+                    var destino = aux ? primeiraColunaDisponivel(aux) : '';
+                    item.destinoDetectado = destino;
+                    item.linhaDetectada = aux || '';
+                    if (destino && destino !== 'vazio') {
+                        produtos.push(item);
+                    } else if (destino === 'vazio') {
+                        materiais.push(item);
+                    } else {
+                        indefinidos.push(item);
+                    }
+                }
+                return {
+                    produtos: produtos,
+                    materiais: materiais,
+                    indefinidos: indefinidos,
+                    total: itens.length
+                };
+                """,
+                itens,
+            )
+            if not isinstance(resultado, dict):
+                raise ValueError("classificacao invalida")
+            return resultado
+        except Exception as exc:
+            log_warning = getattr(self.logger, "warning", None)
+            if callable(log_warning):
+                log_warning(
+                    "Nao foi possivel classificar produtos/material da 030302; preservando fluxo antigo: %s",
+                    exc,
+                )
+            return {
+                "produtos": [],
+                "materiais": list(itens or []),
+                "indefinidos": [],
+                "total": len(itens or []),
+                "erro": str(exc),
             }
 
     def _seguir_fluxo_tela_diferencas_js(self, timeout=20):
@@ -4925,7 +5049,246 @@ class Processo030302Page(RotinaPage):
 
                         self._reentrar_frame(timeout=timeout)
                         self._instalar_monitor_envio_js(interceptar_msgbx=False)
-                        aplicacao_diferencas = self._aplicar_diferencas_capturadas_js(itens_diferencas)
+                        classificacao_diferencas = self._classificar_itens_diferencas_030302(
+                            itens_diferencas
+                        )
+                        itens_produtos = classificacao_diferencas.get("produtos") or []
+                        itens_materiais = classificacao_diferencas.get("materiais") or []
+                        itens_indefinidos = classificacao_diferencas.get("indefinidos") or []
+                        confirmacoes_produtos = []
+                        if itens_produtos:
+                            self.logger.info(
+                                "030302 | Aplicando produtos antes do material: produtos=%s | materiais=%s | indefinidos=%s",
+                                len(itens_produtos),
+                                len(itens_materiais),
+                                len(itens_indefinidos),
+                            )
+                            aplicacao_produtos = self._aplicar_diferencas_capturadas_js(
+                                itens_produtos,
+                                destinos_permitidos=("devolucao", "troca"),
+                            )
+                            self.logger.info(
+                                "030302 | Produtos aplicados antes do material: %s",
+                                aplicacao_produtos,
+                            )
+                            if not aplicacao_produtos.get("encontrou"):
+                                estado_aplicacao = self._estado_mapa_js()
+                                self.switch_to_default_content()
+                                return ExecutionResult(
+                                    status=ExecutionStatus.TECHNICAL_FAILURE,
+                                    message=(
+                                        "Diferencas de produto da 030302 foram capturadas, "
+                                        "mas nao foram aplicadas antes do material."
+                                    ),
+                                    metadata={
+                                        "trigger": resultado_js.get("trigger"),
+                                        "alertas": alertas + self._extrair_alertas_capturados(confirmacoes),
+                                        "confirmacoes": confirmacoes,
+                                        "submit_count": submit_count,
+                                        "estado_antes_salvar": estado_antes_salvar,
+                                        "estado_primeiro_salvar": estado,
+                                        "captura_diferencas": captura_diferencas,
+                                        "classificacao_diferencas": classificacao_diferencas,
+                                        "aplicacao_produtos": aplicacao_produtos,
+                                        "estado_aplicacao": estado_aplicacao,
+                                    },
+                                )
+
+                            resultado_produtos = self._clicar_salvar_js(
+                                ".apos-aplicar-produtos",
+                                prefer_click=True,
+                                clique_simples=False,
+                            )
+                            self.logger.info(
+                                "030302 | Clique em salvar apos aplicar produtos: %s",
+                                resultado_produtos,
+                            )
+                            if not resultado_produtos or not resultado_produtos.get("ok"):
+                                estado_aplicacao = self._estado_mapa_js()
+                                self.switch_to_default_content()
+                                return ExecutionResult(
+                                    status=ExecutionStatus.TECHNICAL_FAILURE,
+                                    message="Produtos da 030302 aplicados, mas o salvar antes do material falhou.",
+                                    metadata={
+                                        "trigger": resultado_js.get("trigger"),
+                                        "alertas": alertas + self._extrair_alertas_capturados(confirmacoes),
+                                        "confirmacoes": confirmacoes,
+                                        "submit_count": submit_count,
+                                        "estado_antes_salvar": estado_antes_salvar,
+                                        "estado_primeiro_salvar": estado,
+                                        "captura_diferencas": captura_diferencas,
+                                        "classificacao_diferencas": classificacao_diferencas,
+                                        "aplicacao_produtos": aplicacao_produtos,
+                                        "resultado_produtos": resultado_produtos,
+                                        "estado_aplicacao": estado_aplicacao,
+                                    },
+                                )
+
+                            fluxo_produtos = self._seguir_fluxo_salvar_030302(
+                                timeout=timeout,
+                                exigir_financeiro=False,
+                                parar_apos_financeiro=False,
+                            )
+                            confirmacoes_produtos = fluxo_produtos.get("confirmacoes") or []
+                            estado_material = self._aguardar_lista_diferencas(timeout=35)
+                            lista_material_len = int(
+                                estado_material.get("listaDiferencasLength") or 0
+                            )
+                            if lista_material_len <= 0:
+                                sem_diferencas_produtos = (
+                                    self._confirmacoes_tem_sem_diferencas(confirmacoes_produtos)
+                                    or self._confirmacoes_tem_resultado_final_030302(confirmacoes_produtos)
+                                    or bool((fluxo_produtos.get("resultado") or {}).get("mensagemSemDiferencas"))
+                                )
+                                if sem_diferencas_produtos:
+                                    self.switch_to_default_content()
+                                    return ExecutionResult(
+                                        status=ExecutionStatus.SUCCESS,
+                                        message=(
+                                            "Salvar da 030302 concluido apos aplicar produtos; "
+                                            "Promax nao retornou material pendente."
+                                        ),
+                                        metadata={
+                                            "trigger": resultado_produtos.get("trigger"),
+                                            "fluxo": "produtos-sem-material-pendente",
+                                            "alertas": alertas
+                                            + self._extrair_alertas_capturados(
+                                                confirmacoes,
+                                                confirmacoes_produtos,
+                                            ),
+                                            "confirmacoes": confirmacoes,
+                                            "confirmacoes_produtos": confirmacoes_produtos,
+                                            "submit_count": submit_count,
+                                            "estado_antes_salvar": estado_antes_salvar,
+                                            "estado_primeiro_salvar": estado,
+                                            "captura_diferencas": captura_diferencas,
+                                            "classificacao_diferencas": classificacao_diferencas,
+                                            "aplicacao_produtos": aplicacao_produtos,
+                                            "resultado_produtos": resultado_produtos,
+                                            "estado_material": estado_material,
+                                            "sem_diferencas": True,
+                                        },
+                                    )
+                                self.switch_to_default_content()
+                                return ExecutionResult(
+                                    status=ExecutionStatus.TECHNICAL_FAILURE,
+                                    message=(
+                                        "Produtos da 030302 foram salvos, mas a segunda tela "
+                                        "com material nao apareceu e nao houve mensagem de conclusao."
+                                    ),
+                                    metadata={
+                                        "trigger": resultado_produtos.get("trigger"),
+                                        "fluxo": "produtos-sem-lista-material",
+                                        "alertas": alertas
+                                        + self._extrair_alertas_capturados(
+                                            confirmacoes,
+                                            confirmacoes_produtos,
+                                        ),
+                                        "confirmacoes": confirmacoes,
+                                        "confirmacoes_produtos": confirmacoes_produtos,
+                                        "submit_count": submit_count,
+                                        "estado_antes_salvar": estado_antes_salvar,
+                                        "estado_primeiro_salvar": estado,
+                                        "captura_diferencas": captura_diferencas,
+                                        "classificacao_diferencas": classificacao_diferencas,
+                                        "aplicacao_produtos": aplicacao_produtos,
+                                        "resultado_produtos": resultado_produtos,
+                                        "estado_material": estado_material,
+                                    },
+                                )
+
+                            captura_material = self._capturar_diferencas_lista_js()
+                            self.logger.info(
+                                "030302 | Material capturado apos salvar produtos: %s",
+                                captura_material,
+                            )
+                            itens_material = captura_material.get("itens") or []
+                            if not itens_material:
+                                self.switch_to_default_content()
+                                return ExecutionResult(
+                                    status=ExecutionStatus.TECHNICAL_FAILURE,
+                                    message="A segunda tela da 030302 apareceu, mas nao trouxe itens de material.",
+                                    metadata={
+                                        "trigger": resultado_produtos.get("trigger"),
+                                        "fluxo": "lista-material-sem-itens",
+                                        "alertas": alertas
+                                        + self._extrair_alertas_capturados(
+                                            confirmacoes,
+                                            confirmacoes_produtos,
+                                        ),
+                                        "confirmacoes": confirmacoes,
+                                        "confirmacoes_produtos": confirmacoes_produtos,
+                                        "submit_count": submit_count,
+                                        "estado_antes_salvar": estado_antes_salvar,
+                                        "estado_primeiro_salvar": estado,
+                                        "captura_diferencas": captura_diferencas,
+                                        "captura_material": captura_material,
+                                        "classificacao_diferencas": classificacao_diferencas,
+                                        "aplicacao_produtos": aplicacao_produtos,
+                                        "resultado_produtos": resultado_produtos,
+                                        "estado_material": estado_material,
+                                    },
+                                )
+
+                            resultado_recarga_material = self._recarregar_mapa_para_acerto(
+                                mapa_recarga,
+                                ponto_apoio=ponto_apoio_recarga,
+                                timeout=timeout,
+                            )
+                            if resultado_recarga_material.status != ExecutionStatus.SUCCESS:
+                                self.switch_to_default_content()
+                                return ExecutionResult(
+                                    status=ExecutionStatus.TECHNICAL_FAILURE,
+                                    message=resultado_recarga_material.message,
+                                    metadata={
+                                        "trigger": resultado_produtos.get("trigger"),
+                                        "alertas": alertas
+                                        + self._extrair_alertas_capturados(
+                                            confirmacoes,
+                                            confirmacoes_produtos,
+                                        ),
+                                        "confirmacoes": confirmacoes,
+                                        "confirmacoes_produtos": confirmacoes_produtos,
+                                        "submit_count": submit_count,
+                                        "estado_antes_salvar": estado_antes_salvar,
+                                        "estado_primeiro_salvar": estado,
+                                        "captura_diferencas": captura_diferencas,
+                                        "captura_material": captura_material,
+                                        "classificacao_diferencas": classificacao_diferencas,
+                                        "aplicacao_produtos": aplicacao_produtos,
+                                        "resultado_recarga_material": resultado_recarga_material.metadata,
+                                    },
+                                )
+                            self._reentrar_frame(timeout=timeout)
+                            self._instalar_monitor_envio_js(interceptar_msgbx=False)
+                            aplicacao_material = self._aplicar_diferencas_capturadas_js(
+                                itens_material,
+                                destinos_permitidos=("vazio",),
+                            )
+                            aplicacao_diferencas = {
+                                "encontrou": bool(aplicacao_material.get("encontrou")),
+                                "fluxoSeparadoProdutoMaterial": True,
+                                "produtos": aplicacao_produtos,
+                                "material": aplicacao_material,
+                                "aplicados": (
+                                    (aplicacao_produtos.get("aplicados") or [])
+                                    + (aplicacao_material.get("aplicados") or [])
+                                ),
+                                "naoAplicados": (
+                                    (aplicacao_produtos.get("naoAplicados") or [])
+                                    + (aplicacao_material.get("naoAplicados") or [])
+                                ),
+                            }
+                            captura_diferencas = {
+                                **dict(captura_diferencas or {}),
+                                "fluxoSeparadoProdutoMaterial": True,
+                                "captura_inicial": captura_diferencas,
+                                "captura_material": captura_material,
+                            }
+                        else:
+                            aplicacao_diferencas = self._aplicar_diferencas_capturadas_js(
+                                itens_diferencas
+                            )
                         self.logger.info(
                             "Diferencas 030302 aplicadas apos reabrir rotina: %s",
                             aplicacao_diferencas,
