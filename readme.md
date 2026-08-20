@@ -1,180 +1,195 @@
-# Orquestrador de Comunicados Academicos UEPB
+# Promax Web Driver
 
-Sistema proposto para organizar e automatizar o envio de comunicados por e-mail aos estudantes da UEPB, substituindo a dependencia de grupos informais de WhatsApp para avisos academicos.
+Automacao RPA em Python para o sistema legado Promax, com Selenium em Edge IE Mode, arquitetura Page Object Model e servicos de download, publicacao e rastreio de execucao.
 
-## Descricao do Problema
+## Visao Geral
 
-Com o fim do grupo de WhatsApp utilizado para envio de avisos aos estudantes, a comunicacao academica passou a depender ainda mais do acesso manual ao site da UEPB e de repasses individuais. Esse processo pode fazer com que informacoes importantes, como editais, prazos, eventos, mudancas de calendario e avisos administrativos, passem despercebidas pelos alunos.
+Este repositorio centraliza fluxos operacionais de:
 
-O problema afeta diretamente estudantes que precisam acompanhar comunicados institucionais com frequencia, mas nem sempre acessam o site da universidade diariamente. Tambem afeta coordenacoes, professores ou responsaveis por comunicacao, que precisam de um meio organizado para enviar avisos sob demanda.
+- geracao de relatorios;
+- digitacao de pedidos;
+- alteracao em lote de condicao/CEMC;
+- reprocessamento de publicacoes pendentes.
 
-## Objetivos
+O projeto prioriza estabilidade operacional em ambiente legado (frames, alertas assincronos, postbacks e UI nativa de download).
 
-### Objetivo Geral
+## Sumario
 
-Desenvolver uma solucao em Java para monitorar publicacoes no site da UEPB e orquestrar o envio de e-mails aos estudantes cadastrados.
+- [Arquitetura](#arquitetura)
+- [Fluxos Disponiveis](#fluxos-disponiveis)
+- [Execucao Rapida](#execucao-rapida)
+- [Configuracao](#configuracao)
+- [Compatibilidade](#compatibilidade)
+- [Documentacao](#documentacao)
 
-### Objetivos Especificos
+## Arquitetura
 
-- Monitorar o site da UEPB em busca de novas publicacoes relevantes.
-- Identificar comunicados ainda nao enviados.
-- Enviar e-mails automaticamente para os estudantes cadastrados.
-- Permitir o envio manual de comunicados sob demanda.
-- Registrar historico de avisos enviados.
-- Evitar duplicidade no envio de mensagens.
-- Executar a aplicacao em ambiente Docker para facilitar instalacao e reproducao.
-
-## Publico-Alvo
-
-- Estudantes da UEPB.
-- Coordenacoes de curso.
-- Professores ou servidores responsaveis por comunicados academicos.
-- Equipes administrativas que precisam enviar avisos para grupos de estudantes.
-
-## Justificativa
-
-A proposta busca melhorar a comunicacao entre a instituicao e os estudantes, oferecendo um canal mais organizado, rastreavel e confiavel que grupos de mensagens instantaneas. O uso de e-mail permite manter historico, reduzir perda de informacoes e facilitar o envio de comunicados formais.
-
-## Estudo de Viabilidade Tecnica
-
-A solucao e tecnicamente viavel utilizando Java, pois a linguagem possui recursos consolidados para criacao de APIs, tarefas agendadas, integracao com banco de dados, consumo de paginas web e envio de e-mails.
-
-O Docker sera utilizado para padronizar o ambiente de execucao, reduzindo problemas de configuracao entre diferentes maquinas. A aplicacao podera ser executada em containers, junto com um banco de dados, permitindo instalacao mais simples e melhor organizacao do projeto.
-
-### Possiveis Desafios
-
-- Mudancas na estrutura do site da UEPB podem exigir ajustes no monitoramento.
-- E-mails podem ser classificados como spam se o envio nao for configurado corretamente.
-- A lista de estudantes precisa estar atualizada.
-- O sistema deve evitar envio duplicado de comunicados.
-- Dados pessoais dos estudantes devem ser tratados com seguranca.
-
-## Levantamento de Requisitos
-
-Os requisitos podem ser levantados por meio de:
-
-- Observacao do problema causado pelo fim do grupo de WhatsApp.
-- Entrevistas ou questionarios com estudantes.
-- Analise dos tipos de avisos publicados no site da UEPB.
-- Conversas com professores, coordenadores ou responsaveis por comunicacao.
-- Estudo do fluxo atual de divulgacao de avisos academicos.
-
-## Requisitos Funcionais
-
-- Cadastrar estudantes e seus respectivos e-mails.
-- Listar estudantes cadastrados.
-- Monitorar periodicamente o site da UEPB.
-- Detectar novas publicacoes ou comunicados.
-- Enviar e-mails automaticos quando novos avisos forem encontrados.
-- Permitir envio de e-mail sob demanda por um usuario autorizado.
-- Registrar historico de mensagens enviadas.
-- Consultar logs de envio.
-- Bloquear envio duplicado de uma mesma publicacao.
-
-## Requisitos Nao Funcionais
-
-- A aplicacao deve ser desenvolvida em Java.
-- A execucao deve ser suportada por Docker.
-- O sistema deve proteger os dados dos estudantes.
-- O envio de e-mails deve ser confiavel e rastreavel.
-- A interface ou API deve ser simples de utilizar.
-- O codigo deve ser organizado em camadas.
-- A solucao deve permitir manutencao futura.
-- O monitoramento deve executar em intervalos configuraveis.
-
-## Especificacao da Solucao
-
-A solucao sera composta por uma aplicacao Java responsavel por:
-
-1. Consultar periodicamente o site da UEPB.
-2. Identificar novas publicacoes relevantes.
-3. Verificar se a publicacao ja foi enviada anteriormente.
-4. Criar um comunicado com titulo, conteudo resumido e link da publicacao.
-5. Enviar o comunicado por e-mail para os estudantes cadastrados.
-6. Registrar o envio no historico.
-7. Permitir que um usuario autorizado envie comunicados manuais.
-
-## Arquitetura Planejada
-
-```text
-orquestrador-comunicados-uepb/
-|-- src/
-|   |-- main/
-|   |   |-- java/
-|   |   |   `-- br/edu/uepb/comunicados/
-|   |   `-- resources/
-|   `-- test/
-|-- Dockerfile
-|-- docker-compose.yml
-|-- README.md
-`-- pom.xml
+```
+promax-web-driver/
+|-- entrypoints/   # fluxos executaveis reais
+|-- core/          # infraestrutura e servicos compartilhados
+|-- pages/         # page objects (common, auth, reports, processes)
+|-- report_groups/ # manifests declarativos dos grupos de relatorios
+|-- tests/         # testes unitarios e de contrato
+|-- docs/          # contexto tecnico e historico
+`-- agents/        # prompts de agentes especializados
 ```
 
-### Componentes Previstos
+Referencias internas:
 
-- Backend Java para regras de negocio.
-- Modulo de monitoramento do site da UEPB.
-- Modulo de envio de e-mails.
-- Banco de dados para estudantes, comunicados e historico.
-- API ou interface administrativa para envio sob demanda.
-- Docker para execucao padronizada.
+- `entrypoints/README.md`
+- `core/README.md`
+- `pages/README.md`
+- `tests/README.md`
 
-## Tecnologias Utilizadas
+## Fluxos Disponiveis
 
-- Java.
-- Spring Boot.
-- Maven.
-- Docker.
-- Docker Compose.
-- Banco de dados PostgreSQL ou MySQL.
-- JavaMailSender ou servico SMTP equivalente.
-- Git e GitHub para versionamento.
+| Comando CLI                              | Entrada real                                          | Objetivo                            |
+| ---------------------------------------- | ----------------------------------------------------- | ----------------------------------- |
+| `python cli.py relatorios`             | `entrypoints/reports/relatorios.py`                 | Fluxo de caixa (grupo padrao)       |
+| `python cli.py relatorios --perfil giro` | `entrypoints/reports/relatorios.py`                | Executa um grupo dinamico           |
+| `python cli.py catalogo-relatorios`    | `report_groups/*.py`                                | Exibe o catalogo JSON sem Selenium  |
+| `python cli.py fechamento`             | `entrypoints/reports/relatorios_fechamento.py`      | Fluxo de fechamento                 |
+| `python cli.py repescagem`             | `entrypoints/reports/repescagem_relatorios.py`      | Repescagem manual de relatorios     |
+| `python cli.py reprocessar-publicacao` | `entrypoints/maintenance/reprocessar_publicacao.py` | Reprocessa pendencias de publicacao |
+| `python cli.py pedidos`                | `entrypoints/processes/pedidos.py`                  | Digitacao de pedidos                |
+| `python cli.py lote-condicao`          | `entrypoints/processes/lote_condicao.py`            | Alteracao em lote de condicao/CEMC  |
 
-## Execucao com Docker
+## Execucao Rapida
 
-> Esta secao descreve a forma planejada de execucao. Os comandos poderao ser ajustados conforme a implementacao do projeto.
+### 1) Preparar ambiente
 
 ```bash
-docker compose up --build
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-Após a inicializacao, a aplicacao devera ficar disponivel na porta configurada no projeto, por exemplo:
+### 2) Configurar variaveis
 
-```text
-http://localhost:8080
+Defina o arquivo `.env` conforme esperado em `core/config/settings.py`.
+
+### 3) Configurar o Internet Explorer / IE Mode
+
+Para o fluxo de download funcionar corretamente, execute o comando abaixo no Windows:
+
+```bat
+reg add "HKCU\Software\Microsoft\Internet Explorer\Main" /v TabProcGrowth /t REG_DWORD /d 0 /f
 ```
 
-## Qualidade de Software
+### 4) Executar um fluxo
 
-A solucao considera os seguintes atributos de qualidade:
+```bash
+python cli.py relatorios
+```
 
-- Confiabilidade: registro de envios e controle para evitar mensagens duplicadas.
-- Seguranca: protecao dos dados dos estudantes e restricao de acesso ao envio manual.
-- Usabilidade: fluxo simples para envio sob demanda.
-- Manutenibilidade: separacao entre monitoramento, envio de e-mails, cadastro e historico.
-- Portabilidade: uso de Docker para facilitar execucao em diferentes ambientes.
+Para escolher um grupo e limitar as rotinas:
 
-## Resultados Esperados
+```bash
+python cli.py relatorios --grupo outros --rotinas 020220_AUDITOOL 020220_RECOLHAS
+```
 
-Espera-se que o sistema reduza a perda de comunicados importantes, facilite o envio de avisos academicos e ofereca um historico organizado das mensagens enviadas. A solucao tambem deve diminuir a dependencia de grupos informais e tornar a comunicacao com os estudantes mais estruturada.
+Os grupos disponiveis sao `inadimplencia`, `obz`, `adf`, `outros`, `giro`,
+`estoque`, `fluxo_caixa` e `bot_zap`. Consulte o contrato completo com:
 
-## Limitacoes
+```bash
+python cli.py catalogo-relatorios
+```
 
-- O sistema depende da disponibilidade do site da UEPB.
-- Alteracoes no layout do site podem exigir manutencao no monitoramento.
-- A entrega dos e-mails depende da configuracao correta do servidor SMTP.
-- A lista de estudantes precisa ser mantida atualizada.
+Cada arquivo em `report_groups/` contem somente uma atribuicao literal
+`REPORT_GROUP`, com `key`, `name`, `description` e a lista de rotinas. O loader
+usa `ast.parse` e `ast.literal_eval`; os manifests nao sao importados nem
+executados.
 
-## Demonstracao
+## Configuracao
 
-A demonstracao do projeto podera apresentar:
+O projeto le configuracoes centralmente por `core/config/settings.py`.
 
-- Cadastro de estudantes.
-- Monitoramento de uma publicacao.
-- Envio automatico de comunicado.
-- Envio manual sob demanda.
-- Consulta ao historico de e-mails enviados.
+Pontos operacionais importantes:
 
-## Contribuicao dos Integrantes
+- `DOWNLOAD_DIR` e pasta intermediaria de captura;
+- a publicacao final segue o `PublicationPlan` definido por entrypoint;
+- o ambiente esperado e Windows com Edge IE Mode, desktop interativo e acesso a compartilhamentos de rede.
 
-Esta secao devera ser preenchida com a participacao de cada integrante do grupo, indicando responsabilidades como levantamento de requisitos, desenvolvimento backend, configuracao Docker, testes, documentacao e apresentacao.
+## Compatibilidade
+
+Os scripts da raiz foram preservados para chamadas antigas, mas hoje funcionam como wrappers:
+
+- `main.py`
+- `mainRelatorios.py`
+- `mainRelatoriosFechamento.py`
+- `mainPedidos.py`
+- `mainReprocessarPublicacao.py`
+- `main140510.py`
+- `mainAdf.py`
+- `mainBotZap.py`
+- `mainEstoque.py`
+- `mainFluxoCaixa.py`
+- `mainGiro.py`
+- `mainInadimplencia.py`
+- `mainObz.py`
+- `mainOutros.py`
+- `alterarCEMC.py`
+
+Para novos usos, prefira sempre `cli.py` e `entrypoints/`.
+
+## Documentacao
+
+- `report_groups/README.md`
+- `docs/PROJECT_CONTEXT.md`
+- `docs/code_review_tecnico.md`
+- `docs/ATUALIZACOES_2026-03-23.md`
+- `docs/plano_elevacao_nota_rpa.md`
+- `docs/status_plano_melhoria.md`
+
+## Notas de Operacao
+
+O comportamento do Promax exige cuidados especificos de automacao:
+
+- troca frequente de frame apos postback;
+- tratamento resiliente de alertas;
+- uso de helpers de interacao via JS;
+- fluxo de download com componentes de UI nativa em parte das rotinas.
+
+<!-- repo-map:start -->
+<!-- This block is regenerated by skills/repo-map. Do not hand-edit.    -->
+<!-- Re-run /repo-map to refresh after directory structure changes.     -->
+```mermaid
+flowchart TB
+    host["Host (CLI / wrappers)"]
+
+    subgraph runtime["Runtime"]
+        entrypoints["entrypoints/<br/>Fluxos executaveis"]
+        core["core/<br/>Configuracao, servicos e infraestrutura"]
+        pages["pages/<br/>Page Objects"]
+        report_groups["report_groups/<br/>Manifests declarativos"]
+    end
+
+    subgraph docs_tests["Docs & tests"]
+        docs["docs/"]
+        tests["tests/"]
+    end
+
+    subgraph support["Support"]
+        agents["agents/"]
+        assets["data/ + maps/"]
+        logs["logs/"]
+        venv["venv/"]
+    end
+
+    subgraph config["Config"]
+        tooling[".codex/ + .vscode/"]
+    end
+
+    host --> entrypoints
+    host --> report_groups
+    entrypoints --> core
+    entrypoints --> pages
+    entrypoints --> report_groups
+    tests --> core
+    tests --> pages
+    tests --> report_groups
+    core --> assets
+    core --> logs
+```
+<!-- repo-map:end -->
