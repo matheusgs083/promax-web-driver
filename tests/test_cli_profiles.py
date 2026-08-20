@@ -104,6 +104,52 @@ def test_reprocess_publication_emits_controlled_job_summary(
     assert payload["message"].startswith("Reprocessamento parcial:")
 
 
+def test_fechamento_mapa_emits_worker_json_with_serialized_metadata(
+    monkeypatch,
+    capsys,
+) -> None:
+    calls = []
+    fake_module = SimpleNamespace(
+        main=lambda **kwargs: (
+            calls.append(kwargs)
+            or ExecutionResult(
+                ExecutionStatus.SUCCESS,
+                "Mapa fechado.",
+                metadata={
+                    "mapa": "93741",
+                    "resultado_financeiro": ExecutionResult(
+                        ExecutionStatus.SUCCESS,
+                        "Financeiro ok.",
+                    ),
+                },
+            )
+        )
+    )
+    monkeypatch.setattr(cli.importlib, "import_module", lambda _name: fake_module)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "cli.py",
+            "fechamento-mapa",
+            "--mapa",
+            "93741",
+            "--unidade",
+            "PATOS",
+            "--job-id",
+            "job-mapa-1",
+        ],
+    )
+
+    assert cli.main_cli() == 0
+    assert calls[0]["mapa"] == "93741"
+    assert calls[0]["unidade"] == "PATOS"
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["operation"] == "fechamento-mapa"
+    assert payload["job_id"] == "job-mapa-1"
+    assert payload["metadata"]["resultado_financeiro"]["status"] == "SUCESSO"
+
+
 def test_catalog_command_emits_json_without_importing_entrypoint(
     monkeypatch,
     capsys,

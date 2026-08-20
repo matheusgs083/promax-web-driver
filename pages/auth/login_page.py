@@ -106,7 +106,13 @@ class LoginPage(BasePage):
             self.logger.error("Erro ao localizar/interagir com campos de login.")
             raise e
 
-        codigo_unidade = self.mapa_unidades.get(nome_unidade.upper()) if nome_unidade else None
+        codigo_unidade = None
+        if nome_unidade:
+            nome_unidade_limpo = str(nome_unidade).strip()
+            if nome_unidade_limpo.isdigit() and 6 <= len(nome_unidade_limpo) <= 10:
+                codigo_unidade = nome_unidade_limpo
+            else:
+                codigo_unidade = self.mapa_unidades.get(nome_unidade_limpo.upper())
 
         if codigo_unidade:
             self.logger.info(f"Selecionando unidade: {nome_unidade} ({codigo_unidade})")

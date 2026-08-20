@@ -4,6 +4,7 @@ import time
 
 import dotenv
 from selenium import webdriver
+from selenium.webdriver.common.proxy import Proxy, ProxyType
 from selenium.webdriver.ie.options import Options as IEOptions
 from selenium.webdriver.ie.service import Service as IEService
 from webdriver_manager.microsoft import IEDriverManager
@@ -103,6 +104,16 @@ class DriverFactory:
         ie_options.ignore_zoom_level = True
         ie_options.require_window_focus = settings.require_window_focus
         ie_options.page_load_strategy = "none"
+
+        proxy_server = os.getenv("PROMAX_PROXY_SERVER", "").strip()
+        if proxy_server:
+            proxy = Proxy()
+            proxy.proxy_type = ProxyType.MANUAL
+            proxy.http_proxy = proxy_server
+            proxy.ssl_proxy = proxy_server
+            proxy.no_proxy = os.getenv("PROMAX_PROXY_NO_PROXY", "").strip() or None
+            ie_options.proxy = proxy
+            logger.info("Proxy do navegador habilitado para diagnostico: %s", proxy_server)
 
         logger.info(
             "Configuracao do driver IE Mode: require_window_focus=%s",

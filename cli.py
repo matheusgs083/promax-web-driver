@@ -17,6 +17,7 @@ from core.execution.execution_result import (
 COMMANDS: dict[str, tuple[str, str]] = {
     "relatorios": ("entrypoints.reports.relatorios", "Executa o fluxo principal de relatorios."),
     "fechamento": ("entrypoints.reports.relatorios_fechamento", "Executa o fluxo de fechamento."),
+    "fechamento-mapa": ("entrypoints.processes.fechamento_mapa", "Executa o fechamento fisico/financeiro de um mapa."),
     "repescagem": ("entrypoints.reports.repescagem_relatorios", "Executa a repescagem manual de relatorios."),
     "reprocessar-publicacao": ("entrypoints.maintenance.reprocessar_publicacao", "Reprocessa itens em logs/publicacao_pendente."),
     "pedidos": ("entrypoints.processes.pedidos", "Executa a digitacao de pedidos."),
@@ -51,6 +52,20 @@ def build_parser() -> argparse.ArgumentParser:
             command_parser.set_defaults(publicar=True)
             command_parser.add_argument("--job-id", default="")
             command_parser.add_argument("--download-workers", type=int, default=5)
+        elif nome == "fechamento-mapa":
+            command_parser.add_argument("--mapa", required=True)
+            command_parser.add_argument("--ponto-apoio", default=None)
+            command_parser.add_argument("--km-atual", default=None)
+            command_parser.add_argument("--unidade", default=None)
+            command_parser.add_argument(
+                "--modo",
+                choices=("completo", "fisico", "financeiro"),
+                default="completo",
+            )
+            command_parser.add_argument("--nao-salvar", action="store_true")
+            command_parser.add_argument("--sessoes-separadas", action="store_true")
+            command_parser.add_argument("--fechar-ao-falhar", action="store_true")
+            command_parser.add_argument("--job-id", default="")
         elif nome == "reprocessar-publicacao":
             command_parser.add_argument("--job-id", default="")
 
@@ -121,6 +136,7 @@ def main_cli() -> int:
     job_id = str(getattr(args, "job_id", "") or "").strip()
     is_controlled_job = bool(job_id) and args.command in {
         "relatorios",
+        "fechamento-mapa",
         "reprocessar-publicacao",
     }
     if args.command == "relatorios":
@@ -133,6 +149,17 @@ def main_cli() -> int:
             "publish": args.publicar,
             "job_id": args.job_id,
             "download_workers": args.download_workers,
+        }
+    elif args.command == "fechamento-mapa":
+        kwargs = {
+            "mapa": args.mapa,
+            "ponto_apoio": args.ponto_apoio,
+            "km_atual": args.km_atual,
+            "unidade": args.unidade,
+            "modo": args.modo,
+            "salvar": not args.nao_salvar,
+            "sessoes_separadas": args.sessoes_separadas,
+            "manter_aberto_ao_falhar": not args.fechar_ao_falhar,
         }
     try:
         result = normalize_execution_result(module.main(**kwargs))
@@ -161,7 +188,7 @@ def main_cli() -> int:
                     "operation": args.command,
                     "status": result.status.value,
                     "message": result.message,
-                    "metadata": result.metadata or {},
+                    "metadata": _json_safe(result.metadata or {}),
                     "failed_units": failed_units,
                     "failed_unit_details": failed_unit_details,
                     "exit_code": _exit_code(result),
@@ -171,6 +198,25 @@ def main_cli() -> int:
             flush=True,
         )
     return _exit_code(result)
+
+
+def _json_safe(value):
+    if isinstance(value, ExecutionResult):
+        return {
+            "status": value.status.value,
+            "message": value.message,
+            "retry": value.retry,
+            "metadata": _json_safe(value.metadata or {}),
+        }
+    if isinstance(value, ExecutionStatus):
+        return value.value
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(item) for item in value]
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
 
 
 if __name__ == "__main__":
