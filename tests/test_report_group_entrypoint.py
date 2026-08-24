@@ -431,3 +431,117 @@ def test_020304_bot_is_registered_for_worker_catalog_and_runner(monkeypatch, tmp
         source.relative_to(tmp_path).parts[0]
         for source in map(Path, captured_run["publication_plan"].mapping)
     } == {"020304 bot"}
+
+
+def test_031120_bot_uses_map_central_warehouse_defaults(monkeypatch, tmp_path):
+    captured_report = {}
+    captured_run = {}
+
+    class Fake031120Page:
+        def __init__(self, driver, handle_menu):
+            self.subpasta_download = None
+            self.tracker_name = None
+
+        def gerar_relatorio(self, **kwargs):
+            captured_report.update(kwargs)
+            captured_report["subpasta_download"] = self.subpasta_download
+            captured_report["tracker_name"] = self.tracker_name
+            return True
+
+        def fechar_e_voltar(self):
+            return None
+
+    class FakeMenuPage:
+        @staticmethod
+        def acessar_rotina(routine_id):
+            assert routine_id == "031120"
+            return SimpleNamespace(driver=object(), handle_menu=object())
+
+    def fake_run(_self, **kwargs):
+        captured_run.update(kwargs)
+        return ExecutionResult(ExecutionStatus.SUCCESS, "ok")
+
+    monkeypatch.setattr(relatorios, "settings", SimpleNamespace(download_dir=tmp_path))
+    monkeypatch.setattr(relatorios, "menu_page", FakeMenuPage())
+    monkeypatch.setattr(relatorios, "Relatorio031120Page", Fake031120Page)
+    monkeypatch.setattr(ReportOrchestrationService, "run", fake_run)
+
+    result = relatorios.main(
+        profile="bot_zap",
+        routines=["031120_BOT"],
+        units=["2210003"],
+        publish=True,
+    )
+    captured_run["tasks"]["031120_BOT"].runner()
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert captured_report["unidade"] == ["2210003"]
+    assert captured_report["opcao_rel"] == "1"
+    assert captured_report["cod_armazem"] == "01"
+    assert captured_report["data_final"] == relatorios.data_hoje_formatada
+    assert captured_report["data_inicial"] == relatorios.data_duas_semanas_atras_formatada
+    assert captured_report["subpasta_download"] == "031120 bot"
+    assert captured_report["tracker_name"] == "Rotina 031120 Bot"
+    assert captured_report["nome_arquivo"] == "031120 bot - nomeUnidade031120"
+    assert {
+        source.relative_to(tmp_path).parts[0]
+        for source in map(Path, captured_run["publication_plan"].mapping)
+    } == {"031120 bot"}
+
+
+def test_03114902_bot_uses_single_geo_csv_for_all_operations(monkeypatch, tmp_path):
+    captured_report = {}
+    captured_run = {}
+
+    class Fake03114902Page:
+        def __init__(self, driver, handle_menu):
+            self.subpasta_download = None
+            self.tracker_name = None
+
+        def gerar_relatorio(self, **kwargs):
+            captured_report.update(kwargs)
+            captured_report["subpasta_download"] = self.subpasta_download
+            captured_report["tracker_name"] = self.tracker_name
+            return True
+
+        def fechar_e_voltar(self):
+            return None
+
+    class FakeMenuPage:
+        @staticmethod
+        def acessar_rotina(routine_id):
+            assert routine_id == "03114902"
+            return SimpleNamespace(driver=object(), handle_menu=object())
+
+    def fake_run(_self, **kwargs):
+        captured_run.update(kwargs)
+        return ExecutionResult(ExecutionStatus.SUCCESS, "ok")
+
+    monkeypatch.setattr(relatorios, "settings", SimpleNamespace(download_dir=tmp_path))
+    monkeypatch.setattr(relatorios, "menu_page", FakeMenuPage())
+    monkeypatch.setattr(relatorios, "Relatorio03114902Page", Fake03114902Page)
+    monkeypatch.setattr(ReportOrchestrationService, "run", fake_run)
+
+    result = relatorios.main(
+        profile="bot_zap",
+        routines=["03114902_BOT"],
+        units=["2210003", "2210004"],
+        publish=True,
+    )
+    captured_run["tasks"]["03114902_BOT"].runner()
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert captured_report["unidade"] == "2210003"
+    assert captured_report["classificacao"] == "Mapa"
+    assert captured_report["todas_operacoes"] is True
+    assert captured_report["csv_geo"] is True
+    assert captured_report["armazem"] == "Todos"
+    assert captured_report["data_final"] == relatorios.data_hoje_formatada
+    assert captured_report["data_inicial"] == relatorios.data_duas_semanas_atras_formatada
+    assert captured_report["subpasta_download"] == "03114902 bot"
+    assert captured_report["tracker_name"] == "Rotina 03114902 Geo Bot"
+    assert captured_report["nome_arquivo"] == "03114902 bot - geo.csv"
+    assert {
+        source.relative_to(tmp_path).parts[0]
+        for source in map(Path, captured_run["publication_plan"].mapping)
+    } == {"03114902 bot"}

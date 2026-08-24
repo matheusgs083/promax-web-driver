@@ -17,6 +17,8 @@ class Processo030302Page(RotinaPage):
     def __init__(self, driver, handle_menu_original):
         super().__init__(driver, handle_menu_original)
         self._km_atual_030302 = None
+        self._km_inicial_030302 = None
+        self._km_prev_030302 = None
         try:
             self.handle_rotina = self.driver.current_window_handle
         except Exception:
@@ -177,6 +179,9 @@ class Processo030302Page(RotinaPage):
             return {"classificacao": "impressao_direcionada", "resposta": "ok"}
         if "retorno nao liberado" in texto_normalizado or "retorno n" in texto_normalizado:
             return {"classificacao": "alerta_externo_ou_retorno", "resposta": "pendente"}
+        if "km" in texto_normalizado or "quilometr" in texto_normalizado:
+            resposta = "sim" if ("deseja" in texto_normalizado or "continuar" in texto_normalizado or "confirma" in texto_normalizado) else "ok"
+            return {"classificacao": "alerta_km", "resposta": resposta}
         return None
 
     def _confirmacoes_tem_sem_diferencas(self, confirmacoes):
@@ -687,6 +692,19 @@ class Processo030302Page(RotinaPage):
                     break
 
                 resposta = decisao["resposta"]
+                if decisao.get("classificacao") == "alerta_km" and self._km_inicial_030302 is not None and self._km_prev_030302 is not None:
+                    try:
+                        km_ini = int(str(self._km_inicial_030302))
+                        km_prv = int(str(self._km_prev_030302))
+                        soma_km = str(km_ini + km_prv)
+                        self.logger.info(
+                            "030302 | Alerta de KM detectado ('%s'). Preenchendo soma km_inicial (%s) + km_prev (%s) = %s",
+                            texto_alerta, km_ini, km_prv, soma_km
+                        )
+                        self._preencher_km_atual_js(soma_km)
+                    except Exception as exc:
+                        self.logger.warning("030302 | Erro ao calcular/preencher a soma de KM: %s", exc)
+
                 if resposta in ("ok", "sim"):
                     alerta.accept()
                 elif resposta == "nao":
@@ -2327,6 +2345,8 @@ class Processo030302Page(RotinaPage):
                 mapa,
                 ponto_apoio=ponto_apoio,
                 km_atual=self._km_atual_030302,
+                km_inicial=self._km_inicial_030302,
+                km_prev=self._km_prev_030302,
                 timeout=timeout,
             )
         except Exception as exc:
@@ -5897,10 +5917,12 @@ class Processo030302Page(RotinaPage):
             ),
         }
 
-    def carregar_mapa(self, mapa, ponto_apoio=None, km_atual=None, timeout=45):
+    def carregar_mapa(self, mapa, ponto_apoio=None, km_atual=None, km_inicial=None, km_prev=None, timeout=45):
         try:
             mapa_normalizado = self.normalizar_mapa(mapa)
             km_atual_normalizado = self.normalizar_km_atual(km_atual)
+            km_inicial_normalizado = self.normalizar_km_atual(km_inicial) if km_inicial else None
+            km_prev_normalizado = self.normalizar_km_atual(km_prev) if km_prev else None
         except ValueError as exc:
             return ExecutionResult(
                 status=ExecutionStatus.BUSINESS_FAILURE,
@@ -5908,6 +5930,8 @@ class Processo030302Page(RotinaPage):
                 retry=False,
             )
         self._km_atual_030302 = km_atual_normalizado
+        self._km_inicial_030302 = km_inicial_normalizado
+        self._km_prev_030302 = km_prev_normalizado
 
         try:
             self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)

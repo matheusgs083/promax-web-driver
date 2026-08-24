@@ -29,6 +29,16 @@ def _parse_args():
         help="KM atual do veiculo. Opcional; quando omitido, o campo nao e alterado.",
     )
     parser.add_argument(
+        "--km-inicial",
+        default=None,
+        help="KM inicial do veiculo. Usado com --km-prev se o alerta de KM for disparado.",
+    )
+    parser.add_argument(
+        "--km-prev",
+        default=None,
+        help="KM previsto do veiculo. Usado com --km-inicial se o alerta de KM for disparado.",
+    )
+    parser.add_argument(
         "--unidade",
         default=settings.unidade_pedidos,
         help="Unidade Promax para login. Padrao: PROMAX_PEDIDOS_UNIT.",
@@ -50,6 +60,8 @@ def main(
     mapa=None,
     ponto_apoio=None,
     km_atual=None,
+    km_inicial=None,
+    km_prev=None,
     unidade=None,
     salvar=True,
     manter_aberto_ao_falhar=True,
@@ -60,6 +72,8 @@ def main(
         mapa = args.mapa
         ponto_apoio = args.ponto_apoio
         km_atual = args.km_atual
+        km_inicial = args.km_inicial
+        km_prev = args.km_prev
         unidade = args.unidade
         salvar = not args.nao_salvar
         manter_aberto_ao_falhar = not args.fechar_ao_falhar
@@ -76,7 +90,13 @@ def main(
         page = Processo030302Page(janela.driver, janela.handle_menu)
 
         resultado = normalize_execution_result(
-            page.carregar_mapa(mapa, ponto_apoio=ponto_apoio, km_atual=km_atual)
+            page.carregar_mapa(
+                mapa,
+                ponto_apoio=ponto_apoio,
+                km_atual=km_atual,
+                km_inicial=km_inicial,
+                km_prev=km_prev,
+            )
         )
 
         if resultado.ok and salvar:

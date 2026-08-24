@@ -37,6 +37,8 @@ from pages.reports.relatorio_0105070402_page import Relatorio0105070402Page
 from pages.reports.relatorio_030111_page import Relatorio030111Page
 from pages.reports.relatorio_031702_page import Relatorio031702Page
 from pages.reports.relatorio_020304_page import Relatorio020304Page
+from pages.reports.relatorio_031120_page import Relatorio031120Page
+from pages.reports.relatorio_03114902_page import Relatorio03114902Page
 
 dotenv.load_dotenv()
 logger = get_logger("MAIN_PROMAX")
@@ -57,6 +59,7 @@ mes_ano_atual = hoje.strftime("%m/%Y")
 data_hoje_arquivo = hoje.strftime("%d-%m-%Y")
 data_ontem_formatada = ontem.strftime("%d/%m/%Y")
 data_hoje_formatada = hoje.strftime("%d/%m/%Y")
+data_duas_semanas_atras_formatada = (hoje - timedelta(days=14)).strftime("%d/%m/%Y")
 primeiro_dia_mes_atual = hoje.replace(day=1).strftime("%d/%m/%Y")
 primeiro_dia_mes_atual_traco = hoje.replace(day=1).strftime("%d-%m-%Y")
 ultimo_dia_util_mes_atual = data_anterior.strftime("%d/%m/%Y")
@@ -529,6 +532,48 @@ def main(
         page.fechar_e_voltar()
         return resultado
 
+    def tarefa_031120_bot(unidades_alvo=None):
+        janela = menu_page.acessar_rotina("031120")
+        page = Relatorio031120Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "031120 bot"
+        page.tracker_name = "Rotina 031120 Bot"
+        resultado = page.gerar_relatorio(
+            unidade=unidades_alvo,
+            opcao_rel="1",
+            data_inicial=report_start_text or data_duas_semanas_atras_formatada,
+            data_final=report_end_text or data_hoje_formatada,
+            cod_armazem="01",
+            nome_arquivo="031120 bot - nomeUnidade031120",
+        )
+        page.fechar_e_voltar()
+        return resultado
+
+    def tarefa_03114902_bot(unidades_alvo=None):
+        unidade_base = unidades_alvo[0] if isinstance(unidades_alvo, list) and unidades_alvo else unidades_alvo
+        janela = menu_page.acessar_rotina("03114902")
+        page = Relatorio03114902Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "03114902 bot"
+        page.tracker_name = "Rotina 03114902 Geo Bot"
+        resultado = page.gerar_relatorio(
+            unidade=unidade_base,
+            classificacao="Mapa",
+            tipo_mapa_rota=True,
+            tipo_mapa_as=True,
+            todas_operacoes=True,
+            mapas_roteirizados=True,
+            data_inicial=report_start_text or data_duas_semanas_atras_formatada,
+            data_final=report_end_text or data_hoje_formatada,
+            roadshow_inicial="0",
+            roadshow_final="99",
+            transportadora_inicial="0",
+            transportadora_final="999999",
+            armazem="Todos",
+            csv_geo=True,
+            nome_arquivo="03114902 bot - geo.csv",
+        )
+        page.fechar_e_voltar()
+        return resultado
+
     routine_runners = {
         "0513": tarefa_0513,
         "120616": tarefa_120616,
@@ -553,6 +598,8 @@ def main(
         "030111_BOT": tarefa_030111_bot,
         "031702_BOT": tarefa_031702_bot,
         "020304_BOT": tarefa_020304_bot,
+        "031120_BOT": tarefa_031120_bot,
+        "03114902_BOT": tarefa_03114902_bot,
     }
     missing_runners = [
         routine.id
@@ -634,6 +681,8 @@ def main(
             os.path.join(str(pasta_intermediaria), "030111 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\030111",
             os.path.join(str(pasta_intermediaria), "031702 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\031702",
             os.path.join(str(pasta_intermediaria), "020304 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\020304",
+            os.path.join(str(pasta_intermediaria), "031120 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\031120",
+            os.path.join(str(pasta_intermediaria), "03114902 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\03114902",
 
 
         }

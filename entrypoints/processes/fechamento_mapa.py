@@ -105,30 +105,40 @@ def _parse_args():
         help="KM atual do veiculo usado na rotina fisica 030302. Opcional.",
     )
     parser.add_argument(
+        "--km-inicial",
+        default=None,
+        help="KM inicial do veiculo. Usado com --km-prev se o alerta de KM for disparado na 030302.",
+    )
+    parser.add_argument(
+        "--km-prev",
+        default=None,
+        help="KM previsto do veiculo. Usado com --km-inicial se o alerta de KM for disparado na 030302.",
+    )
+    parser.add_argument(
         "--unidade",
         default=settings.unidade_pedidos,
         help="Unidade Promax para login. Padrao: PROMAX_PEDIDOS_UNIT.",
     )
     parser.add_argument(
         "--modo",
-        choices=("completo", "fisico", "financeiro"),
+        choices=["completo", "fisico", "financeiro"],
         default="completo",
-        help="Define se executa o fechamento completo, apenas fisico ou apenas financeiro.",
+        help="Modo de execucao: completo (030303 + 030302 + 03030702), fisico (apenas 030303 + 030302) ou financeiro (apenas 03030702).",
     )
     parser.add_argument(
         "--nao-salvar",
         action="store_true",
-        help="Apenas carrega o mapa nas rotinas sem clicar em salvar.",
+        help="Executa a carga e validacoes sem clicar nos botoes finais de salvar.",
     )
     parser.add_argument(
         "--sessoes-separadas",
         action="store_true",
-        help="Executa o fechamento fisico e financeiro em sessoes independentes do navegador.",
+        help="Executa cada rotina em uma sessao separada do navegador.",
     )
     parser.add_argument(
         "--fechar-ao-falhar",
         action="store_true",
-        help="Fecha o navegador mesmo quando houver falha no processo.",
+        help="Fecha o navegador mesmo em caso de falha.",
     )
     return parser.parse_args()
 
@@ -137,6 +147,8 @@ def fechar_mapa_sessao_unica(
     mapa,
     ponto_apoio=None,
     km_atual=None,
+    km_inicial=None,
+    km_prev=None,
     unidade=None,
     salvar=True,
     manter_aberto_ao_falhar=True,
@@ -197,6 +209,10 @@ def fechar_mapa_sessao_unica(
         carregar_030302_kwargs = {"ponto_apoio": ponto_apoio}
         if km_atual is not None and str(km_atual).strip():
             carregar_030302_kwargs["km_atual"] = km_atual
+        if km_inicial is not None and str(km_inicial).strip():
+            carregar_030302_kwargs["km_inicial"] = km_inicial
+        if km_prev is not None and str(km_prev).strip():
+            carregar_030302_kwargs["km_prev"] = km_prev
         res_fisico = normalize_execution_result(
             page_030302.carregar_mapa(mapa, **carregar_030302_kwargs)
         )
@@ -322,6 +338,8 @@ def fechar_mapa_sessoes_separadas(
     mapa,
     ponto_apoio=None,
     km_atual=None,
+    km_inicial=None,
+    km_prev=None,
     unidade=None,
     salvar=True,
     manter_aberto_ao_falhar=True,
@@ -358,6 +376,8 @@ def fechar_mapa_sessoes_separadas(
             mapa=mapa,
             ponto_apoio=ponto_apoio,
             km_atual=km_atual,
+            km_inicial=km_inicial,
+            km_prev=km_prev,
             unidade=unidade,
             salvar=salvar,
             manter_aberto_ao_falhar=manter_aberto_ao_falhar,
@@ -396,6 +416,8 @@ def main(
     mapa=None,
     ponto_apoio=None,
     km_atual=None,
+    km_inicial=None,
+    km_prev=None,
     unidade=None,
     modo="completo",
     salvar=True,
@@ -408,6 +430,8 @@ def main(
         mapa = args.mapa
         ponto_apoio = args.ponto_apoio
         km_atual = args.km_atual
+        km_inicial = args.km_inicial
+        km_prev = args.km_prev
         unidade = args.unidade
         modo = args.modo
         salvar = not args.nao_salvar
@@ -436,6 +460,8 @@ def main(
                 mapa=mapa,
                 ponto_apoio=ponto_apoio,
                 km_atual=km_atual,
+                km_inicial=km_inicial,
+                km_prev=km_prev,
                 unidade=unidade,
                 salvar=salvar,
                 manter_aberto_ao_falhar=manter_aberto_ao_falhar,
@@ -470,6 +496,8 @@ def main(
             mapa=mapa,
             ponto_apoio=ponto_apoio,
             km_atual=km_atual,
+            km_inicial=km_inicial,
+            km_prev=km_prev,
             unidade=unidade,
             salvar=salvar,
             manter_aberto_ao_falhar=manter_aberto_ao_falhar,
@@ -479,6 +507,8 @@ def main(
             mapa=mapa,
             ponto_apoio=ponto_apoio,
             km_atual=km_atual,
+            km_inicial=km_inicial,
+            km_prev=km_prev,
             unidade=unidade,
             salvar=salvar,
             manter_aberto_ao_falhar=manter_aberto_ao_falhar,
