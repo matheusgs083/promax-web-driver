@@ -18,6 +18,11 @@ logger = get_logger("FECHAMENTO_COMPLETO_MAPA")
 settings = get_settings()
 
 
+def _normalizar_ponto_apoio(ponto_apoio):
+    valor = "" if ponto_apoio is None else str(ponto_apoio).strip()
+    return "" if valor in {"0", "00", "000"} else valor
+
+
 def _extrair_dados_fechamento_03030702(page_03030702, etapa):
     try:
         dados = page_03030702.extrair_pagina_json(timeout_segundos=8)
@@ -439,6 +444,7 @@ def main(
         sessoes_separadas = args.sessoes_separadas
         manter_aberto_ao_falhar = not args.fechar_ao_falhar
 
+    ponto_apoio = _normalizar_ponto_apoio(ponto_apoio)
     modo = str(modo or "completo").strip().lower()
     if modo == "fisico":
         resultado_030303 = normalize_execution_result(

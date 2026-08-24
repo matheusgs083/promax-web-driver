@@ -47,6 +47,10 @@ class Processo03030702Page(RotinaPage):
         ("RECIBO", "75"),
     ]
 
+    CONTAS_SAIDA_IGNORADAS = {
+        "SIMPLES REMESSA",
+    }
+
     JS_RECURSIVE_FRAME_FINDER = """
         function buscarDocumentoPorElemento(testFn) {
             var visitados = [];
@@ -1676,6 +1680,12 @@ class Processo03030702Page(RotinaPage):
                     return str(cod).strip()
             return None
 
+        def deve_ignorar_saida(desc_normalizada):
+            return any(
+                conta_ignorada in desc_normalizada
+                for conta_ignorada in self.CONTAS_SAIDA_IGNORADAS
+            )
+
         def descricao_equivalente(desc_saida, desc_retorno):
             ds = normalizar_desc(desc_saida)
             dr = normalizar_desc(desc_retorno)
@@ -1765,6 +1775,14 @@ class Processo03030702Page(RotinaPage):
             valor_saida = normalizar_valor(item.get("valor", ""))
 
             if not desc_original:
+                continue
+
+            if deve_ignorar_saida(desc_normalizada):
+                self.logger.info(
+                    "03030702 | Categoria ignorada na Saida "
+                    f"| descricao='{desc_original}' "
+                    f"| valor={valor_saida}"
+                )
                 continue
 
             # SEMPRE lê o Retorno novamente.
@@ -1898,9 +1916,11 @@ class Processo03030702Page(RotinaPage):
             if not desc_original:
                 continue
 
-            codigo_mapeado = obter_codigo_mapeado(
-                normalizar_desc(desc_original)
-            )
+            desc_normalizada = normalizar_desc(desc_original)
+            if deve_ignorar_saida(desc_normalizada):
+                continue
+
+            codigo_mapeado = obter_codigo_mapeado(desc_normalizada)
 
             existente = procurar_no_retorno(
                 item_saida=item,

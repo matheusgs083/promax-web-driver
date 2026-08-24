@@ -15,13 +15,18 @@ logger = get_logger("PROCESSO_030302")
 settings = get_settings()
 
 
+def _normalizar_ponto_apoio(ponto_apoio):
+    valor = "" if ponto_apoio is None else str(ponto_apoio).strip()
+    return "" if valor in {"0", "00", "000"} else valor
+
+
 def _parse_args():
     parser = argparse.ArgumentParser(description="Carrega mapa na rotina 030302.")
     parser.add_argument("--mapa", required=True, help="Numero do mapa que sera carregado.")
     parser.add_argument(
         "--ponto-apoio",
         default=None,
-        help="Ponto de apoio. Quando omitido, a rotina usa 0.",
+        help="Ponto de apoio. Quando omitido ou 0, a rotina nao carrega ponto de apoio.",
     )
     parser.add_argument(
         "--km-atual",
@@ -78,6 +83,7 @@ def main(
         salvar = not args.nao_salvar
         manter_aberto_ao_falhar = not args.fechar_ao_falhar
 
+    ponto_apoio = _normalizar_ponto_apoio(ponto_apoio)
     unidade = (unidade or settings.unidade_pedidos).strip().upper()
     driver = None
     resultado = None

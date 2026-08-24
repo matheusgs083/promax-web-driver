@@ -5960,7 +5960,10 @@ class Processo030302Page(RotinaPage):
                 )
 
             self.logger.info("Carregando mapa %s na rotina 030302.", mapa_normalizado)
-            ponto_apoio_normalizado = "0" if ponto_apoio is None else str(ponto_apoio).strip()
+            ponto_apoio_normalizado = "" if ponto_apoio is None else str(ponto_apoio).strip()
+            deve_carregar_ponto_apoio = bool(
+                ponto_apoio_normalizado and ponto_apoio_normalizado not in {"0", "00", "000"}
+            )
             script_preencher_mapa = """
                 var valor = arguments[0];
                 var campo = document.getElementsByName('mapa')[0];
@@ -6058,7 +6061,8 @@ class Processo030302Page(RotinaPage):
             )
 
             if (
-                int(status_pos_mapa.get("submitCount") or 0) == 0
+                deve_carregar_ponto_apoio
+                and int(status_pos_mapa.get("submitCount") or 0) == 0
                 and status_pos_mapa.get("pontoApoioDisabled") is False
             ):
                 self.logger.info(

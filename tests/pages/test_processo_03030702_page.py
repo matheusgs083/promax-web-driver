@@ -116,3 +116,35 @@ def test_salvar_mapa_trata_prestacao_de_contas_como_sucesso():
 
     assert result.status == ExecutionStatus.SUCCESS
     assert result.metadata["integration_code"] == "MAPA_LIBERADO_FINANCEIRO"
+
+
+def test_equilibrar_contas_saida_ignora_simples_remessa():
+    page = Processo03030702Page.__new__(Processo03030702Page)
+    page.logger = type(
+        "LoggerFake",
+        (),
+        {
+            "debug": lambda *args, **kwargs: None,
+            "info": lambda *args, **kwargs: None,
+            "warning": lambda *args, **kwargs: None,
+            "error": lambda *args, **kwargs: None,
+        },
+    )()
+
+    lancamentos = []
+    page.obter_itens_saida = lambda timeout_segundos=20: [
+        {
+            "descricao": "SIMPLES REMESSA",
+            "qtNfs": "1",
+            "valor": "100,00",
+        }
+    ]
+    page.obter_contas_retorno = lambda: []
+    page.lancar_conta_retorno = lambda codigo_conta, valor, num_vale=0: lancamentos.append(
+        (codigo_conta, valor)
+    ) or True
+    page._entrar_iframe_retorno_nativo = lambda: False
+
+    page.equilibrar_contas_saida()
+
+    assert lancamentos == []

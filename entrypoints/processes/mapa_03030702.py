@@ -17,6 +17,11 @@ logger = get_logger("PROCESSO_03030702")
 settings = get_settings()
 
 
+def _normalizar_ponto_apoio(ponto_apoio):
+    valor = "" if ponto_apoio is None else str(ponto_apoio).strip()
+    return "" if valor in {"0", "00", "000"} else valor
+
+
 def _extrair_dados_fechamento_03030702(page_03030702, etapa):
     try:
         dados = page_03030702.extrair_pagina_json(timeout_segundos=8)
@@ -34,7 +39,7 @@ def _parse_args():
     parser.add_argument(
         "--ponto-apoio",
         default=None,
-        help="Ponto de apoio. Quando omitido, a rotina usa 0.",
+        help="Ponto de apoio. Quando omitido ou 0, a rotina nao carrega ponto de apoio.",
     )
     parser.add_argument(
         "--unidade",
@@ -98,6 +103,7 @@ def main(
         caminho_json = args.json_arquivo
         incluir_html = args.incluir_html
 
+    ponto_apoio = _normalizar_ponto_apoio(ponto_apoio)
     unidade = (unidade or settings.unidade_pedidos).strip().upper()
     driver = None
     resultado = None
