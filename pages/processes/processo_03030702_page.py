@@ -1,4 +1,5 @@
 import time
+import unicodedata
 from datetime import datetime
 from selenium.common.exceptions import NoAlertPresentException, StaleElementReferenceException
 from selenium.webdriver.common.by import By
@@ -50,6 +51,93 @@ class Processo03030702Page(RotinaPage):
     CONTAS_SAIDA_IGNORADAS = {
         "SIMPLES REMESSA",
     }
+
+    @staticmethod
+    def _valor_conta_para_float(valor):
+        texto = str(valor or "").strip()
+        if not texto or texto in {"-", "--"}:
+            return 0.0
+
+        texto = (
+            texto.replace("R$", "")
+            .replace("\u00a0", " ")
+            .replace(" ", "")
+            .strip()
+        )
+        if not texto:
+            return 0.0
+
+        negativo = texto.endswith("-") or texto.startswith("-")
+        texto = texto.strip("-")
+        if not texto:
+            return 0.0
+
+        if "," in texto:
+            texto = texto.replace(".", "").replace(",", ".")
+
+        try:
+            numero = float(texto)
+        except ValueError:
+            return None
+
+        if negativo:
+            numero = -numero
+        return numero
+
+    @classmethod
+    def _diferenca_tem_valor(cls, valor):
+        numero = cls._valor_conta_para_float(valor)
+        if numero is None:
+            return True
+        return abs(numero) > 0.00001
+
+    @classmethod
+    def _valores_conta_equivalentes(cls, esperado, encontrado):
+        valor_esperado = cls._valor_conta_para_float(esperado)
+        valor_encontrado = cls._valor_conta_para_float(encontrado)
+        if valor_esperado is None or valor_encontrado is None:
+            return str(esperado or "").strip() == str(encontrado or "").strip()
+        return abs(valor_esperado - valor_encontrado) <= 0.009
+
+    @staticmethod
+    def _normalizar_descricao_conta(valor):
+        texto = str(valor or "").strip().upper()
+        reparos_mojibake = {
+            "\u00c3\u0081": "A",
+            "\u00c3\u0080": "A",
+            "\u00c3\u0083": "A",
+            "\u00c3\u0082": "A",
+            "\u00c3\u0089": "E",
+            "\u00c3\u008a": "E",
+            "\u00c3\u008d": "I",
+            "\u00c3\u0093": "O",
+            "\u00c3\u0094": "O",
+            "\u00c3\u0095": "O",
+            "\u00c3\u009a": "U",
+            "\u00c3\u0087": "C",
+            "\u00c3\u2030": "E",
+            "\u00c3\u0160": "E",
+            "\u00c3\u2021": "C",
+            "\u00c3\u20ac": "A",
+            "\u00c3\u0192": "A",
+            "\u00c3\u201a": "A",
+            "\u00c3\u201c": "O",
+            "\u00c3\u201d": "O",
+            "\u00c3\u2022": "O",
+            "\u00c3\u0161": "U",
+        }
+        for origem, destino in reparos_mojibake.items():
+            texto = texto.replace(origem, destino)
+
+        if "\u00c3" in texto or "\u00c2" in texto:
+            try:
+                texto = texto.encode("latin1").decode("utf-8")
+            except UnicodeError:
+                pass
+
+        texto = unicodedata.normalize("NFKD", texto)
+        texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+        return " ".join(texto.split())
 
     JS_RECURSIVE_FRAME_FINDER = """
         function buscarDocumentoPorElemento(testFn) {
@@ -1546,6 +1634,7 @@ class Processo03030702Page(RotinaPage):
 
     def _extrair_campos_chave_do_dom_03030702(self, dom):
         nomes_chave = {
+            "mapa",
             "numeroMapa",
             "pontoApoio",
             "SessionID",
@@ -1656,20 +1745,7 @@ class Processo03030702Page(RotinaPage):
         """
 
         def normalizar_desc(valor):
-            valor = str(valor or "").strip().upper()
-            trocas = {
-                "Á": "A", "À": "A", "Ã": "A", "Â": "A",
-                "É": "E", "Ê": "E",
-                "Í": "I",
-                "Ó": "O", "Ô": "O", "Õ": "O",
-                "Ú": "U",
-                "Ç": "C",
-            }
-            for origem, destino in trocas.items():
-                valor = valor.replace(origem, destino)
-
-            valor = " ".join(valor.split())
-            return valor
+            return self._normalizar_descricao_conta(valor)
 
         def normalizar_valor(valor):
             return str(valor or "").strip().replace("R$", "").replace(" ", "")
@@ -1715,6 +1791,7 @@ class Processo03030702Page(RotinaPage):
 
         def procurar_no_retorno(item_saida, linhas_retorno, codigo_mapeado=None):
             desc_saida = item_saida.get("descricao", "")
+            valor_saida = item_saida.get("valor", "")
 
             # 1) Se conhecemos o código, ele é o identificador mais forte.
             if codigo_mapeado is not None:
@@ -1733,6 +1810,15 @@ class Processo03030702Page(RotinaPage):
                         and descricao_retorno
                         and not linha.get("linhaVazia", False)
                     ):
+                        if not self._valores_conta_equivalentes(
+                            valor_saida,
+                            linha.get("valor", ""),
+                        ):
+                            return {
+                                **linha,
+                                "_valor_divergente": True,
+                                "_valor_saida": valor_saida,
+                            }
                         return linha
 
             # 2) Depois tenta pela descrição.
@@ -1743,6 +1829,15 @@ class Processo03030702Page(RotinaPage):
                     desc_saida,
                     linha.get("descricao", ""),
                 ):
+                    if not self._valores_conta_equivalentes(
+                        valor_saida,
+                        linha.get("valor", ""),
+                    ):
+                        return {
+                            **linha,
+                            "_valor_divergente": True,
+                            "_valor_saida": valor_saida,
+                        }
                     return linha
 
             return None
@@ -1811,6 +1906,14 @@ class Processo03030702Page(RotinaPage):
             )
 
             if linha_existente is not None:
+                if linha_existente.get("_valor_divergente"):
+                    raise RuntimeError(
+                        "Conta encontrada no Retorno com valor diferente da Saida. "
+                        f"Descricao='{desc_original}' "
+                        f"| Valor Saida={linha_existente.get('_valor_saida', valor_saida)} "
+                        f"| Valor Retorno={linha_existente.get('valor', '')}"
+                    )
+
                 self.logger.info(
                     "03030702 | JA EXISTE NO RETORNO - NAO SERA DUPLICADO "
                     f"| saida='{desc_original}' "
@@ -1894,6 +1997,16 @@ class Processo03030702Page(RotinaPage):
                     f"| Descricao='{desc_original}'"
                 )
 
+            if linha_confirmada.get("_valor_divergente"):
+                raise RuntimeError(
+                    "O Promax executou o lancamento, mas confirmou valor diferente "
+                    "do valor da Saida. "
+                    f"Codigo={codigo_mapeado} "
+                    f"| Descricao='{desc_original}' "
+                    f"| Valor Saida={linha_confirmada.get('_valor_saida', valor_saida)} "
+                    f"| Valor Retorno={linha_confirmada.get('valor', '')}"
+                )
+
             self.logger.info(
                 "03030702 | LANCAMENTO CONFIRMADO NO RETORNO "
                 f"| codigo={linha_confirmada.get('codigo', '')} "
@@ -1920,6 +2033,9 @@ class Processo03030702Page(RotinaPage):
             if deve_ignorar_saida(desc_normalizada):
                 continue
 
+            if not self._diferenca_tem_valor(item.get("valor", "")):
+                continue
+
             codigo_mapeado = obter_codigo_mapeado(desc_normalizada)
 
             existente = procurar_no_retorno(
@@ -1928,11 +2044,12 @@ class Processo03030702Page(RotinaPage):
                 codigo_mapeado=codigo_mapeado,
             )
 
-            if existente is None:
+            if existente is None or existente.get("_valor_divergente"):
                 pendencias.append({
                     "descricao": desc_original,
                     "valor": item.get("valor", ""),
                     "codigo": codigo_mapeado,
+                    "valor_retorno": (existente or {}).get("valor", ""),
                 })
 
         if pendencias:
@@ -2004,9 +2121,8 @@ class Processo03030702Page(RotinaPage):
             tot_diferenca = str(resumo_previo.get("total", "") or "").strip()
             contas_diferenca = str(resumo_previo.get("contas", "") or "").strip()
 
-            if (
-                (tot_diferenca and tot_diferenca != "0,00")
-                or (contas_diferenca and contas_diferenca != "0,00")
+            if self._diferenca_tem_valor(tot_diferenca) or self._diferenca_tem_valor(
+                contas_diferenca
             ):
                 self.logger.info(
                     "03030702 | Diferencas detectadas antes do salvamento "
@@ -2019,6 +2135,22 @@ class Processo03030702Page(RotinaPage):
                 self.logger.info(
                     f"03030702 | Diferencas imediatamente antes do Salvar(): {resumo_pos}"
                 )
+                total_pos = str(resumo_pos.get("total", "") or "").strip()
+                contas_pos = str(resumo_pos.get("contas", "") or "").strip()
+                if self._diferenca_tem_valor(total_pos) or self._diferenca_tem_valor(
+                    contas_pos
+                ):
+                    return ExecutionResult(
+                        status=ExecutionStatus.BUSINESS_FAILURE,
+                        message=(
+                            "Mapa nao salvo: ainda existem diferencas apos "
+                            "reequilibrar a prestacao de contas."
+                        ),
+                        metadata={
+                            "integration_code": "DIFERENCA_PRESTACAO_CONTAS",
+                            "resumo": resumo_pos,
+                        },
+                    )
 
             self.logger.info(
                 "03030702 | Executando Salvar() e aguardando alerta do Promax..."
