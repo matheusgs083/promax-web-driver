@@ -180,6 +180,15 @@ class Processo030302Page(RotinaPage):
         if "retorno nao liberado" in texto_normalizado or "retorno n" in texto_normalizado:
             return {"classificacao": "alerta_externo_ou_retorno", "resposta": "pendente"}
         if "km" in texto_normalizado or "quilometr" in texto_normalizado:
+            if (
+                "invalid" in texto_normalizado
+                or "inval" in texto_normalizado
+                or "obrig" in texto_normalizado
+                or "erro" in texto_normalizado
+                or "nao inform" in texto_normalizado
+                or "nao preench" in texto_normalizado
+            ):
+                return {"classificacao": "alerta_km_bloqueador", "resposta": "pendente"}
             resposta = "sim" if ("deseja" in texto_normalizado or "continuar" in texto_normalizado or "confirma" in texto_normalizado) else "ok"
             return {"classificacao": "alerta_km", "resposta": resposta}
         return None
@@ -701,9 +710,18 @@ class Processo030302Page(RotinaPage):
                             "030302 | Alerta de KM detectado ('%s'). Preenchendo soma km_inicial (%s) + km_prev (%s) = %s",
                             texto_alerta, km_ini, km_prv, soma_km
                         )
-                        self._preencher_km_atual_js(soma_km)
+                        resultado_km = self._preencher_km_atual_js(soma_km)
+                        if not (resultado_km or {}).get("ok"):
+                            self.logger.warning(
+                                "030302 | Alerta de KM nao sera confirmado porque o preenchimento falhou: %s",
+                                resultado_km,
+                            )
+                            mensagens_alerta.append(texto_alerta)
+                            break
                     except Exception as exc:
                         self.logger.warning("030302 | Erro ao calcular/preencher a soma de KM: %s", exc)
+                        mensagens_alerta.append(texto_alerta)
+                        break
 
                 if resposta in ("ok", "sim"):
                     alerta.accept()
@@ -4584,7 +4602,10 @@ class Processo030302Page(RotinaPage):
             self._instalar_monitor_envio_js(interceptar_msgbx=False)
             estado_pre_salvar = self._estado_mapa_js()
             mapa_tem_valor_editavel = self._estado_tem_valor_editavel_030302(estado_pre_salvar)
+            status_mapa_pre_salvar = str((estado_pre_salvar or {}).get("statusMapa") or "").strip()
+            mapa_preenchido_legacy = bool(mapa_tem_valor_editavel and status_mapa_pre_salvar != "0")
             valores_originais_primeiro_envio = None
+            resultado_js_predefinido = None
 
             # CASO ESPECIAL ISOLADO:
             # Se a grade nao possui nenhum codigo fisico, nao entra no primeiro fluxo
@@ -4689,91 +4710,103 @@ class Processo030302Page(RotinaPage):
                 )
 
             # A PARTIR DAQUI: FLUXO NORMAL ORIGINAL, SEM ALTERACOES.
-            if mapa_tem_valor_editavel:
-                # Mapa ja preenchido: o primeiro submit precisa sair zerado para
-                # reproduzir o mesmo fluxo do mapa vazio no Promax. Os valores
-                # originais ficam preservados no snapshot abaixo; depois a lista
-                # de diferencas do proprio Promax sera capturada e reaplicada.
+            if mapa_preenchido_legacy:
+                # Mapa ja preenchido: preserva o fluxo anterior da 030302.
+                # O fluxo de zeragem/lista fica reservado para mapas ainda em
+                # preenchimento, evitando quebrar mapas que o Promax ja carregou
+                # com status de acerto.
                 valores_originais_primeiro_envio = (estado_pre_salvar or {}).get("produtos") or []
-                zeragem = self._zerar_valores_editaveis_primeiro_envio_030302()
+                digitacao = self._reativar_digitacao_valores_030302()
                 self.logger.info(
-                    "Mapa 030302 preenchido: valores preservados e zerados antes do primeiro salvar: %s",
-                    zeragem,
+                    "Mapa 030302 preenchido: redigitacao preservada antes do salvar: %s",
+                    digitacao,
                 )
                 try:
-                    total_zerado = int((zeragem or {}).get("total") or 0)
+                    total_digitado = int((digitacao or {}).get("total") or 0)
                 except (TypeError, ValueError):
-                    total_zerado = 0
+                    total_digitado = 0
 
-                if total_zerado <= 0:
+                if total_digitado <= 0:
                     self.switch_to_default_content()
                     return ExecutionResult(
                         status=ExecutionStatus.TECHNICAL_FAILURE,
                         message=(
-                            "Mapa 030302 tem valores preenchidos, mas nenhum campo positivo "
-                            "foi zerado antes do primeiro salvar."
+                            "salvar bloqueado: mapa 030302 tem valores preenchidos, "
+                            "mas a redigitacao nao aplicou nenhum campo positivo."
                         ),
                         retry=False,
                         metadata={
                             "estado_pre_salvar": estado_pre_salvar,
-                            "zeragem_primeiro_envio": zeragem,
+                            "digitacao": digitacao,
                             "valores_originais_primeiro_envio": valores_originais_primeiro_envio,
                             "confirmacoes": [],
                             "diferencas_corrigidas": None,
                         },
                     )
 
-                estado_apos_zeragem = self._estado_mapa_js()
-                if self._estado_tem_valor_editavel_030302(estado_apos_zeragem):
-                    self.switch_to_default_content()
-                    return ExecutionResult(
-                        status=ExecutionStatus.TECHNICAL_FAILURE,
-                        message=(
-                            "Mapa 030302 continuou com quantidade positiva apos a zeragem; "
-                            "primeiro salvar bloqueado para nao enviar o mapa preenchido."
-                        ),
-                        retry=False,
-                        metadata={
-                            "estado_pre_salvar": estado_pre_salvar,
-                            "estado_apos_zeragem": estado_apos_zeragem,
-                            "zeragem_primeiro_envio": zeragem,
-                            "valores_originais_primeiro_envio": valores_originais_primeiro_envio,
-                            "confirmacoes": [],
-                            "diferencas_corrigidas": None,
-                        },
-                    )
-
-                self.logger.info(
-                    "Primeiro envio 030302 confirmado zerado antes do clique em Salvar. estado=%s",
-                    estado_apos_zeragem,
+                self.wait_for_js_condition(
+                    """
+                    var botSalvar = document.getElementsByName('BotSalvar')[0];
+                    return !!(botSalvar && botSalvar.disabled === false);
+                    """,
+                    timeout=timeout,
+                    description="botao salvar habilitado na 030302 preenchida",
                 )
+                estado_antes_salvar_preenchido = self._estado_mapa_js()
+                resultado_js_predefinido = self._clicar_salvar_js(
+                    ".salvar-preenchido",
+                    prefer_click=True,
+                    clique_simples=False,
+                )
+                self.logger.info("Clique em salvar 030302 preenchida executado: %s", resultado_js_predefinido)
+                if not resultado_js_predefinido or not resultado_js_predefinido.get("ok"):
+                    self.switch_to_default_content()
+                    return ExecutionResult(
+                        status=ExecutionStatus.TECHNICAL_FAILURE,
+                        message=(
+                            "Nao foi possivel clicar em salvar na 030302 preenchida."
+                        ),
+                        retry=False,
+                        metadata={
+                            "estado_pre_salvar": estado_pre_salvar,
+                            "estado_antes_salvar": estado_antes_salvar_preenchido,
+                            "digitacao": digitacao,
+                            "resultado_js": resultado_js_predefinido,
+                            "valores_originais_primeiro_envio": valores_originais_primeiro_envio,
+                            "confirmacoes": [],
+                            "diferencas_corrigidas": None,
+                        },
+                    )
             elif (estado_pre_salvar or {}).get("botSalvarDisabled") is True:
                 habilitacao = self._habilitar_salvar_mapa_zerado_030302()
                 self.logger.info(
                     "Tentativa de habilitar salvar da 030302 com mapa zerado: %s",
                     habilitacao,
                 )
-            self.wait_for_js_condition(
-                """
-                var botSalvar = document.getElementsByName('BotSalvar')[0];
-                return !!(botSalvar && botSalvar.disabled === false);
-                """,
-                timeout=timeout,
-                description="botao salvar habilitado na 030302",
-            )
+            if resultado_js_predefinido is None:
+                self.wait_for_js_condition(
+                    """
+                    var botSalvar = document.getElementsByName('BotSalvar')[0];
+                    return !!(botSalvar && botSalvar.disabled === false);
+                    """,
+                    timeout=timeout,
+                    description="botao salvar habilitado na 030302",
+                )
 
             estado_antes_salvar = self._estado_mapa_js()
             tem_valor_editavel = self._estado_tem_valor_editavel_030302(estado_antes_salvar)
-            usar_click_humano = True
-            clique_simples_salvar = False
-            # A partir daqui, mapa preenchido e mapa vazio seguem exatamente o mesmo fluxo de envio.
-            trigger_salvar = ".verificar-diferencas"
-            resultado_js = self._clicar_salvar_js(
-                trigger_salvar,
-                prefer_click=usar_click_humano,
-                clique_simples=clique_simples_salvar,
-            )
-            self.logger.info("Clique em salvar 030302 executado: %s", resultado_js)
+            if resultado_js_predefinido is not None:
+                resultado_js = resultado_js_predefinido
+            else:
+                usar_click_humano = True
+                clique_simples_salvar = False
+                trigger_salvar = ".verificar-diferencas"
+                resultado_js = self._clicar_salvar_js(
+                    trigger_salvar,
+                    prefer_click=usar_click_humano,
+                    clique_simples=clique_simples_salvar,
+                )
+                self.logger.info("Clique em salvar 030302 executado: %s", resultado_js)
             if not resultado_js or not resultado_js.get("ok"):
                 status = ExecutionStatus.TECHNICAL_FAILURE
                 if resultado_js and resultado_js.get("error") == "botao-salvar-desabilitado":
@@ -4854,6 +4887,11 @@ class Processo030302Page(RotinaPage):
                 for confirmacao in confirmacoes
             )
             confirmou_ok = self._confirmacoes_tem_resultado_final_030302(confirmacoes)
+            resultado_final_confirmado = bool(
+                confirmou_ok
+                or self._confirmacoes_tem_sem_diferencas(confirmacoes)
+                or self._estado_confirmou_sem_diferencas(estado_fluxo_resultado)
+            )
             fluxo_visual_completo = bool(
                 (etapas_fluxo or {}).get("diferencas")
                 and (etapas_fluxo or {}).get("financeiro")
@@ -4874,12 +4912,81 @@ class Processo030302Page(RotinaPage):
                 payload_tem_quantidade = self._resultado_salvar_tem_quantidade_positiva_030302(
                     resultado_js
                 )
+                if payload_com_itens and payload_tem_quantidade and mapa_preenchido_legacy and not confirmou_financeiro:
+                    estado_pos_confirmacoes = self._aguardar_lista_diferencas(timeout=8)
+                    estado_pos_financeiro_lista = estado_pos_confirmacoes
+                    for alerta_intermediario in estado_pos_confirmacoes.get("alertasRespondidos") or []:
+                        self._adicionar_confirmacao_030302(
+                            confirmacoes,
+                            alerta_intermediario,
+                            origem="preenchido-lista-inicial",
+                        )
+                    if self._estado_confirmou_sem_diferencas(estado_pos_confirmacoes):
+                        estado = self._estado_mapa_js() or {}
+                        estado["resultadoDiferencas"] = estado_pos_confirmacoes
+                        self.switch_to_default_content()
+                        return ExecutionResult(
+                            status=ExecutionStatus.SUCCESS,
+                            message="Salvar da 030302 confirmado sem diferencas.",
+                            metadata={
+                                "trigger": resultado_js.get("trigger"),
+                                "alertas": alertas + self._extrair_alertas_capturados(confirmacoes),
+                                "confirmacoes": confirmacoes,
+                                "submit_count": submit_count,
+                                "estado_antes_salvar": estado_antes_salvar,
+                                "resultado_js": resultado_js,
+                                "estado": estado,
+                                "diferencas_corrigidas": diferencas_corrigidas,
+                            },
+                        )
+
+                    snapshot_preenchido = (
+                        (resultado_js or {}).get("formAfter")
+                        or (resultado_js or {}).get("ultimoSalvar")
+                        or (dados_confirmacao or {}).get("ultimoSalvar")
+                        or {}
+                    )
+                    if snapshot_preenchido.get("itensLista"):
+                        resultado_payload_preenchido = self._enviar_opcao_com_payload_salvo_030302(
+                            "8",
+                            snapshot_preenchido,
+                            ".confirmacao-financeira-preenchido",
+                        )
+                        resultado_js["retornoDiferencas"] = resultado_payload_preenchido
+                        estado_pos_confirmacoes = self._aguardar_lista_diferencas(timeout=20)
+                        estado_pos_financeiro_lista = estado_pos_confirmacoes
+                        for alerta_intermediario in estado_pos_confirmacoes.get("alertasRespondidos") or []:
+                            self._adicionar_confirmacao_030302(
+                                confirmacoes,
+                                alerta_intermediario,
+                                origem="preenchido-payload-opcao8",
+                            )
+                        if self._estado_confirmou_sem_diferencas(estado_pos_confirmacoes):
+                            estado = self._estado_mapa_js() or {}
+                            estado["resultadoDiferencas"] = estado_pos_confirmacoes
+                            self.switch_to_default_content()
+                            return ExecutionResult(
+                                status=ExecutionStatus.SUCCESS,
+                                message="Salvar da 030302 confirmado sem diferencas.",
+                                metadata={
+                                    "trigger": resultado_js.get("trigger"),
+                                    "alertas": alertas + self._extrair_alertas_capturados(confirmacoes),
+                                    "confirmacoes": confirmacoes,
+                                    "submit_count": submit_count,
+                                    "estado_antes_salvar": estado_antes_salvar,
+                                    "resultado_js": resultado_js,
+                                    "resultado_payload_preenchido": resultado_payload_preenchido,
+                                    "estado": estado,
+                                    "diferencas_corrigidas": diferencas_corrigidas,
+                                },
+                            )
+
                 if payload_com_itens and not payload_tem_quantidade:
                     self.logger.info(
                         "Primeiro salvar 030302 enviou payload zerado; aguardando telinha/lista "
                         "de diferencas para capturar valores e reaplicar."
                     )
-                    if not confirmou_ok:
+                    if not resultado_final_confirmado:
                         if confirmou_financeiro:
                             self.logger.info(
                                 "Financeiro 030302 ja foi confirmado apos payload zerado; "
@@ -4914,7 +5021,7 @@ class Processo030302Page(RotinaPage):
                         ):
                             estado_fluxo_resultado = estado_pos_confirmacoes
                             espera_envio["estado"] = estado_pos_confirmacoes
-                        else:
+                        elif mapa_preenchido_legacy:
                             self.logger.info(
                                 "Promax nao exibiu a lista apos o fluxo real da 030302 zerada. "
                                 "Solicitando retorno de diferencas por opcao=8 apos submit "
@@ -4965,18 +5072,41 @@ class Processo030302Page(RotinaPage):
                                 )
                             estado_fluxo_resultado = estado_pos_confirmacoes
                             espera_envio["estado"] = estado_pos_confirmacoes
+                        else:
+                            resultado_js["retornoDiferencas"] = {
+                                "ok": False,
+                                "trigger": "fluxo-zerado-sem-opcao8-forcado",
+                            }
+                            self.switch_to_default_content()
+                            return ExecutionResult(
+                                status=ExecutionStatus.TECHNICAL_FAILURE,
+                                message=(
+                                    "Salvar da 030302 enviado sem lista de diferencas e sem "
+                                    "mensagem final de confirmacao."
+                                ),
+                                retry=False,
+                                metadata={
+                                    "trigger": resultado_js.get("trigger"),
+                                    "fluxo": "sem-lista-diferencas",
+                                    "alertas": alertas + self._extrair_alertas_capturados(confirmacoes),
+                                    "confirmacoes": confirmacoes,
+                                    "submit_count": submit_count,
+                                    "estado_antes_salvar": estado_antes_salvar,
+                                    "resultado_js": resultado_js,
+                                    "estado": estado_pos_confirmacoes,
+                                    "diferencas_corrigidas": None,
+                                },
+                            )
                 if payload_com_itens and not confirmou_financeiro:
                     self.logger.info(
                         "Salvar 030302 enviou payload, mas nenhuma confirmacao financeira "
                         "real foi capturada. Nao sera enviado fallback de opcao."
                     )
-                if self._confirmacoes_tem_resultado_final_030302(confirmacoes):
+                if resultado_final_confirmado:
                     estado = self._estado_mapa_js() or {}
                     estado["resultadoDiferencas"] = {
                         "mensagemOk": True,
-                        "mensagemSemDiferencas": self._confirmacoes_tem_sem_diferencas(
-                            confirmacoes
-                        ),
+                        "mensagemSemDiferencas": True,
                         "listaDiferencasLength": 0,
                     }
                     self.switch_to_default_content()
@@ -5342,8 +5472,15 @@ class Processo030302Page(RotinaPage):
                         # reabria a rotina e aplicava as diferencas corretamente.
                         # ============================================================
                         estado_pos_preenchimento_final = self._estado_mapa_js() or {}
-                        if not self._estado_final_tem_quantidade_positiva_030302(
-                            estado_pos_preenchimento_final
+                        aplicacao_tem_quantidade = bool(
+                            (aplicacao_diferencas or {}).get("encontrou")
+                            and (aplicacao_diferencas or {}).get("aplicados")
+                        )
+                        if (
+                            not self._estado_final_tem_quantidade_positiva_030302(
+                                estado_pos_preenchimento_final
+                            )
+                            and not aplicacao_tem_quantidade
                         ):
                             self.switch_to_default_content()
                             return ExecutionResult(
@@ -5376,8 +5513,15 @@ class Processo030302Page(RotinaPage):
                             redigitacao_final,
                         )
                         estado_pre_salvar_final = self._estado_mapa_js() or {}
-                        if not self._estado_final_tem_quantidade_positiva_030302(
-                            estado_pre_salvar_final
+                        redigitacao_tem_quantidade = bool(
+                            (redigitacao_final or {}).get("total")
+                            or aplicacao_tem_quantidade
+                        )
+                        if (
+                            not self._estado_final_tem_quantidade_positiva_030302(
+                                estado_pre_salvar_final
+                            )
+                            and not redigitacao_tem_quantidade
                         ):
                             self.switch_to_default_content()
                             return ExecutionResult(
@@ -5404,7 +5548,7 @@ class Processo030302Page(RotinaPage):
                             )
 
                         resultado_final = self._clicar_salvar_js(
-                            ".verificar-diferencas",
+                            ".apos-aplicar-diferencas",
                             prefer_click=True,
                             clique_simples=False,
                         )
@@ -5471,6 +5615,19 @@ class Processo030302Page(RotinaPage):
                                     "estado": estado_final,
                                     "diferencas_corrigidas": aplicacao_diferencas,
                                 },
+                            )
+
+                        fluxo_final = self._seguir_fluxo_salvar_030302(
+                            timeout=timeout,
+                            exigir_financeiro=False,
+                            parar_apos_financeiro=False,
+                        )
+                        confirmacoes_final_fluxo = fluxo_final.get("confirmacoes") or []
+                        for confirmacao_final_fluxo in confirmacoes_final_fluxo:
+                            self._adicionar_confirmacao_030302(
+                                confirmacoes,
+                                confirmacao_final_fluxo,
+                                origem="fluxo-final",
                             )
 
                         # A partir daqui so existe logica do SEGUNDO SALVAR.
@@ -5547,8 +5704,8 @@ class Processo030302Page(RotinaPage):
                                     "Salvar da 030302 concluido com alerta 'Nao existem diferencas'."
                                     if tem_sem_diferencas
                                     else (
-                                        "Salvar da 030302 concluido com payload positivo e sem "
-                                        "retorno adicional bloqueador do Promax."
+                                        "Salvar da 030302 concluido com diferencas capturadas, "
+                                        "payload positivo e sem retorno adicional bloqueador do Promax."
                                     )
                                 ),
                                 metadata={

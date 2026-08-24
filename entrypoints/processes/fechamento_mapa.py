@@ -217,13 +217,14 @@ def fechar_mapa_sessao_unica(
             page_030302.carregar_mapa(mapa, **carregar_030302_kwargs)
         )
 
-        lista_preenchida = page_030302.tem_codigos_fisicos()
-        logger.info("030302 | Checagem de codigos no HTML: lista_preenchida=%s", lista_preenchida)
+        if res_fisico.ok:
+            lista_preenchida = page_030302.tem_codigos_fisicos()
+            logger.info("030302 | Checagem de codigos no HTML: lista_preenchida=%s", lista_preenchida)
 
-        if not lista_preenchida:
-            logger.info("030302 | A lista do HTML nao esta preenchida com codigos. Executando o salvamento/segundo processo da 030302 para liberacao...")
-        else:
-            logger.info("030302 | A lista do HTML esta preenchida com codigos. Executando salvamento de acerto fisico...")
+            if not lista_preenchida:
+                logger.info("030302 | A lista do HTML nao esta preenchida com codigos. Executando o salvamento/segundo processo da 030302 para liberacao...")
+            else:
+                logger.info("030302 | A lista do HTML esta preenchida com codigos. Executando salvamento de acerto fisico...")
 
         if res_fisico.ok and salvar:
             res_fisico = normalize_execution_result(page_030302.salvar_mapa())
