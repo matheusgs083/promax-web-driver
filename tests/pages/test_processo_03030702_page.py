@@ -434,6 +434,32 @@ def test_equilibrar_contas_saida_ignora_valor_zero_na_validacao_final():
     page.equilibrar_contas_saida()
 
 
+def test_equilibrar_contas_saida_adiciona_linha_vazia_apos_equilibrio():
+    page = _fake_page_03030702()
+    chamadas_linha_vazia = []
+    page.obter_itens_saida = lambda timeout_segundos=20: [
+        {
+            "descricao": "BLOQUETO BANCARIO",
+            "qtNfs": "7",
+            "valor": "7.656,63",
+        }
+    ]
+    page.obter_contas_retorno = lambda: [
+        {
+            "seq": "001",
+            "codigo": "2",
+            "descricao": "BLOQUETO",
+            "valor": "7.656,63",
+            "linhaVazia": False,
+        }
+    ]
+    page._adicionar_linha_vazia_retorno = lambda: chamadas_linha_vazia.append(True) or True
+
+    page.equilibrar_contas_saida()
+
+    assert chamadas_linha_vazia == [True]
+
+
 def test_equilibrar_contas_saida_bloqueia_vasilhame_ausente_do_retorno():
     page = _fake_page_03030702()
     page.obter_itens_saida = lambda timeout_segundos=20: [

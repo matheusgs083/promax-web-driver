@@ -1306,6 +1306,81 @@ class Processo03030702Page(RotinaPage):
             return False
 
 
+    def _adicionar_linha_vazia_retorno(self):
+        """Adiciona uma linha vazia no Retorno apos equilibrar as contas."""
+        script = r"""
+            function pad3(n) {
+                n = parseInt(n, 10);
+                if (n < 10) return '00' + n;
+                if (n < 100) return '0' + n;
+                return String(n);
+            }
+
+            var lista = document.all.lista || document.getElementById('lista');
+            if (!lista) return { ok: false, erro: 'TABLE lista nao localizada' };
+            if (typeof AdicionaLista !== 'function') {
+                return { ok: false, erro: 'AdicionaLista nao localizada' };
+            }
+
+            var antes = lista.rows.length;
+            if (antes > 0) {
+                var ult = pad3(antes - 1);
+                var foco = document.all['textvalor' + ult] || document.all['textcod' + ult];
+                try { if (foco && foco.focus) foco.focus(); } catch(e) {}
+            }
+
+            AdicionaLista('', '', '', '', '');
+
+            var depois = lista.rows.length;
+            if (depois <= antes) {
+                return { ok: false, erro: 'AdicionaLista nao criou nova linha', antes: antes, depois: depois };
+            }
+
+            var seq = pad3(depois - 1);
+            try {
+                var cod = document.all['textcod' + seq];
+                if (cod) cod.value = '';
+            } catch(e) {}
+            try {
+                var valor = document.all['textvalor' + seq];
+                if (valor) valor.value = '';
+            } catch(e) {}
+
+            return { ok: true, seq: seq, antes: antes, depois: depois };
+        """
+
+        try:
+            if not self._entrar_iframe_retorno_nativo():
+                self.logger.warning(
+                    "03030702 | Nao foi possivel adicionar linha vazia: iFrameRetorno nao localizado."
+                )
+                return False
+
+            resultado = self.driver.execute_script(script) or {}
+            self._garantir_frame_rotina()
+
+            if not isinstance(resultado, dict) or not resultado.get("ok"):
+                self.logger.warning(
+                    f"03030702 | Linha vazia nao adicionada apos equilibrio: {resultado}"
+                )
+                return False
+
+            self.logger.info(
+                f"03030702 | Linha vazia adicionada apos equilibrio: {resultado}"
+            )
+            return True
+
+        except Exception as e:
+            try:
+                self._garantir_frame_rotina()
+            except Exception:
+                pass
+            self.logger.warning(
+                f"03030702 | Erro ao adicionar linha vazia apos equilibrio: {e}"
+            )
+            return False
+
+
     def obter_contas_retorno(self):
         """Retorna o estado vivo das linhas do TABLE lista no iFrameRetorno."""
         script = r"""
@@ -2099,6 +2174,8 @@ class Processo03030702Page(RotinaPage):
                 )
         finally:
             self._garantir_frame_rotina()
+
+        self._adicionar_linha_vazia_retorno()
 
         resumo = self.obter_resumo_diferencas()
 

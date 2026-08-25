@@ -193,6 +193,40 @@ class Processo030302Page(RotinaPage):
             return {"classificacao": "alerta_km", "resposta": resposta}
         return None
 
+    def _preencher_km_fallback_para_alerta(self, texto_alerta):
+        if self._km_inicial_030302 is None or self._km_prev_030302 is None:
+            self.logger.warning(
+                "030302 | Alerta de KM sem fallback disponivel. Alerta mantido sem confirmacao: %s",
+                texto_alerta,
+            )
+            return {
+                "ok": False,
+                "error": "km-fallback-indisponivel",
+                "mensagem": texto_alerta,
+            }
+        try:
+            km_ini = int(str(self._km_inicial_030302))
+            km_prv = int(str(self._km_prev_030302))
+            soma_km = str(km_ini + km_prv)
+            self.logger.info(
+                "030302 | Alerta de KM detectado ('%s'). Preenchendo soma km_inicial (%s) + km_prev (%s) = %s",
+                texto_alerta,
+                km_ini,
+                km_prv,
+                soma_km,
+            )
+            resultado_km = self._preencher_km_atual_js(soma_km)
+            if not (resultado_km or {}).get("ok"):
+                self.logger.warning(
+                    "030302 | Alerta de KM nao sera confirmado porque o preenchimento falhou: %s",
+                    resultado_km,
+                )
+                return resultado_km or {"ok": False, "error": "preenchimento-km-falhou"}
+            return resultado_km
+        except Exception as exc:
+            self.logger.warning("030302 | Erro ao calcular/preencher a soma de KM: %s", exc)
+            return {"ok": False, "error": str(exc)}
+
     def _confirmacoes_tem_sem_diferencas(self, confirmacoes):
         return any(
             self._eh_mensagem_sem_diferencas(confirmacao.get("mensagem"))
@@ -701,25 +735,9 @@ class Processo030302Page(RotinaPage):
                     break
 
                 resposta = decisao["resposta"]
-                if decisao.get("classificacao") == "alerta_km" and self._km_inicial_030302 is not None and self._km_prev_030302 is not None:
-                    try:
-                        km_ini = int(str(self._km_inicial_030302))
-                        km_prv = int(str(self._km_prev_030302))
-                        soma_km = str(km_ini + km_prv)
-                        self.logger.info(
-                            "030302 | Alerta de KM detectado ('%s'). Preenchendo soma km_inicial (%s) + km_prev (%s) = %s",
-                            texto_alerta, km_ini, km_prv, soma_km
-                        )
-                        resultado_km = self._preencher_km_atual_js(soma_km)
-                        if not (resultado_km or {}).get("ok"):
-                            self.logger.warning(
-                                "030302 | Alerta de KM nao sera confirmado porque o preenchimento falhou: %s",
-                                resultado_km,
-                            )
-                            mensagens_alerta.append(texto_alerta)
-                            break
-                    except Exception as exc:
-                        self.logger.warning("030302 | Erro ao calcular/preencher a soma de KM: %s", exc)
+                if decisao.get("classificacao") == "alerta_km":
+                    resultado_km = self._preencher_km_fallback_para_alerta(texto_alerta)
+                    if not (resultado_km or {}).get("ok"):
                         mensagens_alerta.append(texto_alerta)
                         break
 
@@ -2350,6 +2368,22 @@ class Processo030302Page(RotinaPage):
             except Exception:
                 pass
 
+            try:
+                handles = list(self.driver.window_handles)
+                if self.handle_rotina in handles:
+                    self.driver.switch_to.window(self.handle_rotina)
+                    self.switch_to_default_content()
+                    self.logger.info(
+                        "030302 | Aba atual da rotina focada para fechar antes de digitar novamente: %s",
+                        self.handle_rotina,
+                    )
+            except Exception as exc:
+                self.logger.warning(
+                    "030302 | Nao foi possivel focar a aba da rotina antes de recarregar o mapa %s: %s",
+                    mapa,
+                    exc,
+                )
+
             menu_page = self.fechar_e_voltar()
             janela = menu_page.acessar_rotina("030302")
             self.handle_menu = janela.handle_menu
@@ -2991,12 +3025,24 @@ class Processo030302Page(RotinaPage):
                     "resposta": "pendente",
                     "bloqueia_fluxo": True,
                 }
+            if decisao and decisao.get("classificacao") == "alerta_km":
+                resultado_km = self._preencher_km_fallback_para_alerta(texto)
+                if not (resultado_km or {}).get("ok"):
+                    return {
+                        "tipo": "alert-nao-tratado",
+                        "mensagem": texto,
+                        "resposta": "pendente",
+                        "classificacao": "alerta_km",
+                        "preenchimentoKm": resultado_km,
+                        "bloqueia_fluxo": True,
+                    }
             if decisao and decisao["resposta"] in ("ok", "sim"):
                 alerta.accept()
                 return {
                     "tipo": "alert",
                     "mensagem": texto,
                     "resposta": decisao["resposta"],
+                    "preenchimentoKm": resultado_km if decisao.get("classificacao") == "alerta_km" else None,
                 }
             if decisao and decisao["resposta"] == "nao":
                 alerta.dismiss()

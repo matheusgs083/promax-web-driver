@@ -70,6 +70,19 @@ def _metadata_resultado(resultado):
     }
 
 
+def _escolher_dados_030303(dados_carga, dados_salvar):
+    validar = getattr(Processo030303Page, "_dados_equipe_validos", None)
+    if callable(validar):
+        if validar(dados_salvar):
+            return dados_salvar
+        if validar(dados_carga):
+            return dados_carga
+        return dados_salvar or dados_carga
+    if dados_salvar:
+        return dados_salvar
+    return dados_carga
+
+
 def _executar_030303_sessao_unica(menu_page, mapa, salvar=True):
     logger.info("--- PASSO 0: INICIANDO ROTINA 030303 ---")
     janela_030303 = menu_page.acessar_rotina("030303")
@@ -79,11 +92,12 @@ def _executar_030303_sessao_unica(menu_page, mapa, salvar=True):
     metadata_carga = resultado.metadata or {}
     if resultado.ok and salvar:
         resultado = normalize_execution_result(page_030303.salvar_mapa())
+        dados_carga = metadata_carga.get("dados_030303")
+        dados_salvar = (resultado.metadata or {}).get("dados_030303")
         resultado = _anexar_metadata_resultado(
             resultado,
             mapa=metadata_carga.get("mapa") or str(mapa).strip(),
-            dados_030303=(resultado.metadata or {}).get("dados_030303")
-            or metadata_carga.get("dados_030303"),
+            dados_030303=_escolher_dados_030303(dados_carga, dados_salvar),
         )
 
     logger.info(

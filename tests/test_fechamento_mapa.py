@@ -103,6 +103,59 @@ def test_fechamento_mapa_inclui_dados_estruturados_da_03030702(monkeypatch):
     assert result.metadata["resultado_financeiro"].metadata["dados_fechamento_03030702"] == dados
 
 
+def test_fechamento_mapa_preserva_dados_validos_da_carga_030303(monkeypatch):
+    class FakeSwitchTo:
+        def window(self, _handle):
+            return None
+
+    class FakeDriver:
+        switch_to = FakeSwitchTo()
+
+    class FakeMenuPage:
+        def acessar_rotina(self, rotina):
+            return SimpleNamespace(driver=FakeDriver(), handle_menu=f"janela-{rotina}")
+
+    class Fake030303Page:
+        def __init__(self, _driver, _handle_menu):
+            pass
+
+        @staticmethod
+        def _dados_equipe_validos(dados):
+            motorista = (((dados or {}).get("motorista") or {}).get("nome") or "").strip()
+            return motorista not in {"", "--Selecionar--"}
+
+        def carregar_mapa(self, _mapa):
+            return ExecutionResult(
+                ExecutionStatus.SUCCESS,
+                "030303 carregada",
+                metadata={
+                    "mapa": "93792",
+                    "dados_030303": {
+                        "motorista": {"nome": "LEONARDO VIEIRA DA SILVA", "origem_nome": "Motorista"},
+                        "campos": [{"label": "Ajudante 1", "value": {"texto": "07480 - CARLOS ALBERTO NASCIMENTO DE A"}}],
+                    },
+                },
+            )
+
+        def salvar_mapa(self):
+            return ExecutionResult(
+                ExecutionStatus.SUCCESS,
+                "030303 salva",
+                metadata={
+                    "dados_030303": {
+                        "motorista": {"nome": "--Selecionar--", "origem_nome": "ajudante1"},
+                        "campos": [],
+                    }
+                },
+            )
+
+    monkeypatch.setattr(fechamento_mapa, "Processo030303Page", Fake030303Page)
+
+    resultado, _janela = fechamento_mapa._executar_030303_sessao_unica(FakeMenuPage(), "93792", salvar=True)
+
+    assert resultado.metadata["dados_030303"]["motorista"]["nome"] == "LEONARDO VIEIRA DA SILVA"
+
+
 def test_fechamento_mapa_para_quando_030302_falha(monkeypatch):
     rotinas_acessadas = []
 

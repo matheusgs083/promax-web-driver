@@ -141,3 +141,50 @@ def test_enriquecer_motorista_generico_pau_brasil_usa_ajudante1():
     assert enriquecido["motorista"]["nome"] == "GABRIEL MORAIS BEZERRA"
     assert enriquecido["motorista"]["origem_nome"] == "ajudante1"
     assert enriquecido["motorista"]["valor_original"] == "07442 - GABRIEL MORAIS BEZERRA"
+
+
+def test_enriquecer_motorista_prefere_campo_visivel_por_label():
+    dados = {
+        "campos": [
+            {"name": "cdMotorista", "label": "", "value": {"texto": "00001 - (*) PAU BRASIL", "valor": "00001"}},
+            {"name": "", "label": "Motorista", "value": {"texto": "07410 - LEONARDO VIEIRA DA SILVA", "valor": "07410"}},
+            {"name": "", "label": "Ajudante 1", "value": {"texto": "07480 - CARLOS ALBERTO NASCIMENTO DE A", "valor": "07480"}},
+        ],
+        "motorista": {},
+    }
+
+    enriquecido = Processo030303Page._enriquecer_motorista(dados)
+
+    assert enriquecido["motorista"]["nome"] == "LEONARDO VIEIRA DA SILVA"
+    assert enriquecido["motorista"]["origem_nome"] == "Motorista"
+
+
+def test_enriquecer_motorista_visual_tem_prioridade_sobre_cs_generico():
+    dados = {
+        "campos": [
+            {"name": "csMotorista", "label": "", "value": "00001 - (*) PAU BRASIL"},
+            {"name": "", "label": "Motorista", "value": {"texto": "07410 - LEONARDO VIEIRA DA SILVA", "valor": "07410"}},
+            {"name": "", "label": "Ajudante 1", "value": {"texto": "07480 - CARLOS ALBERTO NASCIMENTO DE A", "valor": "07480"}},
+        ],
+        "motorista": {},
+    }
+
+    enriquecido = Processo030303Page._enriquecer_motorista(dados)
+
+    assert enriquecido["motorista"]["nome"] == "LEONARDO VIEIRA DA SILVA"
+    assert enriquecido["motorista"]["origem_nome"] == "Motorista"
+
+
+def test_enriquecer_motorista_generico_usa_ajudante_por_label_visual():
+    dados = {
+        "campos": [
+            {"name": "csMotorista", "label": "", "value": "00001 - (*) PAU BRASIL"},
+            {"name": "", "label": "Ajudante 1", "value": {"texto": "07480 - CARLOS ALBERTO NASCIMENTO DE A", "valor": "07480"}},
+        ],
+        "motorista": {},
+    }
+
+    enriquecido = Processo030303Page._enriquecer_motorista(dados)
+
+    assert enriquecido["motorista"]["nome"] == "CARLOS ALBERTO NASCIMENTO DE A"
+    assert enriquecido["motorista"]["origem_nome"] == "ajudante1"

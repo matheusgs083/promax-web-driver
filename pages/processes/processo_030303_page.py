@@ -1,3 +1,4 @@
+import time
 import unicodedata
 
 from core.execution.execution_result import ExecutionResult, ExecutionStatus
@@ -44,10 +45,22 @@ class Processo030303Page(RotinaPage):
     @classmethod
     def _campo_extraido_por_nome(cls, dados, nome):
         nome_norm = cls._normalizar_texto(nome)
+        candidatos = []
         for campo in (dados or {}).get("campos") or []:
-            if cls._normalizar_texto(campo.get("name")) == nome_norm:
-                return cls._valor_campo_extraido(campo)
-        return ""
+            nomes = (
+                campo.get("name"),
+                campo.get("id"),
+                campo.get("label"),
+            )
+            if any(cls._normalizar_texto(item) == nome_norm for item in nomes if item):
+                valor = cls._valor_campo_extraido(campo)
+                if valor:
+                    candidatos.append(valor)
+        for valor in reversed(candidatos):
+            texto = cls._normalizar_texto(cls._limpar_nome_com_codigo(valor))
+            if texto and "selecionar" not in texto and texto not in {"00000"}:
+                return valor
+        return candidatos[-1] if candidatos else ""
 
     @staticmethod
     def _limpar_nome_com_codigo(valor):
@@ -57,19 +70,48 @@ class Processo030303Page(RotinaPage):
         return texto.replace("(*)", "").strip()
 
     @classmethod
+    def _dados_equipe_validos(cls, dados):
+        if not isinstance(dados, dict):
+            return False
+        motorista = cls._campo_extraido_por_nome(dados, "Motorista") or cls._campo_extraido_por_nome(dados, "csMotorista") or cls._campo_extraido_por_nome(dados, "cdMotorista")
+        placa = cls._campo_extraido_por_nome(dados, "Placa") or cls._campo_extraido_por_nome(dados, "Veiculo")
+        nome_motorista = cls._normalizar_texto(cls._limpar_nome_com_codigo(motorista))
+        placa_norm = cls._normalizar_texto(placa)
+        return bool(
+            nome_motorista
+            and "selecionar" not in nome_motorista
+            and "pau brasil" not in nome_motorista
+            and placa_norm
+            and "selecionar" not in placa_norm
+        )
+
+    def _aguardar_dados_equipe_carregados(self, timeout=6):
+        fim = time.time() + max(float(timeout or 0), 0)
+        ultimo = {}
+        while time.time() <= fim:
+            ultimo = self.extrair_pagina_json()
+            if self._dados_equipe_validos(ultimo):
+                return ultimo
+            time.sleep(0.5)
+        return ultimo
+
+    @classmethod
     def _enriquecer_motorista(cls, dados):
         if not isinstance(dados, dict):
             return dados
 
-        motorista_original = cls._campo_extraido_por_nome(dados, "csMotorista")
-        origem_nome = "csMotorista"
+        motorista_original = cls._campo_extraido_por_nome(dados, "Motorista")
+        origem_nome = "Motorista"
+        if not motorista_original:
+            motorista_original = cls._campo_extraido_por_nome(dados, "csMotorista")
+            origem_nome = "csMotorista"
         if not motorista_original:
             motorista_original = cls._campo_extraido_por_nome(dados, "cdMotorista")
             origem_nome = "cdMotorista"
 
         nome_motorista = cls._limpar_nome_com_codigo(motorista_original)
         if "pau brasil" in cls._normalizar_texto(nome_motorista):
-            ajudante = cls._campo_extraido_por_nome(dados, "ajudante1")
+            ajudante = cls._campo_extraido_por_nome(dados, "Ajudante 1") or cls._campo_extraido_por_nome(dados, "ajudante1")
             if ajudante:
                 motorista_original = ajudante
                 nome_motorista = cls._limpar_nome_com_codigo(ajudante)
@@ -83,6 +125,20 @@ class Processo030303Page(RotinaPage):
             "valor_original": motorista_original,
         }
         return dados
+
+    def _logar_dados_equipe(self, dados, contexto):
+        try:
+            self.logger.info(
+                "030303 | Dados equipe capturados (%s): motorista=%s | origem=%s | placa=%s | ajudante1=%s | ajudante2=%s",
+                contexto,
+                ((dados or {}).get("motorista") or {}).get("nome"),
+                ((dados or {}).get("motorista") or {}).get("origem_nome"),
+                self._campo_extraido_por_nome(dados, "Placa") or self._campo_extraido_por_nome(dados, "Veiculo"),
+                self._campo_extraido_por_nome(dados, "Ajudante 1") or self._campo_extraido_por_nome(dados, "ajudante1"),
+                self._campo_extraido_por_nome(dados, "Ajudante 2") or self._campo_extraido_por_nome(dados, "ajudante2"),
+            )
+        except Exception:
+            pass
 
     def carregar_mapa(self, mapa):
         """Preenche e carrega o mapa na rotina 030303 via gatilho CarregarMapa()."""
@@ -113,12 +169,15 @@ class Processo030303Page(RotinaPage):
                     message=f"Timeout ao carregar mapa {mapa_norm}: {msg}",
                 )
 
+            dados_030303 = self._aguardar_dados_equipe_carregados()
+            self._logar_dados_equipe(dados_030303, "carregar")
+
             return ExecutionResult(
                 status=ExecutionStatus.SUCCESS,
                 message=f"Mapa {mapa_norm} carregado com sucesso na 030303.",
                 metadata={
                     "mapa": mapa_norm,
-                    "dados_030303": self.extrair_pagina_json(),
+                    "dados_030303": dados_030303,
                 },
             )
         except Exception as e:
@@ -166,12 +225,33 @@ class Processo030303Page(RotinaPage):
                         var lab = encontrarLabelPorFor(id);
                         if (lab) return texto(lab);
                     }
+                    function textoFilhosSemCampo(node) {
+                        if (!node) return "";
+                        var clone = node.cloneNode(true);
+                        var tagsCampo = ['input', 'select', 'textarea', 'button'];
+                        for (var tci = 0; tci < tagsCampo.length; tci++) {
+                            var campos = clone.getElementsByTagName(tagsCampo[tci]);
+                            while (campos && campos.length) {
+                                if (campos[0] && campos[0].parentNode) campos[0].parentNode.removeChild(campos[0]);
+                                else break;
+                            }
+                        }
+                        return texto(clone);
+                    }
                     var atual = el;
                     for (var i = 0; atual && i < 4; i++) {
                         var prev = atual.previousElementSibling;
                         if (prev) {
-                            var t = texto(prev);
+                            var t = textoFilhosSemCampo(prev);
                             if (t) return t;
+                        }
+                        if (atual.parentElement) {
+                            var siblings = atual.parentElement.children || [];
+                            for (var si = 0; si < siblings.length; si++) {
+                                if (siblings[si] === atual) break;
+                                var st = textoFilhosSemCampo(siblings[si]);
+                                if (st) return st;
+                            }
                         }
                         atual = atual.parentElement;
                     }
@@ -205,6 +285,78 @@ class Processo030303Page(RotinaPage):
                     if (alvo.indexOf("motor") >= 0 || alvo.indexOf("mot") >= 0) {
                         motorista[chave || item.label || item.id || item.name || "motorista"] = valorCampo;
                     }
+                }
+                function normalizar(s) {
+                    return String(s || "").toLowerCase()
+                        .replace(/[áàãâä]/g, "a")
+                        .replace(/[éèêë]/g, "e")
+                        .replace(/[íìîï]/g, "i")
+                        .replace(/[óòõôö]/g, "o")
+                        .replace(/[úùûü]/g, "u")
+                        .replace(/[ç]/g, "c")
+                        .replace(/\\s+/g, " ").replace(/^\\s+|\\s+$/g, "");
+                }
+                function campoVisivel(el) {
+                    if (!el) return false;
+                    var r = el.getBoundingClientRect();
+                    return r && r.width > 0 && r.height > 0;
+                }
+                function encontrarCampoPorRotulo(rotulo) {
+                    var alvo = normalizar(rotulo);
+                    var todosEncontrados = document.getElementsByTagName("*");
+                    var todos = [];
+                    for (var tidx = 0; tidx < todosEncontrados.length; tidx++) {
+                        todos.push(todosEncontrados[tidx]);
+                    }
+                    var labels = [];
+                    for (var li = 0; li < todos.length; li++) {
+                        var itemTexto = normalizar(todos[li].innerText || todos[li].textContent || "");
+                        if (itemTexto === alvo && campoVisivel(todos[li])) labels.push(todos[li]);
+                    }
+                    var controles = [];
+                    var tagsControle = ["input", "select", "textarea"];
+                    for (var tagCtrlIdx = 0; tagCtrlIdx < tagsControle.length; tagCtrlIdx++) {
+                        var controlesEncontrados = document.getElementsByTagName(tagsControle[tagCtrlIdx]);
+                        for (var ctrlIdx = 0; ctrlIdx < controlesEncontrados.length; ctrlIdx++) {
+                            if (campoVisivel(controlesEncontrados[ctrlIdx])) {
+                                controles.push(controlesEncontrados[ctrlIdx]);
+                            }
+                        }
+                    }
+                    for (var lidx = 0; lidx < labels.length; lidx++) {
+                        var lr = labels[lidx].getBoundingClientRect();
+                        var melhor = null;
+                        var melhorScore = 999999;
+                        for (var cidx = 0; cidx < controles.length; cidx++) {
+                            var cr = controles[cidx].getBoundingClientRect();
+                            if (cr.left + 4 < lr.right) continue;
+                            if (Math.abs(cr.top - lr.top) > 90) continue;
+                            var score = Math.abs(cr.top - lr.top) * 20 + Math.max(0, cr.left - lr.right);
+                            if (score < melhorScore) {
+                                melhorScore = score;
+                                melhor = controles[cidx];
+                            }
+                        }
+                        if (melhor) return melhor;
+                    }
+                    return null;
+                }
+                var rotulosEquipe = ["Veiculo", "Placa", "Motorista", "Ajudante 1", "Ajudante 2"];
+                for (var ridx = 0; ridx < rotulosEquipe.length; ridx++) {
+                    var rotulo = rotulosEquipe[ridx];
+                    var controle = encontrarCampoPorRotulo(rotulo);
+                    if (!controle) continue;
+                    var v = valor(controle);
+                    var valorCampo = (typeof v === "object") ? (v.texto || v.valor) : v;
+                    if (!valorCampo) continue;
+                    campos.push({
+                        name: controle.name || "",
+                        id: controle.id || "",
+                        label: rotulo,
+                        value: v,
+                        origem: "rotulo-visual"
+                    });
+                    if (rotulo === "Motorista") motorista[rotulo] = valorCampo;
                 }
                 return {
                     rotina: "030303",
@@ -248,11 +400,14 @@ class Processo030303Page(RotinaPage):
                     message=f"Falha ao salvar mapa na 030303: {msg_final}",
                 )
 
+            dados_030303 = self._aguardar_dados_equipe_carregados(timeout=3)
+            self._logar_dados_equipe(dados_030303, "salvar")
+
             return ExecutionResult(
                 status=ExecutionStatus.SUCCESS,
                 message=f"Mapa salvo com sucesso na rotina 030303. {msg_final}".strip(),
                 metadata={
-                    "dados_030303": self.extrair_pagina_json(),
+                    "dados_030303": dados_030303,
                 },
             )
         except Exception as e:
