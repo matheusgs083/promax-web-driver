@@ -70,6 +70,26 @@ def _metadata_resultado(resultado):
     }
 
 
+def _km_fallback_reabertura_030302(resultado):
+    metadata = (resultado.metadata or {}) if resultado else {}
+    if not metadata.get("reabrir_030302_com_km_fallback"):
+        return None
+    km_fallback = str(metadata.get("km_atual_fallback") or "").strip()
+    return km_fallback or None
+
+
+def _fechar_rotina_030302_para_reabrir(page_030302, driver, janela_030302):
+    try:
+        return page_030302.fechar_e_voltar()
+    except Exception as exc:
+        logger.warning("030302 | Falha ao fechar rotina pelo helper antes da reabertura: %s", exc)
+        try:
+            driver.switch_to.window(janela_030302.handle_menu)
+        except Exception:
+            pass
+        return None
+
+
 def _escolher_dados_030303(dados_carga, dados_salvar):
     validar = getattr(Processo030303Page, "_dados_equipe_validos", None)
     if callable(validar):
@@ -221,20 +241,41 @@ def fechar_mapa_sessao_unica(
         # ---------------------------------------------------------------------
         # PASSO 1: CONFERENCIA E FECHAMENTO FISICO (ROTINA 030302)
         # ---------------------------------------------------------------------
-        logger.info("--- PASSO 1: INICIANDO ROTINA FISICA (030302) ---")
-        janela_030302 = menu_page.acessar_rotina("030302")
-        page_030302 = Processo030302Page(janela_030302.driver, janela_030302.handle_menu)
+        page_030302 = None
+        janela_030302 = None
+        km_atual_030302 = km_atual
+        reabriu_por_km = False
+        for tentativa_030302 in range(1, 3):
+            sufixo_tentativa = "" if tentativa_030302 == 1 else " | REABERTURA COM KM FALLBACK"
+            logger.info("--- PASSO 1: INICIANDO ROTINA FISICA (030302)%s ---", sufixo_tentativa)
+            janela_030302 = menu_page.acessar_rotina("030302")
+            page_030302 = Processo030302Page(janela_030302.driver, janela_030302.handle_menu)
 
-        carregar_030302_kwargs = {"ponto_apoio": ponto_apoio}
-        if km_atual is not None and str(km_atual).strip():
-            carregar_030302_kwargs["km_atual"] = km_atual
-        if km_inicial is not None and str(km_inicial).strip():
-            carregar_030302_kwargs["km_inicial"] = km_inicial
-        if km_prev is not None and str(km_prev).strip():
-            carregar_030302_kwargs["km_prev"] = km_prev
-        res_fisico = normalize_execution_result(
-            page_030302.carregar_mapa(mapa, **carregar_030302_kwargs)
-        )
+            carregar_030302_kwargs = {"ponto_apoio": ponto_apoio}
+            if km_atual_030302 is not None and str(km_atual_030302).strip():
+                carregar_030302_kwargs["km_atual"] = km_atual_030302
+            if km_inicial is not None and str(km_inicial).strip():
+                carregar_030302_kwargs["km_inicial"] = km_inicial
+            if km_prev is not None and str(km_prev).strip():
+                carregar_030302_kwargs["km_prev"] = km_prev
+            res_fisico = normalize_execution_result(
+                page_030302.carregar_mapa(mapa, **carregar_030302_kwargs)
+            )
+            km_fallback = _km_fallback_reabertura_030302(res_fisico)
+            if km_fallback and tentativa_030302 == 1:
+                logger.warning(
+                    "030302 | Alerta de KM pediu reabertura. Fechando rotina e reabrindo mapa %s com KM %s.",
+                    mapa,
+                    km_fallback,
+                )
+                novo_menu = _fechar_rotina_030302_para_reabrir(page_030302, driver, janela_030302)
+                if novo_menu is not None:
+                    menu_page = novo_menu
+                km_atual_030302 = km_fallback
+                reabriu_por_km = True
+                time.sleep(1.0)
+                continue
+            break
 
         if res_fisico.ok:
             lista_preenchida = page_030302.tem_codigos_fisicos()
@@ -247,6 +288,12 @@ def fechar_mapa_sessao_unica(
 
         if res_fisico.ok and salvar:
             res_fisico = normalize_execution_result(page_030302.salvar_mapa())
+            if reabriu_por_km:
+                res_fisico = _anexar_metadata_resultado(
+                    res_fisico,
+                    reabriu_030302_por_km=True,
+                    km_atual_reabertura=km_atual_030302,
+                )
 
         logger.info("030302 | Resultado do processo na 030302: ok=%s, msg=%s", res_fisico.ok if res_fisico else None, res_fisico.message if res_fisico else None)
 

@@ -1330,3 +1330,55 @@ def test_alerta_nativo_desconhecido_nao_e_fechado_automaticamente():
     assert resposta["bloqueia_fluxo"] is True
     assert alerta.accepted is False
     assert alerta.dismissed is False
+
+
+def test_alerta_km_aberto_fecha_e_sinaliza_reabertura_com_fallback():
+    page = Processo030302Page.__new__(Processo030302Page)
+    page._km_inicial_030302 = "94855"
+    page._km_prev_030302 = "120"
+    page.logger = type(
+        "LoggerFake",
+        (),
+        {
+            "info": lambda *args, **kwargs: None,
+            "debug": lambda *args, **kwargs: None,
+            "warning": lambda *args, **kwargs: None,
+        },
+    )()
+    class AlertFake:
+        text = "KM fora do previsto. Deseja continuar?"
+
+        def __init__(self):
+            self.accepted = False
+            self.dismissed = False
+
+        def accept(self):
+            self.accepted = True
+
+        def dismiss(self):
+            self.dismissed = True
+
+    class SwitchFake:
+        def __init__(self, alert):
+            self.alert = alert
+
+    class DriverFake:
+        def __init__(self, alert):
+            self.switch_to = SwitchFake(alert)
+
+    alerta = AlertFake()
+    page.driver = DriverFake(alerta)
+    page.wait_for_no_alert = lambda *args, **kwargs: None
+    page._registrar_alerta_030302 = lambda *args, **kwargs: None
+
+    resultado = page._tratar_alerta_km_aberto_para_fallback(
+        alerta.text,
+        {"classificacao": "alerta_km", "resposta": "sim"},
+    )
+
+    assert alerta.dismissed is True
+    assert alerta.accepted is False
+    assert resultado["ok"] is True
+    assert resultado["reabrir_030302_com_km"] is True
+    assert resultado["km_atual"] == "94975"
+    assert page._reabrir_030302_com_km["km_atual"] == "94975"

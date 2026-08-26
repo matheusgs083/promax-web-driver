@@ -19,6 +19,7 @@ class Processo030302Page(RotinaPage):
         self._km_atual_030302 = None
         self._km_inicial_030302 = None
         self._km_prev_030302 = None
+        self._reabrir_030302_com_km = None
         try:
             self.handle_rotina = self.driver.current_window_handle
         except Exception:
@@ -193,7 +194,7 @@ class Processo030302Page(RotinaPage):
             return {"classificacao": "alerta_km", "resposta": resposta}
         return None
 
-    def _preencher_km_fallback_para_alerta(self, texto_alerta):
+    def _calcular_km_fallback_alerta(self, texto_alerta):
         if self._km_inicial_030302 is None or self._km_prev_030302 is None:
             self.logger.warning(
                 "030302 | Alerta de KM sem fallback disponivel. Alerta mantido sem confirmacao: %s",
@@ -209,23 +210,75 @@ class Processo030302Page(RotinaPage):
             km_prv = int(str(self._km_prev_030302))
             soma_km = str(km_ini + km_prv)
             self.logger.info(
-                "030302 | Alerta de KM detectado ('%s'). Preenchendo soma km_inicial (%s) + km_prev (%s) = %s",
+                "030302 | Alerta de KM detectado ('%s'). Fallback calculado: km_inicial (%s) + km_prev (%s) = %s",
                 texto_alerta,
                 km_ini,
                 km_prv,
                 soma_km,
             )
-            resultado_km = self._preencher_km_atual_js(soma_km)
-            if not (resultado_km or {}).get("ok"):
-                self.logger.warning(
-                    "030302 | Alerta de KM nao sera confirmado porque o preenchimento falhou: %s",
-                    resultado_km,
-                )
-                return resultado_km or {"ok": False, "error": "preenchimento-km-falhou"}
-            return resultado_km
+            return {
+                "ok": True,
+                "km_atual": soma_km,
+                "km_inicial": str(km_ini),
+                "km_prev": str(km_prv),
+                "mensagem": texto_alerta,
+            }
         except Exception as exc:
-            self.logger.warning("030302 | Erro ao calcular/preencher a soma de KM: %s", exc)
+            self.logger.warning("030302 | Erro ao calcular a soma de KM: %s", exc)
             return {"ok": False, "error": str(exc)}
+
+    def _tratar_alerta_km_aberto_para_reabertura(self, texto_alerta, decisao=None):
+        decisao = decisao or self._decidir_resposta_msgbox_030302(texto_alerta)
+        classificacao = str((decisao or {}).get("classificacao") or "")
+        if classificacao not in {"alerta_km", "alerta_km_bloqueador"}:
+            return None
+        try:
+            alerta = self.driver.switch_to.alert
+            resposta_alerta = "ok"
+            if str((decisao or {}).get("resposta") or "").strip().lower() == "sim":
+                try:
+                    alerta.dismiss()
+                    resposta_alerta = "nao"
+                except Exception:
+                    alerta.accept()
+                    resposta_alerta = "ok"
+            else:
+                alerta.accept()
+            self._registrar_alerta_030302(
+                {
+                    "tipo": "alert",
+                    "mensagem": texto_alerta,
+                    "resposta": resposta_alerta,
+                },
+                origem="km-fallback-fechar-alerta",
+            )
+            try:
+                self.wait_for_no_alert(timeout=2)
+            except Exception:
+                pass
+        except NoAlertPresentException:
+            resposta_alerta = "sem-alerta"
+        except Exception as exc:
+            self.logger.warning(
+                "030302 | Nao foi possivel fechar alerta de KM antes do fallback: %s",
+                exc,
+            )
+            return {"ok": False, "error": str(exc), "mensagem": texto_alerta}
+
+        resultado_km = self._calcular_km_fallback_alerta(texto_alerta)
+        if resultado_km and resultado_km.get("ok"):
+            resultado_km["alerta_resposta"] = resposta_alerta
+            resultado_km["reabrir_030302_com_km"] = True
+            self._reabrir_030302_com_km = dict(resultado_km)
+            self.logger.info(
+                "030302 | Alerta de KM fechado. Rotina deve ser reaberta com KM fallback. resposta_alerta=%s | resultado=%s",
+                resposta_alerta,
+                resultado_km,
+            )
+        return resultado_km
+
+    def _tratar_alerta_km_aberto_para_fallback(self, texto_alerta, decisao=None):
+        return self._tratar_alerta_km_aberto_para_reabertura(texto_alerta, decisao)
 
     def _confirmacoes_tem_sem_diferencas(self, confirmacoes):
         return any(
@@ -727,6 +780,16 @@ class Processo030302Page(RotinaPage):
                 texto_alerta = str(alerta.text or "")
                 decisao = self._decidir_resposta_msgbox_030302(texto_alerta)
                 if not decisao or decisao.get("resposta") == "pendente":
+                    if decisao and decisao.get("classificacao") == "alerta_km_bloqueador":
+                        resultado_km = self._tratar_alerta_km_aberto_para_fallback(
+                            texto_alerta,
+                            decisao,
+                        )
+                        if resultado_km and resultado_km.get("ok"):
+                            mensagens_alerta.append(texto_alerta)
+                            alertas_tratados += 1
+                            tentativas_sem_alerta = 0
+                            continue
                     self.logger.warning(
                         "Alerta 030302 detectado sem resposta automatica: %s",
                         texto_alerta,
@@ -736,10 +799,17 @@ class Processo030302Page(RotinaPage):
 
                 resposta = decisao["resposta"]
                 if decisao.get("classificacao") == "alerta_km":
-                    resultado_km = self._preencher_km_fallback_para_alerta(texto_alerta)
+                    resultado_km = self._tratar_alerta_km_aberto_para_fallback(
+                        texto_alerta,
+                        decisao,
+                    )
                     if not (resultado_km or {}).get("ok"):
                         mensagens_alerta.append(texto_alerta)
                         break
+                    mensagens_alerta.append(texto_alerta)
+                    alertas_tratados += 1
+                    tentativas_sem_alerta = 0
+                    continue
 
                 if resposta in ("ok", "sim"):
                     alerta.accept()
@@ -1528,15 +1598,40 @@ class Processo030302Page(RotinaPage):
                 )
                 return False
 
-            alerta = self._aceitar_alerta()
+            try:
+                if not self._garantir_janela_030302():
+                    return False
+                alerta_nativo = self.driver.switch_to.alert
+                alerta = str(alerta_nativo.text or "")
+            except NoAlertPresentException:
+                alerta = None
             if alerta:
                 if self._eh_alerta_recuperar_mapa(alerta):
+                    try:
+                        alerta_nativo.accept()
+                    except Exception:
+                        pass
                     self.logger.info(
                         "Alerta de recuperacao do mapa %s aceito como sim. Continuando carga: %s",
                         mapa_normalizado,
                         alerta,
                     )
                     return False
+                decisao_alerta = self._decidir_resposta_msgbox_030302(alerta)
+                if decisao_alerta and decisao_alerta.get("classificacao") in {
+                    "alerta_km",
+                    "alerta_km_bloqueador",
+                }:
+                    resultado_km = self._tratar_alerta_km_aberto_para_fallback(
+                        alerta,
+                        decisao_alerta,
+                    )
+                    if resultado_km and resultado_km.get("ok"):
+                        self.logger.info(
+                            "030302 | Alerta de KM durante carga tratado. Reabrir rotina com KM fallback para o mapa %s.",
+                            mapa_normalizado,
+                        )
+                        return "reabrir-km"
                 self._registrar_alerta_030302(
                     {"tipo": "alert", "mensagem": alerta, "resposta": "ok"},
                     origem="carga-mapa",
@@ -1584,6 +1679,8 @@ class Processo030302Page(RotinaPage):
 
         try:
             resultado = WebDriverWait(self.driver, timeout, poll_frequency=0.2).until(_condition)
+            if resultado == "reabrir-km":
+                return False, alertas
             return bool(resultado and resultado != "alerta"), alertas
         except TimeoutException:
             return False, alertas
@@ -3025,24 +3122,33 @@ class Processo030302Page(RotinaPage):
                     "resposta": "pendente",
                     "bloqueia_fluxo": True,
                 }
-            if decisao and decisao.get("classificacao") == "alerta_km":
-                resultado_km = self._preencher_km_fallback_para_alerta(texto)
+            if decisao and decisao.get("classificacao") in {"alerta_km", "alerta_km_bloqueador"}:
+                resultado_km = self._tratar_alerta_km_aberto_para_fallback(texto, decisao)
                 if not (resultado_km or {}).get("ok"):
                     return {
                         "tipo": "alert-nao-tratado",
                         "mensagem": texto,
                         "resposta": "pendente",
-                        "classificacao": "alerta_km",
+                        "classificacao": decisao.get("classificacao"),
                         "preenchimentoKm": resultado_km,
                         "bloqueia_fluxo": True,
                     }
+                return {
+                    "tipo": "alert-reabrir-km",
+                    "mensagem": texto,
+                    "resposta": resultado_km.get("alerta_resposta") or "ok",
+                    "preenchimentoKm": resultado_km,
+                    "reabrir_030302_com_km_fallback": True,
+                    "km_atual_fallback": str(resultado_km.get("km_atual") or ""),
+                    "bloqueia_fluxo": True,
+                }
             if decisao and decisao["resposta"] in ("ok", "sim"):
                 alerta.accept()
                 return {
                     "tipo": "alert",
                     "mensagem": texto,
                     "resposta": decisao["resposta"],
-                    "preenchimentoKm": resultado_km if decisao.get("classificacao") == "alerta_km" else None,
+                    "preenchimentoKm": None,
                 }
             if decisao and decisao["resposta"] == "nao":
                 alerta.dismiss()
@@ -5996,6 +6102,7 @@ class Processo030302Page(RotinaPage):
         self._km_atual_030302 = km_atual_normalizado
         self._km_inicial_030302 = km_inicial_normalizado
         self._km_prev_030302 = km_prev_normalizado
+        self._reabrir_030302_com_km = None
 
         try:
             self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
@@ -6012,6 +6119,7 @@ class Processo030302Page(RotinaPage):
             )
             script_preencher_mapa = """
                 var valor = arguments[0];
+                var kmAtual = arguments[1] || '';
                 var campo = document.getElementsByName('mapa')[0];
                 if (!campo) {
                     return {ok: false, error: 'campo-mapa-nao-encontrado'};
@@ -6024,6 +6132,35 @@ class Processo030302Page(RotinaPage):
                 campo.value = valor;
                 var trigger = 'js-set-value-events';
                 var retornoCarregaMapa = null;
+                var kmAtualPreDigitado = null;
+
+                if (kmAtual) {
+                    var campoKm = document.getElementsByName('kmAtual')[0];
+                    if (campoKm) {
+                        campoKm.disabled = false;
+                        campoKm.readOnly = false;
+                        campoKm.className = 'campo';
+                        campoKm.value = kmAtual;
+                        kmAtualPreDigitado = campoKm.value;
+                        try {
+                            if (campoKm.fireEvent) {
+                                campoKm.fireEvent('onkeyup');
+                                campoKm.fireEvent('onchange');
+                                campoKm.fireEvent('onblur');
+                            } else if (document.createEvent) {
+                                var evtKmKey = document.createEvent('HTMLEvents');
+                                evtKmKey.initEvent('keyup', false, true);
+                                campoKm.dispatchEvent(evtKmKey);
+                                var evtKmChange = document.createEvent('HTMLEvents');
+                                evtKmChange.initEvent('change', false, true);
+                                campoKm.dispatchEvent(evtKmChange);
+                                var evtKmBlur = document.createEvent('HTMLEvents');
+                                evtKmBlur.initEvent('blur', false, true);
+                                campoKm.dispatchEvent(evtKmBlur);
+                            }
+                        } catch (e) {}
+                    }
+                }
 
                 try {
                     if (typeof CarregaMapa === 'function') {
@@ -6050,6 +6187,7 @@ class Processo030302Page(RotinaPage):
                     ok: true,
                     trigger: trigger,
                     mapaDigitado: campo.value,
+                    kmAtualPreDigitado: kmAtualPreDigitado,
                     retornoCarregaMapa: retornoCarregaMapa,
                     submitCount: window.__promax030302SubmitCount || 0,
                     pontoApoioDisabled: document.getElementsByName('pontoApoio')[0]
@@ -6063,7 +6201,11 @@ class Processo030302Page(RotinaPage):
                 """
 
             def executar_preenchimento_mapa():
-                return self.driver.execute_script(script_preencher_mapa, mapa_normalizado)
+                return self.driver.execute_script(
+                    script_preencher_mapa,
+                    mapa_normalizado,
+                    km_atual_normalizado,
+                )
 
             resultado_js = executar_preenchimento_mapa()
             if (
@@ -6160,6 +6302,26 @@ class Processo030302Page(RotinaPage):
                     )
                 self._reentrar_frame(timeout=timeout)
                 carregou, alertas = self._aguardar_carga_mapa(mapa_normalizado, timeout)
+                reabrir_km = self._reabrir_030302_com_km
+                if reabrir_km:
+                    return ExecutionResult(
+                        status=ExecutionStatus.ABORTED,
+                        message=(
+                            f"Mapa {mapa_normalizado} pediu novo KM na 030302. "
+                            f"Reabrir rotina com KM {reabrir_km.get('km_atual')}."
+                        ),
+                        retry=True,
+                        metadata={
+                            "mapa": mapa_normalizado,
+                            "integration_code": "REABRIR_030302_COM_KM_FALLBACK",
+                            "reabrir_030302_com_km_fallback": True,
+                            "km_atual_fallback": str(reabrir_km.get("km_atual") or ""),
+                            "km_inicial": str(reabrir_km.get("km_inicial") or km_inicial_normalizado or ""),
+                            "km_prev": str(reabrir_km.get("km_prev") or km_prev_normalizado or ""),
+                            "alerta_km": str(reabrir_km.get("mensagem") or ""),
+                            "alerta_resposta": str(reabrir_km.get("alerta_resposta") or ""),
+                        },
+                    )
                 if alertas:
                     return ExecutionResult(
                         status=ExecutionStatus.BUSINESS_FAILURE,

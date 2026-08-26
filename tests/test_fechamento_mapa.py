@@ -103,6 +103,112 @@ def test_fechamento_mapa_inclui_dados_estruturados_da_03030702(monkeypatch):
     assert result.metadata["resultado_financeiro"].metadata["dados_fechamento_03030702"] == dados
 
 
+def test_fechamento_mapa_reabre_030302_com_km_fallback(monkeypatch):
+    rotinas_acessadas = []
+    km_recebidos_030302 = []
+    fechamentos_030302 = []
+
+    class FakeSwitchTo:
+        def window(self, _handle):
+            return None
+
+    class FakeDriver:
+        switch_to = FakeSwitchTo()
+
+    class FakeMenuPage:
+        def acessar_rotina(self, rotina):
+            rotinas_acessadas.append(rotina)
+            return SimpleNamespace(driver=FakeDriver(), handle_menu=f"janela-{rotina}")
+
+    class Fake030303Page:
+        def __init__(self, _driver, _handle_menu):
+            pass
+
+        def carregar_mapa(self, _mapa):
+            return ExecutionResult(
+                ExecutionStatus.SUCCESS,
+                "030303 carregada",
+                metadata={"mapa": "93792", "dados_030303": {"motorista": {"nome": "MATHEUS"}}},
+            )
+
+        def salvar_mapa(self):
+            return ExecutionResult(
+                ExecutionStatus.SUCCESS,
+                "030303 salva",
+                metadata={"dados_030303": {"motorista": {"nome": "MATHEUS"}}},
+            )
+
+    class Fake030302Page:
+        chamadas = 0
+
+        def __init__(self, _driver, _handle_menu):
+            pass
+
+        def carregar_mapa(self, _mapa, ponto_apoio=None, km_atual=None, km_inicial=None, km_prev=None):
+            Fake030302Page.chamadas += 1
+            km_recebidos_030302.append(km_atual)
+            if Fake030302Page.chamadas == 1:
+                return ExecutionResult(
+                    ExecutionStatus.ABORTED,
+                    "Reabrir rotina com KM 94975.",
+                    retry=True,
+                    metadata={
+                        "reabrir_030302_com_km_fallback": True,
+                        "km_atual_fallback": "94975",
+                        "km_inicial": "94855",
+                        "km_prev": "120",
+                    },
+                )
+            assert km_atual == "94975"
+            return ExecutionResult(ExecutionStatus.SUCCESS, "030302 carregada")
+
+        def fechar_e_voltar(self):
+            fechamentos_030302.append(True)
+            return FakeMenuPage()
+
+        def tem_codigos_fisicos(self):
+            return True
+
+        def salvar_mapa(self):
+            return ExecutionResult(ExecutionStatus.SUCCESS, "030302 salva")
+
+    class Fake03030702Page:
+        def __init__(self, _driver, _handle_menu):
+            pass
+
+        def carregar_mapa(self, _mapa, ponto_apoio=None):
+            return ExecutionResult(ExecutionStatus.SUCCESS, "03030702 carregada")
+
+        def salvar_mapa(self):
+            return ExecutionResult(ExecutionStatus.SUCCESS, "03030702 salva")
+
+        def extrair_pagina_json(self, timeout_segundos=8):
+            return {"rotina": "03030702", "mapa": "93792"}
+
+    monkeypatch.setattr(fechamento_mapa, "iniciar_sessao_padrao", lambda *_args: (FakeDriver(), FakeMenuPage()))
+    monkeypatch.setattr(fechamento_mapa, "encerrar_driver", lambda _driver: None)
+    monkeypatch.setattr(fechamento_mapa.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(fechamento_mapa, "Processo030303Page", Fake030303Page)
+    monkeypatch.setattr(fechamento_mapa, "Processo030302Page", Fake030302Page)
+    monkeypatch.setattr(fechamento_mapa, "Processo03030702Page", Fake03030702Page)
+
+    result = fechamento_mapa.fechar_mapa_sessao_unica(
+        "93792",
+        unidade="PATOS",
+        km_inicial="94855",
+        km_prev="120",
+        salvar=True,
+        manter_aberto_ao_falhar=False,
+    )
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert rotinas_acessadas == ["030303", "030302", "030302", "03030702"]
+    assert km_recebidos_030302 == [None, "94975"]
+    assert fechamentos_030302 == [True]
+    assert result.metadata["resultado_fisico"].metadata["reabriu_030302_por_km"] is True
+    assert result.metadata["resultado_fisico"].metadata["km_atual_reabertura"] == "94975"
+
+
 def test_fechamento_mapa_preserva_dados_validos_da_carga_030303(monkeypatch):
     class FakeSwitchTo:
         def window(self, _handle):

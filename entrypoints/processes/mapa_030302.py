@@ -20,6 +20,14 @@ def _normalizar_ponto_apoio(ponto_apoio):
     return "" if valor in {"0", "00", "000"} else valor
 
 
+def _km_fallback_reabertura_030302(resultado):
+    metadata = (resultado.metadata or {}) if resultado else {}
+    if not metadata.get("reabrir_030302_com_km_fallback"):
+        return None
+    km_fallback = str(metadata.get("km_atual_fallback") or "").strip()
+    return km_fallback or None
+
+
 def _parse_args():
     parser = argparse.ArgumentParser(description="Carrega mapa na rotina 030302.")
     parser.add_argument("--mapa", required=True, help="Numero do mapa que sera carregado.")
@@ -92,21 +100,57 @@ def main(
         logger.info("030302 | inicio | mapa=%s | unidade=%s", mapa, unidade)
         driver, menu_page = iniciar_sessao_padrao(logger, settings, unidade)
 
-        janela = menu_page.acessar_rotina("030302")
-        page = Processo030302Page(janela.driver, janela.handle_menu)
+        page = None
+        km_atual_030302 = km_atual
+        reabriu_por_km = False
+        for tentativa_030302 in range(1, 3):
+            janela = menu_page.acessar_rotina("030302")
+            page = Processo030302Page(janela.driver, janela.handle_menu)
 
-        resultado = normalize_execution_result(
-            page.carregar_mapa(
-                mapa,
-                ponto_apoio=ponto_apoio,
-                km_atual=km_atual,
-                km_inicial=km_inicial,
-                km_prev=km_prev,
+            resultado = normalize_execution_result(
+                page.carregar_mapa(
+                    mapa,
+                    ponto_apoio=ponto_apoio,
+                    km_atual=km_atual_030302,
+                    km_inicial=km_inicial,
+                    km_prev=km_prev,
+                )
             )
-        )
+            km_fallback = _km_fallback_reabertura_030302(resultado)
+            if km_fallback and tentativa_030302 == 1:
+                logger.warning(
+                    "030302 | Alerta de KM pediu reabertura. Fechando rotina e reabrindo mapa %s com KM %s.",
+                    mapa,
+                    km_fallback,
+                )
+                try:
+                    menu_page = page.fechar_e_voltar()
+                except Exception as exc:
+                    logger.warning("030302 | Falha ao fechar rotina antes da reabertura: %s", exc)
+                    try:
+                        driver.switch_to.window(janela.handle_menu)
+                    except Exception:
+                        pass
+                km_atual_030302 = km_fallback
+                reabriu_por_km = True
+                time.sleep(1.0)
+                continue
+            break
 
         if resultado.ok and salvar:
             resultado = normalize_execution_result(page.salvar_mapa())
+            if reabriu_por_km:
+                metadata = {
+                    **(resultado.metadata or {}),
+                    "reabriu_030302_por_km": True,
+                    "km_atual_reabertura": km_atual_030302,
+                }
+                resultado = type(resultado)(
+                    status=resultado.status,
+                    message=resultado.message,
+                    retry=resultado.retry,
+                    metadata=metadata,
+                )
 
         if resultado.ok:
             codigo = (resultado.metadata or {}).get("integration_code") or "030302_OK"
