@@ -103,6 +103,43 @@ def test_fechamento_mapa_inclui_dados_estruturados_da_03030702(monkeypatch):
     assert result.metadata["resultado_financeiro"].metadata["dados_fechamento_03030702"] == dados
 
 
+def test_fechamento_mapa_modo_financeiro_executa_030303_antes_da_03030702(monkeypatch):
+    chamadas = []
+
+    def fake_030303(**kwargs):
+        chamadas.append(("030303", kwargs))
+        return ExecutionResult(
+            ExecutionStatus.SUCCESS,
+            "030303 salva",
+            metadata={"dados_030303": {"motorista": {"nome": "MATHEUS"}, "placa": "ABC1D23"}},
+        )
+
+    def fake_03030702(**kwargs):
+        chamadas.append(("03030702", kwargs))
+        return ExecutionResult(
+            ExecutionStatus.SUCCESS,
+            "03030702 salva",
+            metadata={"dados_fechamento_03030702": {"mapa": "93741"}},
+        )
+
+    monkeypatch.setattr(fechamento_mapa, "main_030303", fake_030303)
+    monkeypatch.setattr(fechamento_mapa, "main_03030702", fake_03030702)
+
+    result = fechamento_mapa.main(
+        mapa="93741",
+        unidade="2210003",
+        modo="financeiro",
+        salvar=True,
+    )
+
+    assert [item[0] for item in chamadas] == ["030303", "03030702"]
+    assert chamadas[0][1]["mapa"] == "93741"
+    assert chamadas[1][1]["mapa"] == "93741"
+    assert result.status == ExecutionStatus.SUCCESS
+    assert result.metadata["resultado_030303"]["dados_030303"]["motorista"]["nome"] == "MATHEUS"
+    assert result.metadata["integration_code"] == "MAPA_LIBERADO_FINANCEIRO"
+
+
 def test_fechamento_mapa_reabre_030302_com_km_fallback(monkeypatch):
     rotinas_acessadas = []
     km_recebidos_030302 = []
@@ -207,6 +244,131 @@ def test_fechamento_mapa_reabre_030302_com_km_fallback(monkeypatch):
     assert fechamentos_030302 == [True]
     assert result.metadata["resultado_fisico"].metadata["reabriu_030302_por_km"] is True
     assert result.metadata["resultado_fisico"].metadata["km_atual_reabertura"] == "94975"
+
+
+def test_fechamento_mapa_executa_030330_quando_030302_pede_comodato(monkeypatch):
+    rotinas_acessadas = []
+    fechamentos_030302 = []
+    fechamentos_030330 = []
+    cancelamentos_030330 = []
+
+    class FakeSwitchTo:
+        def window(self, _handle):
+            return None
+
+    class FakeDriver:
+        switch_to = FakeSwitchTo()
+
+    class FakeMenuPage:
+        def acessar_rotina(self, rotina):
+            rotinas_acessadas.append(rotina)
+            return SimpleNamespace(driver=FakeDriver(), handle_menu=f"janela-{rotina}")
+
+    class Fake030303Page:
+        def __init__(self, _driver, _handle_menu):
+            pass
+
+        def carregar_mapa(self, _mapa):
+            return ExecutionResult(
+                ExecutionStatus.SUCCESS,
+                "030303 carregada",
+                metadata={"mapa": "93854", "dados_030303": {"motorista": {"nome": "MATHEUS"}}},
+            )
+
+        def salvar_mapa(self):
+            return ExecutionResult(
+                ExecutionStatus.SUCCESS,
+                "030303 salva",
+                metadata={"dados_030303": {"motorista": {"nome": "MATHEUS"}}},
+            )
+
+    class Fake030302Page:
+        chamadas = 0
+
+        def __init__(self, _driver, _handle_menu):
+            pass
+
+        def carregar_mapa(self, _mapa, ponto_apoio=None):
+            Fake030302Page.chamadas += 1
+            if Fake030302Page.chamadas == 1:
+                return ExecutionResult(
+                    ExecutionStatus.BUSINESS_FAILURE,
+                    "Mapa 93854 recusado pelo sistema: Comodato nao foi fechado atraves da rotina 03.03.30",
+                    retry=False,
+                    metadata={"alertas": ["Comodato nao foi fechado atraves da rotina 03.03.30"]},
+                )
+            return ExecutionResult(ExecutionStatus.SUCCESS, "030302 carregada")
+
+        def fechar_e_voltar(self):
+            fechamentos_030302.append(True)
+            return FakeMenuPage()
+
+        def tem_codigos_fisicos(self):
+            return True
+
+        def salvar_mapa(self):
+            return ExecutionResult(ExecutionStatus.SUCCESS, "030302 salva")
+
+    class Fake030330Page:
+        def __init__(self, _driver, _handle_menu):
+            pass
+
+        def carregar_mapa(self, _mapa, dt_emissao=None, tp_mapa="COMODATO"):
+            assert tp_mapa == "COMODATO"
+            return ExecutionResult(
+                ExecutionStatus.SUCCESS,
+                "030330 carregada",
+                metadata={"mapa": "93854", "dados_030330": {"nrLinhas": "1"}},
+            )
+
+        def salvar_mapa(self):
+            return ExecutionResult(
+                ExecutionStatus.SUCCESS,
+                "030330 salva",
+                metadata={"dados_030330": {"nrLinhas": "0"}},
+            )
+
+        def fechar_e_voltar(self):
+            fechamentos_030330.append(True)
+            return FakeMenuPage()
+
+        def cancelar(self):
+            cancelamentos_030330.append(True)
+
+    class Fake03030702Page:
+        def __init__(self, _driver, _handle_menu):
+            pass
+
+        def carregar_mapa(self, _mapa, ponto_apoio=None):
+            return ExecutionResult(ExecutionStatus.SUCCESS, "03030702 carregada")
+
+        def salvar_mapa(self):
+            return ExecutionResult(ExecutionStatus.SUCCESS, "03030702 salva")
+
+        def extrair_pagina_json(self, timeout_segundos=8):
+            return {"rotina": "03030702", "mapa": "93854"}
+
+    monkeypatch.setattr(fechamento_mapa, "iniciar_sessao_padrao", lambda *_args: (FakeDriver(), FakeMenuPage()))
+    monkeypatch.setattr(fechamento_mapa, "encerrar_driver", lambda _driver: None)
+    monkeypatch.setattr(fechamento_mapa.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(fechamento_mapa, "Processo030303Page", Fake030303Page)
+    monkeypatch.setattr(fechamento_mapa, "Processo030302Page", Fake030302Page)
+    monkeypatch.setattr(fechamento_mapa, "Processo030330Page", Fake030330Page)
+    monkeypatch.setattr(fechamento_mapa, "Processo03030702Page", Fake03030702Page)
+
+    result = fechamento_mapa.fechar_mapa_sessao_unica(
+        "93854",
+        unidade="PATOS",
+        salvar=True,
+        manter_aberto_ao_falhar=False,
+    )
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert rotinas_acessadas == ["030303", "030302", "030330", "030302", "03030702"]
+    assert fechamentos_030302 == [True]
+    assert cancelamentos_030330 == [True]
+    assert fechamentos_030330 == [True]
+    assert result.metadata["resultado_030330"]["status"] == "SUCESSO"
 
 
 def test_fechamento_mapa_preserva_dados_validos_da_carga_030303(monkeypatch):

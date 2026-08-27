@@ -1,4 +1,5 @@
 import pytest
+from selenium.common.exceptions import UnexpectedAlertPresentException
 
 from core.execution.execution_result import ExecutionResult, ExecutionStatus
 from pages.processes.processo_030302_page import Processo030302Page
@@ -218,6 +219,21 @@ def test_salvar_mapa_preenchido_usa_evento_js_no_botao_salvar():
             "N o h  guias B nus AS lan adas no mapa. Deseja continuar?",
             "bonus_as_sem_guias",
             "sim",
+        ),
+        (
+            "Distancia percorrida e maior que KM medio + 50%, informado no modulo 01.04.17. Continuar?",
+            "alerta_km_medio_continuar",
+            "sim",
+        ),
+        (
+            "Distancia percorrida e maior que o KM limite informado no modulo 01.04.17",
+            "alerta_km_bloqueador",
+            "pendente",
+        ),
+        (
+            "Comodato nao foi fechado atraves da rotina 03.03.30",
+            "comodato_030330_pendente",
+            "ok",
         ),
     ],
 )
@@ -1382,3 +1398,105 @@ def test_alerta_km_aberto_fecha_e_sinaliza_reabertura_com_fallback():
     assert resultado["reabrir_030302_com_km"] is True
     assert resultado["km_atual"] == "94975"
     assert page._reabrir_030302_com_km["km_atual"] == "94975"
+
+
+def test_aguardar_estado_pos_mapa_captura_alerta_km_para_reabertura(monkeypatch):
+    page = Processo030302Page.__new__(Processo030302Page)
+    page._km_inicial_030302 = "94855"
+    page._km_prev_030302 = "120"
+    page._reabrir_030302_com_km = None
+    page.logger = type(
+        "LoggerFake",
+        (),
+        {
+            "info": lambda *args, **kwargs: None,
+            "debug": lambda *args, **kwargs: None,
+            "warning": lambda *args, **kwargs: None,
+        },
+    )()
+
+    class AlertFake:
+        text = "KM fora do previsto. Deseja continuar?"
+
+        def __init__(self):
+            self.dismissed = False
+
+        def dismiss(self):
+            self.dismissed = True
+
+    class SwitchFake:
+        def __init__(self, alert):
+            self.alert = alert
+
+    class DriverFake:
+        def __init__(self, alert):
+            self.switch_to = SwitchFake(alert)
+
+        def execute_script(self, *_args, **_kwargs):
+            raise UnexpectedAlertPresentException("alerta km")
+
+    alerta = AlertFake()
+    page.driver = DriverFake(alerta)
+    page._garantir_janela_030302 = lambda *args, **kwargs: True
+    page.wait_for_no_alert = lambda *args, **kwargs: None
+    page._registrar_alerta_030302 = lambda *args, **kwargs: None
+    monkeypatch.setattr(
+        "pages.processes.processo_030302_page.WebDriverWait",
+        lambda *_args, **_kwargs: type("WaitFake", (), {"until": lambda _self, condition: condition(page.driver)})(),
+    )
+
+    estado = page._aguardar_estado_pos_mapa_js(timeout=1)
+
+    assert estado["reabrir_030302_com_km"] is True
+    assert estado["alertaKm"]["km_atual"] == "94975"
+    assert alerta.dismissed is True
+
+
+def test_alerta_km_medio_durante_carga_clica_sim_sem_fallback():
+    page = Processo030302Page.__new__(Processo030302Page)
+    page._reabrir_030302_com_km = None
+    page.logger = type(
+        "LoggerFake",
+        (),
+        {
+            "info": lambda *args, **kwargs: None,
+            "debug": lambda *args, **kwargs: None,
+            "warning": lambda *args, **kwargs: None,
+        },
+    )()
+
+    class AlertFake:
+        text = "Distancia percorrida e maior que KM medio + 50%, informado no modulo 01.04.17. Continuar?"
+
+        def __init__(self):
+            self.accepted = False
+            self.dismissed = False
+
+        def accept(self):
+            self.accepted = True
+
+        def dismiss(self):
+            self.dismissed = True
+
+    class SwitchFake:
+        def __init__(self, alert):
+            self.alert = alert
+
+    class DriverFake:
+        def __init__(self, alert):
+            self.switch_to = SwitchFake(alert)
+
+    alerta = AlertFake()
+    page.driver = DriverFake(alerta)
+    page._garantir_janela_030302 = lambda *args, **kwargs: True
+    page._registrar_alerta_030302 = lambda *args, **kwargs: None
+
+    resultado = page._tratar_alerta_carregamento_mapa_030302("93854", origem="teste")
+
+    assert resultado == {
+        "acao": "continuar",
+        "mensagem": alerta.text,
+    }
+    assert alerta.accepted is True
+    assert alerta.dismissed is False
+    assert page._reabrir_030302_com_km is None

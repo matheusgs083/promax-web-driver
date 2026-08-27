@@ -96,8 +96,7 @@ class Processo030302Page(RotinaPage):
                 return None
             alerta = self.driver.switch_to.alert
             texto = str(alerta.text)
-            if self._eh_alerta_recuperar_mapa(texto):
-                alerta.accept()
+            alerta.accept()
             return texto
         except NoAlertPresentException:
             return None
@@ -176,11 +175,23 @@ class Processo030302Page(RotinaPage):
             return {"classificacao": "diferencas", "resposta": "nao"}
         if self._eh_alerta_recuperar_mapa(texto_normalizado):
             return {"classificacao": "recuperar_mapa", "resposta": "sim"}
+        if (
+            "comodato" in texto_normalizado
+            and ("030330" in texto_normalizado or "03.03.30" in texto_normalizado)
+            and ("nao foi fechado" in texto_normalizado or "nao fechado" in texto_normalizado)
+        ):
+            return {"classificacao": "comodato_030330_pendente", "resposta": "ok"}
         if "impress" in texto_normalizado and "direcionad" in texto_normalizado:
             return {"classificacao": "impressao_direcionada", "resposta": "ok"}
         if "retorno nao liberado" in texto_normalizado or "retorno n" in texto_normalizado:
             return {"classificacao": "alerta_externo_ou_retorno", "resposta": "pendente"}
         if "km" in texto_normalizado or "quilometr" in texto_normalizado:
+            if (
+                "distancia percorrida" in texto_normalizado
+                and ("km medio" in texto_normalizado or "modulo 01.04.17" in texto_normalizado)
+                and ("continuar" in texto_normalizado or "deseja" in texto_normalizado)
+            ):
+                return {"classificacao": "alerta_km_medio_continuar", "resposta": "sim"}
             if (
                 "invalid" in texto_normalizado
                 or "inval" in texto_normalizado
@@ -188,6 +199,8 @@ class Processo030302Page(RotinaPage):
                 or "erro" in texto_normalizado
                 or "nao inform" in texto_normalizado
                 or "nao preench" in texto_normalizado
+                or "km limite" in texto_normalizado
+                or "limite informado" in texto_normalizado
             ):
                 return {"classificacao": "alerta_km_bloqueador", "resposta": "pendente"}
             resposta = "sim" if ("deseja" in texto_normalizado or "continuar" in texto_normalizado or "confirma" in texto_normalizado) else "ok"
@@ -279,6 +292,130 @@ class Processo030302Page(RotinaPage):
 
     def _tratar_alerta_km_aberto_para_fallback(self, texto_alerta, decisao=None):
         return self._tratar_alerta_km_aberto_para_reabertura(texto_alerta, decisao)
+
+    def _capturar_alerta_km_aberto_para_reabertura(self, origem=""):
+        try:
+            if not self._garantir_janela_030302():
+                return None
+            alerta = self.driver.switch_to.alert
+            texto = str(alerta.text or "")
+        except NoAlertPresentException:
+            return None
+        except Exception as exc:
+            self.logger.debug(
+                "030302 | Nao foi possivel inspecionar alerta de KM aberto%s: %s",
+                f" em {origem}" if origem else "",
+                exc,
+            )
+            return None
+
+        decisao = self._decidir_resposta_msgbox_030302(texto)
+        if not decisao or decisao.get("classificacao") not in {"alerta_km", "alerta_km_bloqueador"}:
+            return None
+
+        resultado_km = self._tratar_alerta_km_aberto_para_fallback(texto, decisao)
+        if resultado_km and resultado_km.get("ok"):
+            self.logger.info(
+                "030302 | Alerta de KM capturado%s. Fechar rotina e reabrir com KM fallback %s.",
+                f" em {origem}" if origem else "",
+                resultado_km.get("km_atual"),
+            )
+        return resultado_km
+
+    def _resultado_reabertura_km_030302(self, mapa_normalizado, resultado_km):
+        return ExecutionResult(
+            status=ExecutionStatus.ABORTED,
+            message=(
+                f"Mapa {mapa_normalizado} pediu novo KM na 030302. "
+                f"Reabrir rotina com KM {resultado_km.get('km_atual')}."
+            ),
+            retry=True,
+            metadata={
+                "mapa": mapa_normalizado,
+                "integration_code": "REABRIR_030302_COM_KM_FALLBACK",
+                "reabrir_030302_com_km_fallback": True,
+                "km_atual_fallback": str(resultado_km.get("km_atual") or ""),
+                "km_inicial": str(resultado_km.get("km_inicial") or self._km_inicial_030302 or ""),
+                "km_prev": str(resultado_km.get("km_prev") or self._km_prev_030302 or ""),
+                "alerta_km": str(resultado_km.get("mensagem") or ""),
+                "alerta_resposta": str(resultado_km.get("alerta_resposta") or ""),
+            },
+        )
+
+    def _tratar_alerta_carregamento_mapa_030302(self, mapa_normalizado, origem=""):
+        try:
+            if not self._garantir_janela_030302():
+                return None
+            alerta_nativo = self.driver.switch_to.alert
+            mensagem = str(alerta_nativo.text or "")
+        except NoAlertPresentException:
+            return None
+        except Exception as exc:
+            self.logger.debug(
+                "030302 | Nao foi possivel ler alerta durante carga do mapa %s%s: %s",
+                mapa_normalizado,
+                f" em {origem}" if origem else "",
+                exc,
+            )
+            return None
+
+        if self._eh_alerta_recuperar_mapa(mensagem):
+            try:
+                alerta_nativo.accept()
+            except Exception:
+                pass
+            self.logger.info(
+                "Alerta de recuperacao do mapa %s aceito como sim%s: %s",
+                mapa_normalizado,
+                f" em {origem}" if origem else "",
+                mensagem,
+            )
+            return {"acao": "continuar", "mensagem": mensagem}
+
+        decisao = self._decidir_resposta_msgbox_030302(mensagem)
+        classificacao = str((decisao or {}).get("classificacao") or "")
+        if classificacao == "alerta_km_medio_continuar":
+            try:
+                alerta_nativo.accept()
+            except Exception:
+                pass
+            self._registrar_alerta_030302(
+                {"tipo": "alert", "mensagem": mensagem, "resposta": "sim"},
+                origem=origem or "carga-mapa-km-medio",
+            )
+            self.logger.info(
+                "030302 | Alerta de KM medio aceito com Sim durante carga do mapa %s%s: %s",
+                mapa_normalizado,
+                f" em {origem}" if origem else "",
+                mensagem,
+            )
+            return {"acao": "continuar", "mensagem": mensagem}
+
+        if classificacao in {"alerta_km", "alerta_km_bloqueador"}:
+            resultado_km = self._tratar_alerta_km_aberto_para_fallback(mensagem, decisao)
+            if resultado_km and resultado_km.get("ok"):
+                self.logger.info(
+                    "030302 | Alerta de KM durante carga tratado. Reabrir rotina com KM fallback para o mapa %s.",
+                    mapa_normalizado,
+                )
+                return {"acao": "reabrir-km", "mensagem": mensagem, "resultado_km": resultado_km}
+            return {"acao": "erro", "mensagem": mensagem, "resultado_km": resultado_km}
+
+        try:
+            alerta_nativo.accept()
+        except Exception:
+            pass
+        self._registrar_alerta_030302(
+            {"tipo": "alert", "mensagem": mensagem, "resposta": "ok"},
+            origem=origem or "carga-mapa",
+        )
+        self.logger.warning(
+            "030302 | Mapa %s recusado durante carga%s: %s",
+            mapa_normalizado,
+            f" em {origem}" if origem else "",
+            mensagem,
+        )
+        return {"acao": "erro", "mensagem": mensagem}
 
     def _confirmacoes_tem_sem_diferencas(self, confirmacoes):
         return any(
@@ -1618,6 +1755,21 @@ class Processo030302Page(RotinaPage):
                     )
                     return False
                 decisao_alerta = self._decidir_resposta_msgbox_030302(alerta)
+                if decisao_alerta and decisao_alerta.get("classificacao") == "alerta_km_medio_continuar":
+                    try:
+                        alerta_nativo.accept()
+                    except Exception:
+                        pass
+                    self._registrar_alerta_030302(
+                        {"tipo": "alert", "mensagem": alerta, "resposta": "sim"},
+                        origem="carga-mapa-km-medio",
+                    )
+                    self.logger.info(
+                        "030302 | Alerta de KM medio aceito com Sim durante carga do mapa %s: %s",
+                        mapa_normalizado,
+                        alerta,
+                    )
+                    return False
                 if decisao_alerta and decisao_alerta.get("classificacao") in {
                     "alerta_km",
                     "alerta_km_bloqueador",
@@ -1632,6 +1784,10 @@ class Processo030302Page(RotinaPage):
                             mapa_normalizado,
                         )
                         return "reabrir-km"
+                try:
+                    alerta_nativo.accept()
+                except Exception:
+                    pass
                 self._registrar_alerta_030302(
                     {"tipo": "alert", "mensagem": alerta, "resposta": "ok"},
                     origem="carga-mapa",
@@ -1663,6 +1819,18 @@ class Processo030302Page(RotinaPage):
                     mapa_normalizado,
                 )
             except UnexpectedAlertPresentException:
+                alerta_resultado = self._tratar_alerta_carregamento_mapa_030302(
+                    mapa_normalizado,
+                    origem="espera-carga",
+                )
+                if alerta_resultado:
+                    acao = alerta_resultado.get("acao")
+                    if acao == "continuar":
+                        return False
+                    if acao == "reabrir-km":
+                        return "reabrir-km"
+                    alertas.append(str(alerta_resultado.get("mensagem") or ""))
+                    return "alerta"
                 recuperacao = self._clicar_sim_recuperar_mapa()
                 if recuperacao:
                     self.logger.info(
@@ -1685,7 +1853,7 @@ class Processo030302Page(RotinaPage):
         except TimeoutException:
             return False, alertas
 
-    def _aguardar_estado_pos_mapa_js(self, timeout=10):
+    def _aguardar_estado_pos_mapa_js(self, timeout=10, mapa_normalizado=""):
         ultimo_estado = None
 
         def _condition(_driver):
@@ -1711,6 +1879,26 @@ class Processo030302Page(RotinaPage):
                     or estado.get("botSalvarDisabled") is False
                 ):
                     return estado
+            except UnexpectedAlertPresentException:
+                alerta_resultado = self._tratar_alerta_carregamento_mapa_030302(
+                    mapa_normalizado,
+                    origem="aguardar-estado-pos-mapa",
+                )
+                if not alerta_resultado:
+                    return False
+                if alerta_resultado.get("acao") == "continuar":
+                    return False
+                if alerta_resultado.get("acao") == "reabrir-km":
+                    ultimo_estado = {
+                        "alertaKm": alerta_resultado.get("resultado_km") or self._reabrir_030302_com_km,
+                        "reabrir_030302_com_km": True,
+                    }
+                    return ultimo_estado
+                ultimo_estado = {
+                    "alertaErro": alerta_resultado.get("mensagem"),
+                    "alerta_recusa_mapa": True,
+                }
+                return ultimo_estado
             except Exception as exc:
                 ultimo_estado = {"erro": str(exc)}
             return False
@@ -5645,8 +5833,8 @@ class Processo030302Page(RotinaPage):
 
                         # A partir daqui so existe logica do SEGUNDO SALVAR.
                         # Perguntas podem aparecer em qualquer ordem ou nao aparecer.
-                        # "Nao existem diferencas" e a confirmacao mais forte, mas a
-                        # ausencia dela nao invalida um envio positivo sem bloqueios.
+                        # O padrao estavel da 030302 so considera finalizado quando
+                        # o Promax confirma explicitamente que nao existem diferencas.
                         fechamento_final = self._aguardar_fechamento_final_isolado_030302(
                             resultado_final,
                             timeout=min(max(timeout, 35), 50),
@@ -5701,33 +5889,14 @@ class Processo030302Page(RotinaPage):
                             fechamento_final.get("sem_diferencas")
                             or self._confirmacoes_tem_sem_diferencas(confirmacoes_final)
                         )
-                        envio_final_sem_retorno = (
-                            self._envio_final_sem_retorno_adicional_030302(
-                                resultado_final,
-                                submit_count_final=submit_count_final,
-                                confirmacoes_final=confirmacoes_final,
-                            )
-                        )
-
-                        if tem_sem_diferencas or envio_final_sem_retorno:
+                        if tem_sem_diferencas:
                             self.switch_to_default_content()
                             return ExecutionResult(
                                 status=ExecutionStatus.SUCCESS,
-                                message=(
-                                    "Salvar da 030302 concluido com alerta 'Nao existem diferencas'."
-                                    if tem_sem_diferencas
-                                    else (
-                                        "Salvar da 030302 concluido com payload positivo e sem "
-                                        "retorno adicional bloqueador do Promax."
-                                    )
-                                ),
+                                message="Salvar da 030302 concluido com alerta 'Nao existem diferencas'.",
                                 metadata={
                                     "trigger": resultado_final.get("trigger"),
-                                    "fluxo": (
-                                        "final-nao-existem-diferencas"
-                                        if tem_sem_diferencas
-                                        else "final-payload-positivo-sem-retorno-adicional"
-                                    ),
+                                    "fluxo": "final-nao-existem-diferencas",
                                     "alertas": alertas
                                     + self._extrair_alertas_capturados(
                                         confirmacoes,
@@ -5911,6 +6080,10 @@ class Processo030302Page(RotinaPage):
         submit_count_final=0,
         confirmacoes_final=None,
     ):
+        # Nao usar payload/submit como confirmacao de fechamento da 030302.
+        # O fluxo estavel depende do alerta "Nao existem diferencas".
+        return False
+
         if not resultado_js:
             return False
         if not (
@@ -6207,7 +6380,34 @@ class Processo030302Page(RotinaPage):
                     km_atual_normalizado,
                 )
 
-            resultado_js = executar_preenchimento_mapa()
+            try:
+                resultado_js = executar_preenchimento_mapa()
+            except UnexpectedAlertPresentException:
+                alerta_resultado = self._tratar_alerta_carregamento_mapa_030302(
+                    mapa_normalizado,
+                    origem="preenchimento-do-mapa",
+                )
+                if alerta_resultado:
+                    acao = alerta_resultado.get("acao")
+                    if acao == "reabrir-km":
+                        resultado_km = alerta_resultado.get("resultado_km") or self._reabrir_030302_com_km
+                        if resultado_km and resultado_km.get("ok"):
+                            return self._resultado_reabertura_km_030302(mapa_normalizado, resultado_km)
+                    if acao == "continuar":
+                        time.sleep(0.3)
+                        resultado_js = executar_preenchimento_mapa()
+                    else:
+                        return ExecutionResult(
+                            status=ExecutionStatus.BUSINESS_FAILURE,
+                            message=(
+                                f"Mapa {mapa_normalizado} recusado pelo sistema: "
+                                f"{alerta_resultado.get('mensagem')}"
+                            ),
+                            retry=False,
+                            metadata={"alertas": [alerta_resultado.get("mensagem")]},
+                        )
+                else:
+                    raise
             if (
                 resultado_js
                 and resultado_js.get("ok") is False
@@ -6218,7 +6418,34 @@ class Processo030302Page(RotinaPage):
                 )
                 self._reentrar_frame(timeout=10)
                 self._esperar_campo_js("mapa", timeout_segundos=8)
-                resultado_js = executar_preenchimento_mapa()
+                try:
+                    resultado_js = executar_preenchimento_mapa()
+                except UnexpectedAlertPresentException:
+                    alerta_resultado = self._tratar_alerta_carregamento_mapa_030302(
+                        mapa_normalizado,
+                        origem="retry-campo-mapa",
+                    )
+                    if alerta_resultado:
+                        acao = alerta_resultado.get("acao")
+                        if acao == "reabrir-km":
+                            resultado_km = alerta_resultado.get("resultado_km") or self._reabrir_030302_com_km
+                            if resultado_km and resultado_km.get("ok"):
+                                return self._resultado_reabertura_km_030302(mapa_normalizado, resultado_km)
+                        if acao == "continuar":
+                            time.sleep(0.3)
+                            resultado_js = executar_preenchimento_mapa()
+                        else:
+                            return ExecutionResult(
+                                status=ExecutionStatus.BUSINESS_FAILURE,
+                                message=(
+                                    f"Mapa {mapa_normalizado} recusado pelo sistema: "
+                                    f"{alerta_resultado.get('mensagem')}"
+                                ),
+                                retry=False,
+                                metadata={"alertas": [alerta_resultado.get("mensagem")]},
+                            )
+                    else:
+                        raise
                 if resultado_js and resultado_js.get("ok"):
                     resultado_js["retryCampoMapa"] = True
 
@@ -6241,7 +6468,24 @@ class Processo030302Page(RotinaPage):
                     recuperacao,
                 )
 
-            status_pos_mapa = self._aguardar_estado_pos_mapa_js(timeout=8)
+            status_pos_mapa = self._aguardar_estado_pos_mapa_js(timeout=8, mapa_normalizado=mapa_normalizado)
+            if status_pos_mapa and status_pos_mapa.get("reabrir_030302_com_km"):
+                resultado_km = status_pos_mapa.get("alertaKm") or self._reabrir_030302_com_km
+                if resultado_km and resultado_km.get("ok"):
+                    return self._resultado_reabertura_km_030302(mapa_normalizado, resultado_km)
+            if status_pos_mapa and status_pos_mapa.get("alerta_recusa_mapa"):
+                return ExecutionResult(
+                    status=ExecutionStatus.BUSINESS_FAILURE,
+                    message=(
+                        f"Mapa {mapa_normalizado} recusado pelo sistema: "
+                        f"{status_pos_mapa.get('alertaErro')}"
+                    ),
+                    retry=False,
+                    metadata={"alertas": [status_pos_mapa.get("alertaErro")]},
+                )
+            resultado_km = self._capturar_alerta_km_aberto_para_reabertura("estado-pos-mapa")
+            if resultado_km and resultado_km.get("ok"):
+                return self._resultado_reabertura_km_030302(mapa_normalizado, resultado_km)
             self.logger.info(
                 "Mapa 030302 preenchido via JS e estado pos-carga inicial: resultado=%s | estado=%s",
                 resultado_js,
@@ -6304,24 +6548,7 @@ class Processo030302Page(RotinaPage):
                 carregou, alertas = self._aguardar_carga_mapa(mapa_normalizado, timeout)
                 reabrir_km = self._reabrir_030302_com_km
                 if reabrir_km:
-                    return ExecutionResult(
-                        status=ExecutionStatus.ABORTED,
-                        message=(
-                            f"Mapa {mapa_normalizado} pediu novo KM na 030302. "
-                            f"Reabrir rotina com KM {reabrir_km.get('km_atual')}."
-                        ),
-                        retry=True,
-                        metadata={
-                            "mapa": mapa_normalizado,
-                            "integration_code": "REABRIR_030302_COM_KM_FALLBACK",
-                            "reabrir_030302_com_km_fallback": True,
-                            "km_atual_fallback": str(reabrir_km.get("km_atual") or ""),
-                            "km_inicial": str(reabrir_km.get("km_inicial") or km_inicial_normalizado or ""),
-                            "km_prev": str(reabrir_km.get("km_prev") or km_prev_normalizado or ""),
-                            "alerta_km": str(reabrir_km.get("mensagem") or ""),
-                            "alerta_resposta": str(reabrir_km.get("alerta_resposta") or ""),
-                        },
-                    )
+                    return self._resultado_reabertura_km_030302(mapa_normalizado, reabrir_km)
                 if alertas:
                     return ExecutionResult(
                         status=ExecutionStatus.BUSINESS_FAILURE,
@@ -6353,19 +6580,65 @@ class Processo030302Page(RotinaPage):
                         alerta,
                     )
                 else:
+                    decisao_alerta = self._decidir_resposta_msgbox_030302(alerta)
+                    if decisao_alerta and decisao_alerta.get("classificacao") == "alerta_km_medio_continuar":
+                        try:
+                            self.driver.switch_to.alert.accept()
+                        except Exception:
+                            pass
+                        self._registrar_alerta_030302(
+                            {"tipo": "alert", "mensagem": alerta, "resposta": "sim"},
+                            origem="pos-carga-km-medio",
+                        )
+                        self.logger.info(
+                            "030302 | Alerta de KM medio aceito com Sim apos carga do mapa %s: %s",
+                            mapa_normalizado,
+                            alerta,
+                        )
+                    elif decisao_alerta and decisao_alerta.get("classificacao") in {
+                        "alerta_km",
+                        "alerta_km_bloqueador",
+                    }:
+                        resultado_km = self._tratar_alerta_km_aberto_para_fallback(alerta, decisao_alerta)
+                        if resultado_km and resultado_km.get("ok"):
+                            return self._resultado_reabertura_km_030302(mapa_normalizado, resultado_km)
+                    else:
+                        return ExecutionResult(
+                            status=ExecutionStatus.BUSINESS_FAILURE,
+                            message=f"Mapa {mapa_normalizado} recusado pelo sistema: {alerta}",
+                            retry=False,
+                        )
+
+            alerta = self._aceitar_alerta()
+            if alerta:
+                decisao_alerta = self._decidir_resposta_msgbox_030302(alerta)
+                if decisao_alerta and decisao_alerta.get("classificacao") == "alerta_km_medio_continuar":
+                    try:
+                        self.driver.switch_to.alert.accept()
+                    except Exception:
+                        pass
+                    self._registrar_alerta_030302(
+                        {"tipo": "alert", "mensagem": alerta, "resposta": "sim"},
+                        origem="pos-carga-2-km-medio",
+                    )
+                    self.logger.info(
+                        "030302 | Segundo alerta de KM medio aceito com Sim apos carga do mapa %s: %s",
+                        mapa_normalizado,
+                        alerta,
+                    )
+                elif decisao_alerta and decisao_alerta.get("classificacao") in {
+                    "alerta_km",
+                    "alerta_km_bloqueador",
+                }:
+                    resultado_km = self._tratar_alerta_km_aberto_para_fallback(alerta, decisao_alerta)
+                    if resultado_km and resultado_km.get("ok"):
+                        return self._resultado_reabertura_km_030302(mapa_normalizado, resultado_km)
+                else:
                     return ExecutionResult(
                         status=ExecutionStatus.BUSINESS_FAILURE,
                         message=f"Mapa {mapa_normalizado} recusado pelo sistema: {alerta}",
                         retry=False,
                     )
-
-            alerta = self._aceitar_alerta()
-            if alerta:
-                return ExecutionResult(
-                    status=ExecutionStatus.BUSINESS_FAILURE,
-                    message=f"Mapa {mapa_normalizado} recusado pelo sistema: {alerta}",
-                    retry=False,
-                )
 
             resultado_km = None
             if km_atual_normalizado:

@@ -1,5 +1,6 @@
 import argparse
 import time
+import unicodedata
 import dotenv
 
 from core.config.settings import get_settings
@@ -8,6 +9,7 @@ from core.execution.execution_result import ExecutionResult, ExecutionStatus, no
 from core.observability.logger import get_logger
 from pages.processes.processo_030303_page import Processo030303Page
 from pages.processes.processo_030302_page import Processo030302Page
+from pages.processes.processo_030330_page import Processo030330Page
 from pages.processes.processo_03030702_page import Processo03030702Page
 from entrypoints.processes.mapa_030303 import main as main_030303
 from entrypoints.processes.mapa_030302 import main as main_030302
@@ -78,6 +80,26 @@ def _km_fallback_reabertura_030302(resultado):
     return km_fallback or None
 
 
+def _normalizar_texto_fluxo(texto):
+    texto = str(texto or "").lower()
+    texto = unicodedata.normalize("NFKD", texto)
+    return "".join(char for char in texto if not unicodedata.combining(char))
+
+
+def _resultado_pede_030330_por_comodato(resultado):
+    if not resultado:
+        return False
+    metadata = resultado.metadata or {}
+    textos = [resultado.message]
+    textos.extend(metadata.get("alertas") or [])
+    texto = _normalizar_texto_fluxo(" | ".join(str(item or "") for item in textos))
+    return (
+        "comodato" in texto
+        and ("030330" in texto or "03.03.30" in texto)
+        and ("nao foi fechado" in texto or "nao fechado" in texto)
+    )
+
+
 def _fechar_rotina_030302_para_reabrir(page_030302, driver, janela_030302):
     try:
         return page_030302.fechar_e_voltar()
@@ -88,6 +110,63 @@ def _fechar_rotina_030302_para_reabrir(page_030302, driver, janela_030302):
         except Exception:
             pass
         return None
+
+
+def _tipos_para_processar_030330(tp_mapa="COMODATO"):
+    tp_mapa = str(tp_mapa or "COMODATO").strip()
+    if tp_mapa.upper() in {"AMBOS", "TODOS", "ALL"}:
+        return ["COMODATO", "CONSIGNACAO"]
+    return [tp_mapa]
+
+
+def _executar_030330_sessao_unica(menu_page, mapa, dt_emissao=None, tp_mapa="COMODATO"):
+    logger.warning(
+        "030302 | Comodato pendente detectado. Executando 030330 antes de retentar o fechamento fisico do mapa %s.",
+        mapa,
+    )
+    janela_030330 = menu_page.acessar_rotina("030330")
+    page_030330 = Processo030330Page(janela_030330.driver, janela_030330.handle_menu)
+    resultados_tipos = []
+
+    for tipo_item in _tipos_para_processar_030330(tp_mapa):
+        logger.info("030330 | Processando Tipo: %s", tipo_item)
+        resultado_carga = normalize_execution_result(
+            page_030330.carregar_mapa(mapa, dt_emissao=dt_emissao, tp_mapa=tipo_item)
+        )
+        metadata_carga = resultado_carga.metadata or {}
+        resultado_item = resultado_carga
+
+        if resultado_carga.ok:
+            resultado_salvar = normalize_execution_result(page_030330.salvar_mapa())
+            resultado_item = ExecutionResult(
+                status=resultado_salvar.status,
+                message=resultado_salvar.message,
+                retry=resultado_salvar.retry,
+                metadata={
+                    **metadata_carga,
+                    **(resultado_salvar.metadata or {}),
+                    "mapa": metadata_carga.get("mapa") or str(mapa).strip(),
+                    "resultado_carga_030330": _metadata_resultado(resultado_carga),
+                },
+            )
+        resultados_tipos.append(resultado_item)
+        try:
+            page_030330.cancelar()
+        except Exception as exc:
+            logger.warning("030330 | Falha ao cancelar rotina apos processamento: %s", exc)
+        time.sleep(1.0)
+
+    resultado_final = resultados_tipos[-1] if resultados_tipos else ExecutionResult(
+        status=ExecutionStatus.TECHNICAL_FAILURE,
+        message="Nenhum tipo de mapa foi processado na 030330.",
+        retry=False,
+    )
+    try:
+        novo_menu = page_030330.fechar_e_voltar()
+    except Exception as exc:
+        logger.warning("030330 | Falha ao fechar rotina e voltar ao menu: %s", exc)
+        novo_menu = menu_page
+    return resultado_final, novo_menu
 
 
 def _escolher_dados_030303(dados_carga, dados_salvar):
@@ -200,6 +279,7 @@ def fechar_mapa_sessao_unica(
     unidade = (unidade or settings.unidade_pedidos).strip().upper()
     driver = None
     res_030303 = None
+    res_030330 = None
     res_fisico = None
     res_financeiro = None
     dados_fechamento_03030702 = None
@@ -245,8 +325,15 @@ def fechar_mapa_sessao_unica(
         janela_030302 = None
         km_atual_030302 = km_atual
         reabriu_por_km = False
-        for tentativa_030302 in range(1, 3):
-            sufixo_tentativa = "" if tentativa_030302 == 1 else " | REABERTURA COM KM FALLBACK"
+        comodato_030330_executado = False
+        tentativa_030302 = 1
+        while tentativa_030302 <= 3:
+            sufixos = []
+            if reabriu_por_km:
+                sufixos.append("REABERTURA COM KM FALLBACK")
+            if comodato_030330_executado:
+                sufixos.append("APOS 030330")
+            sufixo_tentativa = f" | {' | '.join(sufixos)}" if sufixos else ""
             logger.info("--- PASSO 1: INICIANDO ROTINA FISICA (030302)%s ---", sufixo_tentativa)
             janela_030302 = menu_page.acessar_rotina("030302")
             page_030302 = Processo030302Page(janela_030302.driver, janela_030302.handle_menu)
@@ -261,8 +348,35 @@ def fechar_mapa_sessao_unica(
             res_fisico = normalize_execution_result(
                 page_030302.carregar_mapa(mapa, **carregar_030302_kwargs)
             )
+            if _resultado_pede_030330_por_comodato(res_fisico) and not comodato_030330_executado:
+                logger.warning(
+                    "030302 | Mapa %s pediu fechamento de comodato pela 030330. Fechando 030302 e executando 030330.",
+                    mapa,
+                )
+                novo_menu = _fechar_rotina_030302_para_reabrir(page_030302, driver, janela_030302)
+                if novo_menu is not None:
+                    menu_page = novo_menu
+                res_030330, novo_menu = _executar_030330_sessao_unica(menu_page, mapa)
+                if novo_menu is not None:
+                    menu_page = novo_menu
+                if not res_030330.ok:
+                    res_fisico = ExecutionResult(
+                        status=res_030330.status,
+                        message=f"Falha na rotina 030330 antes do Fechamento Fisico: {res_030330.message}",
+                        retry=res_030330.retry,
+                        metadata={
+                            "mapa": mapa,
+                            "passo_falha": "030330",
+                            "resultado_030330": _metadata_resultado(res_030330),
+                        },
+                    )
+                    break
+                comodato_030330_executado = True
+                tentativa_030302 += 1
+                time.sleep(1.0)
+                continue
             km_fallback = _km_fallback_reabertura_030302(res_fisico)
-            if km_fallback and tentativa_030302 == 1:
+            if km_fallback and not reabriu_por_km:
                 logger.warning(
                     "030302 | Alerta de KM pediu reabertura. Fechando rotina e reabrindo mapa %s com KM %s.",
                     mapa,
@@ -273,6 +387,7 @@ def fechar_mapa_sessao_unica(
                     menu_page = novo_menu
                 km_atual_030302 = km_fallback
                 reabriu_por_km = True
+                tentativa_030302 += 1
                 time.sleep(1.0)
                 continue
             break
@@ -306,6 +421,7 @@ def fechar_mapa_sessao_unica(
                 metadata={
                     "passo_falha": "030302",
                     "resultado_030303": _metadata_resultado(res_030303),
+                    "resultado_030330": _metadata_resultado(res_030330),
                     "resultado_fisico": res_fisico,
                     "resultado_financeiro": None,
                     "dados_fechamento_03030702": None,
@@ -359,6 +475,7 @@ def fechar_mapa_sessao_unica(
                 metadata={
                     "passo_falha": "03030702",
                     "resultado_030303": _metadata_resultado(res_030303),
+                    "resultado_030330": _metadata_resultado(res_030330),
                     "resultado_fisico": res_fisico,
                     "resultado_financeiro": res_financeiro,
                     "dados_fechamento_03030702": dados_fechamento_03030702,
@@ -375,6 +492,7 @@ def fechar_mapa_sessao_unica(
             metadata={
                 "mapa": mapa,
                 "resultado_030303": _metadata_resultado(res_030303),
+                "resultado_030330": _metadata_resultado(res_030330),
                 "resultado_fisico": res_fisico,
                 "resultado_financeiro": res_financeiro,
                 "dados_fechamento_03030702": dados_fechamento_03030702,
@@ -542,6 +660,22 @@ def main(
             integration_code="MAPA_LIBERADO_FISICO",
         )
     if modo == "financeiro":
+        resultado_030303 = normalize_execution_result(
+            main_030303(
+                mapa=mapa,
+                unidade=unidade,
+                salvar=salvar,
+                manter_aberto_ao_falhar=manter_aberto_ao_falhar,
+            )
+        )
+        if not resultado_030303.ok:
+            return _anexar_metadata_resultado(
+                resultado_030303,
+                mapa=mapa,
+                passo_falha="030303",
+                resultado_030303=_metadata_resultado(resultado_030303),
+                resultado_financeiro=None,
+            )
         resultado = normalize_execution_result(
             main_03030702(
                 mapa=mapa,
@@ -551,7 +685,12 @@ def main(
                 manter_aberto_ao_falhar=manter_aberto_ao_falhar,
             )
         )
-        return _anexar_metadata_resultado(resultado, mapa=mapa, integration_code="MAPA_LIBERADO_FINANCEIRO")
+        return _anexar_metadata_resultado(
+            resultado,
+            mapa=mapa,
+            resultado_030303=_metadata_resultado(resultado_030303),
+            integration_code="MAPA_LIBERADO_FINANCEIRO",
+        )
     if modo != "completo":
         return ExecutionResult(
             status=ExecutionStatus.BUSINESS_FAILURE,
