@@ -5212,6 +5212,10 @@ class Processo030302Page(RotinaPage):
                 for confirmacao in confirmacoes
             )
             confirmou_ok = self._confirmacoes_tem_resultado_final_030302(confirmacoes)
+            if not confirmou_ok and self._estado_confirmou_sem_diferencas(
+                estado_fluxo_resultado
+            ):
+                confirmou_ok = True
             fluxo_visual_completo = bool(
                 (etapas_fluxo or {}).get("diferencas")
                 and (etapas_fluxo or {}).get("financeiro")
@@ -5275,52 +5279,18 @@ class Processo030302Page(RotinaPage):
                         else:
                             self.logger.info(
                                 "Promax nao exibiu a lista apos o fluxo real da 030302 zerada. "
-                                "Solicitando retorno de diferencas por opcao=8 apos submit "
-                                "real de opcao=6 com payload salvo."
+                                "Fluxo bloqueado sem forcar retorno de diferencas por payload."
                             )
-                            snapshot_zerado = (
-                                (resultado_js or {}).get("formAfter")
-                                or (resultado_js or {}).get("ultimoSalvar")
-                                or (dados_confirmacao or {}).get("ultimoSalvar")
-                                or {}
-                            )
-                            if snapshot_zerado.get("itensLista"):
-                                resultado_opcao8 = self._enviar_opcao_com_payload_salvo_030302(
-                                    "8",
-                                    snapshot_zerado,
-                                    ".retorno-diferencas-pos-submit-zerado",
-                                )
-                            else:
-                                resultado_opcao8 = {
-                                    "ok": False,
-                                    "error": "snapshot-zerado-sem-itensLista",
-                                    "trigger": "EnviarFormulario.payload-salvo-opcao-8"
-                                    ".retorno-diferencas-pos-submit-zerado",
-                                }
+                            resultado_opcao8 = {
+                                "ok": False,
+                                "error": "lista-diferencas-nao-apareceu",
+                                "trigger": "fluxo-zerado-sem-opcao8-forcado",
+                            }
                             resultado_js["retornoDiferencas"] = resultado_opcao8
                             self.logger.info(
-                                "Retorno de diferencas 030302 solicitado apos submit zerado: %s",
+                                "Retorno de diferencas 030302 nao foi forcado apos submit zerado: %s",
                                 resultado_opcao8,
                             )
-                            if resultado_opcao8.get("ok"):
-                                estado_pos_confirmacoes = self._aguardar_lista_diferencas(timeout=20)
-                                estado_pos_financeiro_lista = estado_pos_confirmacoes
-                                for alerta_intermediario in estado_pos_confirmacoes.get(
-                                    "alertasRespondidos"
-                                ) or []:
-                                    self._adicionar_confirmacao_030302(
-                                        confirmacoes,
-                                        alerta_intermediario,
-                                        origem="retorno-diferencas-pos-submit",
-                                    )
-                                alerta_pos_confirmacoes = estado_pos_confirmacoes.get(
-                                    "alertaRespondido"
-                                )
-                                self._adicionar_confirmacao_030302(
-                                    confirmacoes,
-                                    alerta_pos_confirmacoes,
-                                    origem="retorno-diferencas-pos-submit",
-                                )
                             estado_fluxo_resultado = estado_pos_confirmacoes
                             espera_envio["estado"] = estado_pos_confirmacoes
                 if payload_com_itens and not confirmou_financeiro:
@@ -5328,7 +5298,10 @@ class Processo030302Page(RotinaPage):
                         "Salvar 030302 enviou payload, mas nenhuma confirmacao financeira "
                         "real foi capturada. Nao sera enviado fallback de opcao."
                     )
-                if self._confirmacoes_tem_resultado_final_030302(confirmacoes):
+                if (
+                    self._confirmacoes_tem_resultado_final_030302(confirmacoes)
+                    or self._estado_confirmou_sem_diferencas(estado_fluxo_resultado)
+                ):
                     estado = self._estado_mapa_js() or {}
                     estado["resultadoDiferencas"] = {
                         "mensagemOk": True,
@@ -5699,33 +5672,6 @@ class Processo030302Page(RotinaPage):
                         # carregava o mapa, salvava zerado, abria/capturava a telinha,
                         # reabria a rotina e aplicava as diferencas corretamente.
                         # ============================================================
-                        estado_pos_preenchimento_final = self._estado_mapa_js() or {}
-                        if not self._estado_final_tem_quantidade_positiva_030302(
-                            estado_pos_preenchimento_final
-                        ):
-                            self.switch_to_default_content()
-                            return ExecutionResult(
-                                status=ExecutionStatus.BUSINESS_FAILURE,
-                                message=(
-                                    "Diferencas da 030302 foram aplicadas, mas o mapa ficou "
-                                    "sem nenhuma quantidade positiva antes do salvar final."
-                                ),
-                                retry=False,
-                                metadata={
-                                    "trigger": resultado_js.get("trigger"),
-                                    "fluxo": "final-sem-quantidade-positiva",
-                                    "alertas": alertas
-                                    + self._extrair_alertas_capturados(confirmacoes),
-                                    "confirmacoes": confirmacoes,
-                                    "submit_count": submit_count,
-                                    "estado_antes_salvar": estado_antes_salvar,
-                                    "estado_primeiro_salvar": estado,
-                                    "captura_diferencas": captura_diferencas,
-                                    "diferencas_corrigidas": aplicacao_diferencas,
-                                    "estado_pos_preenchimento_final": estado_pos_preenchimento_final,
-                                },
-                            )
-
                         # Redigita SOMENTE aqui, depois de as diferencas ja terem sido
                         # aplicadas. Nenhuma funcao compartilhada da primeira etapa e alterada.
                         redigitacao_final = self._reativar_digitacao_valores_030302()
@@ -5734,35 +5680,9 @@ class Processo030302Page(RotinaPage):
                             redigitacao_final,
                         )
                         estado_pre_salvar_final = self._estado_mapa_js() or {}
-                        if not self._estado_final_tem_quantidade_positiva_030302(
-                            estado_pre_salvar_final
-                        ):
-                            self.switch_to_default_content()
-                            return ExecutionResult(
-                                status=ExecutionStatus.BUSINESS_FAILURE,
-                                message=(
-                                    "Salvar final da 030302 bloqueado porque nao existe "
-                                    "quantidade positiva no mapa depois do preenchimento."
-                                ),
-                                retry=False,
-                                metadata={
-                                    "trigger": resultado_js.get("trigger"),
-                                    "fluxo": "final-bloqueado-sem-quantidade",
-                                    "alertas": alertas
-                                    + self._extrair_alertas_capturados(confirmacoes),
-                                    "confirmacoes": confirmacoes,
-                                    "submit_count": submit_count,
-                                    "estado_antes_salvar": estado_antes_salvar,
-                                    "estado_primeiro_salvar": estado,
-                                    "captura_diferencas": captura_diferencas,
-                                    "diferencas_corrigidas": aplicacao_diferencas,
-                                    "redigitacao_final": redigitacao_final,
-                                    "estado_pre_salvar_final": estado_pre_salvar_final,
-                                },
-                            )
 
                         resultado_final = self._clicar_salvar_js(
-                            ".verificar-diferencas",
+                            ".apos-aplicar-diferencas",
                             prefer_click=True,
                             clique_simples=False,
                         )
@@ -5835,11 +5755,21 @@ class Processo030302Page(RotinaPage):
                         # Perguntas podem aparecer em qualquer ordem ou nao aparecer.
                         # O padrao estavel da 030302 so considera finalizado quando
                         # o Promax confirma explicitamente que nao existem diferencas.
+                        fluxo_final_salvar = self._seguir_fluxo_salvar_030302(
+                            timeout=min(timeout, 25),
+                            exigir_financeiro=False,
+                            parar_apos_financeiro=False,
+                        )
+                        confirmacoes_final = fluxo_final_salvar.get("confirmacoes") or []
+                        estado_fluxo_final = fluxo_final_salvar.get("resultado") or {}
+
                         fechamento_final = self._aguardar_fechamento_final_isolado_030302(
                             resultado_final,
-                            timeout=min(max(timeout, 35), 50),
+                            timeout=min(max(timeout, 8), 12),
                         )
-                        confirmacoes_final = fechamento_final.get("confirmacoes") or []
+                        confirmacoes_final = (
+                            confirmacoes_final + (fechamento_final.get("confirmacoes") or [])
+                        )
                         dados_confirmacao_final = self._obter_confirmacoes_salvar_js() or {}
                         submit_count_final = int(
                             dados_confirmacao_final.get("submitCount") or 0
@@ -5888,12 +5818,16 @@ class Processo030302Page(RotinaPage):
                         tem_sem_diferencas = bool(
                             fechamento_final.get("sem_diferencas")
                             or self._confirmacoes_tem_sem_diferencas(confirmacoes_final)
+                            or self._estado_confirmou_sem_diferencas(estado_fluxo_final)
                         )
                         if tem_sem_diferencas:
                             self.switch_to_default_content()
                             return ExecutionResult(
                                 status=ExecutionStatus.SUCCESS,
-                                message="Salvar da 030302 concluido com alerta 'Nao existem diferencas'.",
+                                message=(
+                                    "Salvar da 030302 concluido com diferencas capturadas e "
+                                    "alerta 'Nao existem diferencas'."
+                                ),
                                 metadata={
                                     "trigger": resultado_final.get("trigger"),
                                     "fluxo": "final-nao-existem-diferencas",
