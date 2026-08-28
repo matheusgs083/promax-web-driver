@@ -1115,7 +1115,7 @@ class Processo030302Page(RotinaPage):
             }
             var produtos = [];
             if (lista && lista.rows) {
-                for (var i = 1; i < lista.rows.length && produtos.length < 30; i++) {
+                    for (var i = 1; i < lista.rows.length; i++) {
                     var aux = auxLinha(i);
                     var codigo = campoValor('textcod' + aux);
                     if (codigo === null || String(codigo) === '') {
@@ -1126,7 +1126,7 @@ class Processo030302Page(RotinaPage):
                     produtos.push({
                         linha: aux,
                         codigo: codigo,
-                        descricao: texto(lista.rows[i]).replace(/\\s+/g, ' ').substring(0, 120),
+                            descricao: texto(lista.rows[i]).replace(/\\s+/g, ' ').substring(0, 220),
                         devUn: campoValor('textdevUn' + aux),
                         devAv: campoValor('textdevAv' + aux),
                         troUn: campoValor('texttroUn' + aux),
@@ -1284,7 +1284,7 @@ class Processo030302Page(RotinaPage):
                     var lista = document.getElementById('lista') || document.getElementsByName('lista')[0];
                     var linhas = [];
                     if (!lista || !lista.rows) return linhas;
-                    for (var i = 1; i < lista.rows.length && linhas.length < 30; i++) {
+                    for (var i = 1; i < lista.rows.length; i++) {
                         var aux = auxLinha(i);
                         var campoCod = document.getElementsByName('textcod' + aux)[0];
                         var codigo = campoCod ? campoCod.value : '';
@@ -1304,7 +1304,7 @@ class Processo030302Page(RotinaPage):
                         linhas.push({
                             linha: aux,
                             codigo: codigo,
-                            texto: String(lista.rows[i].innerText || lista.rows[i].textContent || '').replace(/\\s+/g, ' ').substring(0, 120),
+                            texto: String(lista.rows[i].innerText || lista.rows[i].textContent || '').replace(/\\s+/g, ' ').substring(0, 220),
                             devUn: valor('textdevUn'),
                             devAv: valor('textdevAv'),
                             troUn: valor('texttroUn'),
@@ -1455,7 +1455,13 @@ class Processo030302Page(RotinaPage):
                         var inicio = texto.lastIndexOf('var lenTit', idxAdd);
                         if (inicio === -1) inicio = texto.lastIndexOf('var cdProdDif', idxAdd);
                         if (inicio !== -1) {
-                            blocos.push(texto.substring(inicio, Math.min(texto.length, idxOpt + 200)));
+                            var proximoLen = texto.indexOf('var lenTit', idxOpt + 3);
+                            var proximoCod = texto.indexOf('var cdProdDif', idxOpt + 3);
+                            var fim = texto.length;
+                            if (proximoLen !== -1) fim = Math.min(fim, proximoLen);
+                            if (proximoCod !== -1) fim = Math.min(fim, proximoCod);
+                            if (fim === texto.length) fim = Math.min(texto.length, idxOpt + 2000);
+                            blocos.push(texto.substring(inicio, fim));
                         }
                         pos = idxOpt + 3;
                     }
@@ -2014,7 +2020,7 @@ class Processo030302Page(RotinaPage):
                 var itens = valorCampo030302('itensLista');
                 var produtos = [];
                 if (lista && lista.rows) {
-                    for (var i = 1; i < lista.rows.length && produtos.length < 12; i++) {
+                    for (var i = 1; i < lista.rows.length; i++) {
                         var aux = i < 10 ? '00' + i : (i < 100 ? '0' + i : String(i));
                         produtos.push({
                             linha: aux,
@@ -2563,31 +2569,64 @@ class Processo030302Page(RotinaPage):
                 function parseOpcao(opt) {
                     var texto = String(opt.text || opt.innerText || '');
                     var pares = paresTexto(texto);
+                    function propNumero(nome, fallback) {
+                        var valor = opt[nome];
+                        if (valor === undefined || valor === null || String(valor) === '') return fallback;
+                        return numero(valor);
+                    }
                     return {
                         codigo: soDigitos(opt.value || texto.split(/\\s+/)[0]),
+                        cdProdDif: String(opt.cdProdDif || opt.value || ''),
                         value: String(opt.value || ''),
                         texto: texto,
-                        previsaoUn: pares.length >= 4 ? pares[pares.length - 4][0] : 0,
-                        previsaoAv: pares.length >= 4 ? pares[pares.length - 4][1] : 0,
-                        retornoUn: pares.length >= 3 ? pares[pares.length - 3][0] : 0,
-                        retornoAv: pares.length >= 3 ? pares[pares.length - 3][1] : 0,
-                        sobraUn: pares.length >= 2 ? pares[pares.length - 2][0] : 0,
-                        sobraAv: pares.length >= 2 ? pares[pares.length - 2][1] : 0,
-                        faltaUn: pares.length >= 1 ? pares[pares.length - 1][0] : 0,
-                        faltaAv: pares.length >= 1 ? pares[pares.length - 1][1] : 0
+                        previsaoUn: propNumero('qtPrevUnDif', pares.length >= 4 ? pares[pares.length - 4][0] : 0),
+                        previsaoAv: propNumero('qtPrevAvDif', pares.length >= 4 ? pares[pares.length - 4][1] : 0),
+                        retornoUn: propNumero('qtRealUnDif', pares.length >= 3 ? pares[pares.length - 3][0] : 0),
+                        retornoAv: propNumero('qtRealAvDif', pares.length >= 3 ? pares[pares.length - 3][1] : 0),
+                        sobraUn: propNumero('qtSobraUnDif', pares.length >= 2 ? pares[pares.length - 2][0] : 0),
+                        sobraAv: propNumero('qtSobraAvDif', pares.length >= 2 ? pares[pares.length - 2][1] : 0),
+                        faltaUn: propNumero('qtFaltaUnDif', pares.length >= 1 ? pares[pares.length - 1][0] : 0),
+                        faltaAv: propNumero('qtFaltaAvDif', pares.length >= 1 ? pares[pares.length - 1][1] : 0)
                     };
                 }
 
                 var listaDif = document.getElementsByName('listaDiferencas')[0];
                 var itens = [];
+                var porCodigo = {};
+                var ordem = [];
+                function adicionarItem(item) {
+                    var chave = item.codigo || soDigitos(item.cdProdDif || item.value || '');
+                    if (!chave) return;
+                    if (!porCodigo[chave]) {
+                        item.codigo = chave;
+                        porCodigo[chave] = item;
+                        ordem.push(chave);
+                        return;
+                    }
+                    var atual = porCodigo[chave];
+                    atual.faltaUn += numero(item.faltaUn);
+                    atual.faltaAv += numero(item.faltaAv);
+                    atual.sobraUn += numero(item.sobraUn);
+                    atual.sobraAv += numero(item.sobraAv);
+                    atual.retornoUn += numero(item.retornoUn);
+                    atual.retornoAv += numero(item.retornoAv);
+                    atual.previsaoUn += numero(item.previsaoUn);
+                    atual.previsaoAv += numero(item.previsaoAv);
+                    atual.texto = String(atual.texto || '') + ' | ' + String(item.texto || '');
+                    atual.ocorrencias = (atual.ocorrencias || 1) + 1;
+                }
                 if (listaDif && listaDif.options) {
                     for (var i = 0; i < listaDif.options.length; i++) {
-                        itens.push(parseOpcao(listaDif.options[i]));
+                        adicionarItem(parseOpcao(listaDif.options[i]));
                     }
+                }
+                for (var j = 0; j < ordem.length; j++) {
+                    itens.push(porCodigo[ordem[j]]);
                 }
                 return {
                     encontrou: itens.length > 0,
                     total: itens.length,
+                    totalOptions: listaDif && listaDif.options ? listaDif.options.length : 0,
                     itens: itens
                 };
                 """
@@ -2735,7 +2774,7 @@ class Processo030302Page(RotinaPage):
                     var lista = document.getElementById('lista') || document.getElementsByName('lista')[0];
                     var linhas = [];
                     if (!lista || !lista.rows) return linhas;
-                    for (var i = 1; i < lista.rows.length && linhas.length < 30; i++) {
+                    for (var i = 1; i < lista.rows.length; i++) {
                         var aux = auxLinha(i);
                         var campoCod = document.getElementsByName('textcod' + aux)[0];
                         var codigo = campoCod ? campoCod.value : '';
@@ -2755,7 +2794,7 @@ class Processo030302Page(RotinaPage):
                         linhas.push({
                             linha: aux,
                             codigo: codigo,
-                            texto: String(lista.rows[i].innerText || lista.rows[i].textContent || '').replace(/\\s+/g, ' ').substring(0, 120),
+                            texto: String(lista.rows[i].innerText || lista.rows[i].textContent || '').replace(/\\s+/g, ' ').substring(0, 220),
                             devUn: valor('textdevUn'),
                             devAv: valor('textdevAv'),
                             troUn: valor('texttroUn'),
@@ -3330,6 +3369,18 @@ class Processo030302Page(RotinaPage):
                     "km_atual_fallback": str(resultado_km.get("km_atual") or ""),
                     "bloqueia_fluxo": True,
                 }
+            if (
+                acertar_diferencas
+                and decisao
+                and decisao.get("classificacao") == "diferencas"
+            ):
+                alerta.accept()
+                return {
+                    "tipo": "alert",
+                    "mensagem": texto,
+                    "resposta": "sim",
+                    "preenchimentoKm": None,
+                }
             if decisao and decisao["resposta"] in ("ok", "sim"):
                 alerta.accept()
                 return {
@@ -3432,7 +3483,7 @@ class Processo030302Page(RotinaPage):
                         && compacto.indexOf('naoexistemdiferenc') === -1
                         && compacto.indexOf('naohadiferenc') === -1
                     ) {
-                        return {classificacao: 'diferencas', resposta: 'nao'};
+                        return {classificacao: 'diferencas', resposta: 'sim'};
                     }
                     return null;
                 }
@@ -4437,7 +4488,7 @@ class Processo030302Page(RotinaPage):
                     if (!lista) lista = getByName(doc, 'lista');
                     var produtos = [];
                     if (lista && lista.rows) {
-                        for (var i = 1; i < lista.rows.length && produtos.length < 12; i++) {
+                        for (var i = 1; i < lista.rows.length; i++) {
                             var aux = auxLinha(i);
                             produtos.push({
                                 linha: aux,
@@ -4942,7 +4993,10 @@ class Processo030302Page(RotinaPage):
             self._instalar_monitor_envio_js(interceptar_msgbx=False)
             estado_pre_salvar = self._estado_mapa_js()
             mapa_tem_valor_editavel = self._estado_tem_valor_editavel_030302(estado_pre_salvar)
+            status_mapa_pre_salvar = str((estado_pre_salvar or {}).get("statusMapa") or "").strip()
+            mapa_preenchido_legacy = bool(mapa_tem_valor_editavel and status_mapa_pre_salvar != "0")
             valores_originais_primeiro_envio = None
+            resultado_js_predefinido = None
 
             # CASO ESPECIAL ISOLADO:
             # Se a grade nao possui nenhum codigo fisico, nao entra no primeiro fluxo
@@ -5047,91 +5101,103 @@ class Processo030302Page(RotinaPage):
                 )
 
             # A PARTIR DAQUI: FLUXO NORMAL ORIGINAL, SEM ALTERACOES.
-            if mapa_tem_valor_editavel:
-                # Mapa ja preenchido: o primeiro submit precisa sair zerado para
-                # reproduzir o mesmo fluxo do mapa vazio no Promax. Os valores
-                # originais ficam preservados no snapshot abaixo; depois a lista
-                # de diferencas do proprio Promax sera capturada e reaplicada.
+            if mapa_preenchido_legacy:
+                # Mapa ja preenchido: preserva o fluxo estavel da 030302.
+                # A zeragem/lista fica reservada ao mapa ainda em preenchimento.
                 valores_originais_primeiro_envio = (estado_pre_salvar or {}).get("produtos") or []
-                zeragem = self._zerar_valores_editaveis_primeiro_envio_030302()
+                digitacao = self._reativar_digitacao_valores_030302()
                 self.logger.info(
-                    "Mapa 030302 preenchido: valores preservados e zerados antes do primeiro salvar: %s",
-                    zeragem,
+                    "Mapa 030302 preenchido: redigitacao preservada antes do salvar: %s",
+                    digitacao,
                 )
                 try:
-                    total_zerado = int((zeragem or {}).get("total") or 0)
+                    total_digitado = int((digitacao or {}).get("total") or 0)
                 except (TypeError, ValueError):
-                    total_zerado = 0
+                    total_digitado = 0
 
-                if total_zerado <= 0:
+                if total_digitado <= 0:
                     self.switch_to_default_content()
                     return ExecutionResult(
                         status=ExecutionStatus.TECHNICAL_FAILURE,
                         message=(
-                            "Mapa 030302 tem valores preenchidos, mas nenhum campo positivo "
-                            "foi zerado antes do primeiro salvar."
+                            "salvar bloqueado: mapa 030302 tem valores preenchidos, "
+                            "mas a redigitacao nao aplicou nenhum campo positivo."
                         ),
                         retry=False,
                         metadata={
                             "estado_pre_salvar": estado_pre_salvar,
-                            "zeragem_primeiro_envio": zeragem,
+                            "digitacao": digitacao,
                             "valores_originais_primeiro_envio": valores_originais_primeiro_envio,
                             "confirmacoes": [],
                             "diferencas_corrigidas": None,
                         },
                     )
 
-                estado_apos_zeragem = self._estado_mapa_js()
-                if self._estado_tem_valor_editavel_030302(estado_apos_zeragem):
-                    self.switch_to_default_content()
-                    return ExecutionResult(
-                        status=ExecutionStatus.TECHNICAL_FAILURE,
-                        message=(
-                            "Mapa 030302 continuou com quantidade positiva apos a zeragem; "
-                            "primeiro salvar bloqueado para nao enviar o mapa preenchido."
-                        ),
-                        retry=False,
-                        metadata={
-                            "estado_pre_salvar": estado_pre_salvar,
-                            "estado_apos_zeragem": estado_apos_zeragem,
-                            "zeragem_primeiro_envio": zeragem,
-                            "valores_originais_primeiro_envio": valores_originais_primeiro_envio,
-                            "confirmacoes": [],
-                            "diferencas_corrigidas": None,
-                        },
-                    )
-
-                self.logger.info(
-                    "Primeiro envio 030302 confirmado zerado antes do clique em Salvar. estado=%s",
-                    estado_apos_zeragem,
+                self.wait_for_js_condition(
+                    """
+                    var botSalvar = document.getElementsByName('BotSalvar')[0];
+                    return !!(botSalvar && botSalvar.disabled === false);
+                    """,
+                    timeout=timeout,
+                    description="botao salvar habilitado na 030302 preenchida",
                 )
+                estado_antes_salvar_preenchido = self._estado_mapa_js()
+                resultado_js_predefinido = self._clicar_salvar_js(
+                    ".salvar-preenchido",
+                    prefer_click=True,
+                    clique_simples=False,
+                )
+                self.logger.info(
+                    "Clique em salvar 030302 preenchida executado: %s",
+                    resultado_js_predefinido,
+                )
+                if not resultado_js_predefinido or not resultado_js_predefinido.get("ok"):
+                    self.switch_to_default_content()
+                    return ExecutionResult(
+                        status=ExecutionStatus.TECHNICAL_FAILURE,
+                        message="Nao foi possivel clicar em salvar na 030302 preenchida.",
+                        retry=False,
+                        metadata={
+                            "estado_pre_salvar": estado_pre_salvar,
+                            "estado_antes_salvar": estado_antes_salvar_preenchido,
+                            "digitacao": digitacao,
+                            "resultado_js": resultado_js_predefinido,
+                            "valores_originais_primeiro_envio": valores_originais_primeiro_envio,
+                            "confirmacoes": [],
+                            "diferencas_corrigidas": None,
+                        },
+                    )
             elif (estado_pre_salvar or {}).get("botSalvarDisabled") is True:
                 habilitacao = self._habilitar_salvar_mapa_zerado_030302()
                 self.logger.info(
                     "Tentativa de habilitar salvar da 030302 com mapa zerado: %s",
                     habilitacao,
                 )
-            self.wait_for_js_condition(
-                """
-                var botSalvar = document.getElementsByName('BotSalvar')[0];
-                return !!(botSalvar && botSalvar.disabled === false);
-                """,
-                timeout=timeout,
-                description="botao salvar habilitado na 030302",
-            )
+            if resultado_js_predefinido is None:
+                self.wait_for_js_condition(
+                    """
+                    var botSalvar = document.getElementsByName('BotSalvar')[0];
+                    return !!(botSalvar && botSalvar.disabled === false);
+                    """,
+                    timeout=timeout,
+                    description="botao salvar habilitado na 030302",
+                )
 
             estado_antes_salvar = self._estado_mapa_js()
             tem_valor_editavel = self._estado_tem_valor_editavel_030302(estado_antes_salvar)
-            usar_click_humano = True
-            clique_simples_salvar = False
-            # A partir daqui, mapa preenchido e mapa vazio seguem exatamente o mesmo fluxo de envio.
-            trigger_salvar = ".verificar-diferencas"
-            resultado_js = self._clicar_salvar_js(
-                trigger_salvar,
-                prefer_click=usar_click_humano,
-                clique_simples=clique_simples_salvar,
-            )
-            self.logger.info("Clique em salvar 030302 executado: %s", resultado_js)
+            if resultado_js_predefinido is not None:
+                resultado_js = resultado_js_predefinido
+            else:
+                usar_click_humano = True
+                clique_simples_salvar = False
+                # A partir daqui, mapa preenchido e mapa vazio seguem exatamente o mesmo fluxo de envio.
+                trigger_salvar = ".verificar-diferencas"
+                resultado_js = self._clicar_salvar_js(
+                    trigger_salvar,
+                    prefer_click=usar_click_humano,
+                    clique_simples=clique_simples_salvar,
+                )
+                self.logger.info("Clique em salvar 030302 executado: %s", resultado_js)
             if not resultado_js or not resultado_js.get("ok"):
                 status = ExecutionStatus.TECHNICAL_FAILURE
                 if resultado_js and resultado_js.get("error") == "botao-salvar-desabilitado":
@@ -5169,6 +5235,7 @@ class Processo030302Page(RotinaPage):
             etapas_fluxo = fluxo_salvar.get("etapas") or {}
             diferencas_corrigidas = None
             estado_pos_financeiro_lista = None
+            resultado_payload_preenchido = None
 
             # Nao considerar retorno de tela como sucesso sem alerta final.
 
@@ -5352,6 +5419,51 @@ class Processo030302Page(RotinaPage):
                             resposta_msg,
                             origem="mensagem-html",
                         )
+                if (
+                    int(estado_resultado_diferencas.get("listaDiferencasLength") or 0) <= 0
+                    and not self._estado_confirmou_sem_diferencas(estado_resultado_diferencas)
+                    and payload_com_itens
+                    and payload_tem_quantidade
+                    and mapa_preenchido_legacy
+                ):
+                    snapshot_com_valor = (
+                        (resultado_js or {}).get("formAfter")
+                        or (resultado_js or {}).get("ultimoSalvar")
+                        or (dados_confirmacao or {}).get("ultimoSalvar")
+                        or {}
+                    )
+                    if snapshot_com_valor.get("itensLista"):
+                        resultado_opcao8 = self._enviar_opcao_com_payload_salvo_030302(
+                            "8",
+                            snapshot_com_valor,
+                            ".confirmacao-financeira-preenchido",
+                        )
+                        resultado_payload_preenchido = resultado_opcao8
+                        resultado_js["retornoDiferencas"] = resultado_opcao8
+                        self.logger.info(
+                            "Retorno de diferencas 030302 solicitado para payload preenchido: %s",
+                            resultado_opcao8,
+                        )
+                        if resultado_opcao8.get("ok"):
+                            estado_resultado_diferencas = self._aguardar_lista_diferencas(
+                                timeout=20
+                            )
+                            for alerta_intermediario in estado_resultado_diferencas.get(
+                                "alertasRespondidos"
+                            ) or []:
+                                self._adicionar_confirmacao_030302(
+                                    confirmacoes,
+                                    alerta_intermediario,
+                                    origem="retorno-diferencas-preenchido",
+                                )
+                            alerta_resultado = estado_resultado_diferencas.get(
+                                "alertaRespondido"
+                            )
+                            self._adicionar_confirmacao_030302(
+                                confirmacoes,
+                                alerta_resultado,
+                                origem="retorno-diferencas-preenchido",
+                            )
                 estado = self._estado_mapa_js() or {}
                 estado["resultadoDiferencas"] = estado_resultado_diferencas
                 lista_diferencas_len = max(
@@ -5360,6 +5472,7 @@ class Processo030302Page(RotinaPage):
                 )
                 resultado_sem_diferencas_confirmado = (
                     self._confirmacoes_tem_resultado_final_030302(confirmacoes)
+                    or self._estado_confirmou_sem_diferencas(estado_resultado_diferencas)
                 )
                 if lista_diferencas_len > 0:
                     captura_diferencas = self._capturar_diferencas_lista_js()
@@ -5900,6 +6013,7 @@ class Processo030302Page(RotinaPage):
                             "estado": estado,
                             "resultado_diferencas": estado_resultado_diferencas,
                             "diferencas_corrigidas": diferencas_corrigidas,
+                            "resultado_payload_preenchido": resultado_payload_preenchido,
                         },
                     )
 
@@ -5916,6 +6030,7 @@ class Processo030302Page(RotinaPage):
                         "resultado_js": resultado_js,
                         "estado": estado,
                         "diferencas_corrigidas": diferencas_corrigidas,
+                        "resultado_payload_preenchido": resultado_payload_preenchido,
                     },
                 )
 
@@ -5935,6 +6050,7 @@ class Processo030302Page(RotinaPage):
                     "resultado_js": resultado_js,
                     "estado": estado,
                     "diferencas_corrigidas": diferencas_corrigidas,
+                    "resultado_payload_preenchido": resultado_payload_preenchido,
                 },
             )
         except Exception as exc:
@@ -6308,10 +6424,15 @@ class Processo030302Page(RotinaPage):
                 """
 
             def executar_preenchimento_mapa():
+                if km_atual_normalizado:
+                    return self.driver.execute_script(
+                        script_preencher_mapa,
+                        mapa_normalizado,
+                        km_atual_normalizado,
+                    )
                 return self.driver.execute_script(
                     script_preencher_mapa,
                     mapa_normalizado,
-                    km_atual_normalizado,
                 )
 
             try:
