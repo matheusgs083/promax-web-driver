@@ -137,6 +137,35 @@ def test_executar_tarefa_com_retry_nao_reexecuta_lote_inteiro_em_sucesso_parcial
     assert resultado.status == ExecutionStatus.PARTIAL_SUCCESS
 
 
+def test_loop_unidades_trata_sem_conteudo_como_sucesso_parcial_sem_repescagem(monkeypatch):
+    driver = FakeDriver()
+    page = RotinaPage(driver, handle_menu_original="menu")
+    registros = []
+
+    monkeypatch.setattr(page, "listar_unidades", lambda: [{"valor": "2210004", "texto": "221.0004 - SUME"}])
+    monkeypatch.setattr(page, "obter_nome_tracker", lambda: "Rotina 030111 Bot")
+    monkeypatch.setattr(entrypoint_helpers.time, "sleep", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        "pages.common.rotina_page.tracker",
+        SimpleNamespace(anotar=lambda *args, **_kwargs: registros.append(args)),
+    )
+
+    resultado = page.loop_unidades(
+        nome_arquivo="030111 bot - nomeUnidade030111.csv",
+        fn_execucao_unica=lambda _cod, _nome: ExecutionResult(
+            status=ExecutionStatus.BUSINESS_FAILURE,
+            message="Relatorio sem conteudo apos visualizar: Nao ha pedidos para listar",
+            retry=False,
+        ),
+        sleep_entre=0,
+    )
+
+    assert resultado.status == ExecutionStatus.PARTIAL_SUCCESS
+    assert resultado.should_retry is False
+    assert "Nenhuma unidade possuia relatorio" in resultado.message
+    assert registros[0][2] == "SEM CONTEUDO"
+
+
 def test_selecionar_unidade_falha_rapido_quando_alerta_indica_erro(monkeypatch):
     driver = FakeDriver()
     page = RotinaPage(driver, handle_menu_original="menu")

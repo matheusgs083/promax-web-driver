@@ -290,6 +290,7 @@ class RotinaPage(BasePage):
         falhas_negocio = 0
         falhas_tecnicas = 0
         falhas_com_retry = 0
+        falhas_sem_conteudo = 0
 
         for i, item in enumerate(unidades):
             cod = str(item.get("valor", "")).strip()
@@ -329,6 +330,8 @@ class RotinaPage(BasePage):
                     falhas_negocio += 1
                     if deve_retry:
                         falhas_com_retry += 1
+                    else:
+                        falhas_sem_conteudo += 1
 
                 resultados.append(ok)
                 time.sleep(sleep_entre)
@@ -366,6 +369,16 @@ class RotinaPage(BasePage):
                     f"{falhas_negocio} falha(s) de negócio e {falhas_tecnicas} falha(s) técnica(s)"
                 ),
                 retry=falhas_com_retry > 0,
+            )
+
+        if falhas_negocio > 0 and falhas_negocio == falhas_sem_conteudo and falhas_tecnicas == 0:
+            return ExecutionResult(
+                status=ExecutionStatus.PARTIAL_SUCCESS,
+                message=(
+                    f"Execucao sem dados para {falhas_sem_conteudo}/{total_unidades} unidade(s). "
+                    "Nenhuma unidade possuia relatorio para exportacao."
+                ),
+                retry=False,
             )
 
         status = ExecutionStatus.TECHNICAL_FAILURE if falhas_tecnicas else ExecutionStatus.BUSINESS_FAILURE
@@ -534,6 +547,7 @@ class RotinaPage(BasePage):
                 "nao existem dados",
                 "nao ha informacoes",
                 "nao ha dados",
+                "nao ha pedidos para listar",
                 "relatorio vazio",
             )
             return any(indicador in texto_normalizado for indicador in indicadores)
@@ -596,6 +610,21 @@ class RotinaPage(BasePage):
                 ),
                 retry=True,
             )
+
+        try:
+            texto_alerta_imediato = self.driver.switch_to.alert.text
+        except (NoAlertPresentException, AttributeError):
+            texto_alerta_imediato = None
+        except Exception:
+            texto_alerta_imediato = None
+
+        if texto_alerta_imediato:
+            self.logger.warning(
+                "Alerta detectado imediatamente apos visualizar, antes da tela de exportacao."
+            )
+            resultado_alerta = _falha_alerta_pos_visualizacao(texto_alerta_imediato)
+            if resultado_alerta is not None:
+                return resultado_alerta
 
         def _entrar_frame_relatorio():
             try:
