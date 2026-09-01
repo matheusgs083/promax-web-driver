@@ -36,12 +36,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     for nome, (_, descricao) in COMMANDS.items():
         command_parser = subparsers.add_parser(nome, help=descricao, description=descricao)
-        if nome == "relatorios":
+        if nome in {"relatorios", "fechamento"}:
             command_parser.add_argument(
                 "--perfil",
                 "--grupo",
                 dest="perfil",
-                default="fluxo_caixa",
+                default="fluxo_caixa" if nome == "relatorios" else "botzapfechamento",
             )
             command_parser.add_argument("--data-inicial")
             command_parser.add_argument("--data-final")
@@ -96,22 +96,36 @@ def _exit_code(result: ExecutionResult) -> int:
     }[result.status]
 
 
-def _tracker_failed_units() -> tuple[list[str], list[dict[str, str]]]:
+def _tracker_failed_units() -> tuple[list[str], list[dict[str, str]], list[str], list[dict[str, str]]]:
     try:
         from core.observability.relatorio_execucao import tracker
     except Exception:
-        return [], []
+        return [], [], [], []
 
     failed_units: list[str] = []
     failed_details: list[dict[str, str]] = []
+    no_content_units: list[str] = []
+    no_content_details: list[dict[str, str]] = []
     statuses_without_retry = {"SEM CONTEUDO", "SEM CONTEÚDO", "SEM DADOS"}
     for row in getattr(tracker, "registros", []) or []:
         status = str(row.get("Status", "")).strip().upper()
         routine = str(row.get("Rotina", "")).strip()
         unit = str(row.get("Unidade", "")).strip()
-        if not unit or unit == "TODAS" or status == "SUCESSO" or status in statuses_without_retry:
+        if not unit or unit == "TODAS" or status == "SUCESSO":
             continue
         if routine == "RESUMO FINAL":
+            continue
+        if status in statuses_without_retry:
+            if unit not in no_content_units:
+                no_content_units.append(unit)
+            no_content_details.append(
+                {
+                    "unit": unit,
+                    "routine": routine,
+                    "status": status,
+                    "detail": str(row.get("Detalhes", "")).strip(),
+                }
+            )
             continue
         if unit not in failed_units:
             failed_units.append(unit)
@@ -123,7 +137,7 @@ def _tracker_failed_units() -> tuple[list[str], list[dict[str, str]]]:
                 "detail": str(row.get("Detalhes", "")).strip(),
             }
         )
-    return failed_units, failed_details
+    return failed_units, failed_details, no_content_units, no_content_details
 
 
 def main_cli() -> int:
@@ -145,10 +159,11 @@ def main_cli() -> int:
     job_id = str(getattr(args, "job_id", "") or "").strip()
     is_controlled_job = bool(job_id) and args.command in {
         "relatorios",
+        "fechamento",
         "fechamento-mapa",
         "reprocessar-publicacao",
     }
-    if args.command == "relatorios":
+    if args.command in {"relatorios", "fechamento"}:
         kwargs = {
             "profile": args.perfil,
             "date_start": args.data_inicial,
@@ -197,7 +212,7 @@ def main_cli() -> int:
             message=f"Falha tecnica ao executar o comando: {exc}",
         )
     if is_controlled_job:
-        failed_units, failed_unit_details = _tracker_failed_units()
+        failed_units, failed_unit_details, no_content_units, no_content_unit_details = _tracker_failed_units()
         print(
             json.dumps(
                 {
@@ -209,6 +224,8 @@ def main_cli() -> int:
                     "metadata": _json_safe(result.metadata or {}),
                     "failed_units": failed_units,
                     "failed_unit_details": failed_unit_details,
+                    "no_content_units": no_content_units,
+                    "no_content_unit_details": no_content_unit_details,
                     "exit_code": _exit_code(result),
                 },
                 ensure_ascii=True,

@@ -89,7 +89,19 @@ def encerrar_sessao():
     driver = None
     menu_page = None
 
-def main():
+def _normalizar_lista_identificadores(valores):
+    return [str(valor).strip() for valor in (valores or []) if str(valor).strip()]
+
+
+def main(
+    *,
+    units=None,
+    routines=None,
+    publish=True,
+    job_id="",
+    download_workers=5,
+    **_kwargs,
+):
     logger.info("=== INICIANDO ROBÔ PROMAX (COM AUTO-RECOVERY) ===")
 
     def tarefa_0513(unidades_alvo=None):
@@ -270,19 +282,40 @@ def main():
         return resultado
 
     tarefas = {
-        #"0513": RoutineTask(key="0513", name="Rotina 0513", runner=tarefa_0513),
-        #"120616": RoutineTask(key="120616", name="Rotina 120616", runner=tarefa_120616),
-        #"120601": RoutineTask(key="120601", name="Rotina 120601", runner=tarefa_120601),
-        #"0512": RoutineTask(key="0512", name="Rotina 0512", runner=tarefa_0512),
+        "0513": RoutineTask(key="0513", name="Rotina 0513", runner=tarefa_0513),
+        "120616": RoutineTask(key="120616", name="Rotina 120616", runner=tarefa_120616),
+        "120601": RoutineTask(key="120601", name="Rotina 120601", runner=tarefa_120601),
+        "0512": RoutineTask(key="0512", name="Rotina 0512", runner=tarefa_0512),
         "150501": RoutineTask(key="150501", name="Rotina 150501", runner=tarefa_150501),
-        #"030237": RoutineTask(key="030237", name="Rotina 030237", runner=tarefa_030237),
-        #"030237_GIRO": RoutineTask(key="030237_GIRO", name="Rotina 030237 Giro", runner=tarefa_030237_Giro),
+        "030237": RoutineTask(key="030237", name="Rotina 030237", runner=tarefa_030237),
+        "030237_GIRO": RoutineTask(key="030237_GIRO", name="Rotina 030237 Giro", runner=tarefa_030237_Giro),
+        "020220": RoutineTask(key="020220", name="Rotina 020220", runner=tarefa_020220),
         #fluxo de caixa
-        #"140506": RoutineTask(key="140506", name="Rotina 140506", runner=tarefa_140506),
-        #"120606": RoutineTask(key="120606", name="Rotina 120606", runner=tarefa_120606),
-        #"020502 fluxodecaixa": RoutineTask(key="020502_FLUXO_DE_CAIXA", name="Rotina 020502 Fluxo de Caixa", runner=tarefa_020502_fluxodecaixa),
-        #"150501 fluxodecaixa": RoutineTask(key="150501_FLUXO_DE_CAIXA", name="Rotina 150501 Fluxo de Caixa", runner=tarefa_150501_fluxodecaixa),
+        "140506": RoutineTask(key="140506", name="Rotina 140506", runner=tarefa_140506),
+        "120606": RoutineTask(key="120606", name="Rotina 120606", runner=tarefa_120606),
+        "020502_FLUXO_DE_CAIXA": RoutineTask(key="020502_FLUXO_DE_CAIXA", name="Rotina 020502 Fluxo de Caixa", runner=tarefa_020502_fluxodecaixa),
+        "150501_FLUXO_DE_CAIXA": RoutineTask(key="150501_FLUXO_DE_CAIXA", name="Rotina 150501 Fluxo de Caixa", runner=tarefa_150501_fluxodecaixa),
     }
+
+    selected_routines = _normalizar_lista_identificadores(routines)
+    if selected_routines:
+        invalid_routines = [routine for routine in selected_routines if routine not in tarefas]
+        if invalid_routines:
+            raise ValueError(
+                "Rotinas indisponiveis no fechamento: " + ", ".join(invalid_routines)
+            )
+        tarefas = {routine: tarefas[routine] for routine in selected_routines}
+
+    selected_units = _normalizar_lista_identificadores(units)
+    if selected_units:
+        tarefas = {
+            key: RoutineTask(
+                key=task.key,
+                name=task.name,
+                runner=lambda unidades=selected_units, original=task.runner: original(unidades),
+            )
+            for key, task in tarefas.items()
+        }
 
     pasta_intermediaria = Path(settings.download_dir)
     pasta_data = DATA_DIR
@@ -326,7 +359,7 @@ def main():
         success_message="Movimentação concluída com sucesso.",
         partial_prefix="Movimentação concluída com pendências de publicação.",
         technical_prefix="Movimentação finalizada com falha técnica de publicação.",
-    )
+    ) if publish else None
 
     orchestrator = ReportOrchestrationService(
         logger=logger,
@@ -342,6 +375,7 @@ def main():
         auxiliary_sheet=caminho_planilha_auxiliar,
         publication_plan=publication_plan,
         automatic_repescagem=True,
+        download_workers=download_workers,
     )
 
 if __name__ == "__main__":

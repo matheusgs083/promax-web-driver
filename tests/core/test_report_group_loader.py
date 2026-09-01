@@ -16,6 +16,7 @@ from core.config.report_group_loader import (
 EXPECTED_GROUPS = {
     "adf",
     "bot_zap",
+    "botzapfechamento",
     "estoque",
     "fluxo_caixa",
     "giro",
@@ -50,6 +51,34 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
         "020304 bot",
         "031120 bot",
         "03114902 bot",
+    )
+    assert groups["botzapfechamento"].routine_ids == (
+        "0513",
+        "120616",
+        "120601",
+        "0512",
+        "150501",
+        "030237",
+        "030237_GIRO",
+        "020220",
+        "140506",
+        "120606",
+        "020502_FLUXO_DE_CAIXA",
+        "150501_FLUXO_DE_CAIXA",
+    )
+    assert groups["botzapfechamento"].output_folders == (
+        "0513",
+        "120616",
+        "120601",
+        "0512",
+        "150501",
+        "030237",
+        "030237 Giro",
+        "020220",
+        "140506",
+        "120606",
+        "020502 fluxo de caixa",
+        "150501 fluxo de caixa",
     )
     assert groups["relatorios"].routine_ids == (
         "0513",
