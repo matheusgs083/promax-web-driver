@@ -48,6 +48,7 @@ Referencias internas:
 | ---------------------------------------- | ----------------------------------------------------- | ----------------------------------- |
 | `python cli.py relatorios`             | `entrypoints/reports/relatorios.py`                 | Fluxo de caixa (grupo padrao)       |
 | `python cli.py relatorios --perfil giro` | `entrypoints/reports/relatorios.py`                | Executa um grupo dinamico           |
+| `python cli.py fechamento --perfil botzapfechamento` | `entrypoints/reports/relatorios_fechamento.py` | Executa o grupo Bot Zap Fechamento |
 | `python cli.py catalogo-relatorios`    | `report_groups/*.py`                                | Exibe o catalogo JSON sem Selenium  |
 | `python cli.py fechamento`             | `entrypoints/reports/relatorios_fechamento.py`      | Fluxo de fechamento                 |
 | `python cli.py repescagem`             | `entrypoints/reports/repescagem_relatorios.py`      | Repescagem manual de relatorios     |
@@ -90,7 +91,8 @@ python cli.py relatorios --grupo outros --rotinas 020220_AUDITOOL 020220_RECOLHA
 ```
 
 Os grupos disponiveis sao `inadimplencia`, `obz`, `adf`, `outros`, `giro`,
-`estoque`, `fluxo_caixa` e `bot_zap`. Consulte o contrato completo com:
+`estoque`, `fluxo_caixa`, `bot_zap` e `botzapfechamento`. Consulte o contrato
+completo com:
 
 ```bash
 python cli.py catalogo-relatorios
