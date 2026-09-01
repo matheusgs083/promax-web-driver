@@ -29,7 +29,7 @@ from pages.reports.relatorio_120606_page import Relatorio120606Page
 from pages.reports.relatorio_140506_page import Relatorio140506Page
 
 dotenv.load_dotenv()
-logger = get_logger("MAIN_PROMAX")
+logger = get_logger("MAIN_PROMAX_FECHAMENTO")
 settings = get_settings()
 
 driver = None
@@ -102,7 +102,12 @@ def main(
     download_workers=5,
     **_kwargs,
 ):
-    logger.info("=== INICIANDO ROBÔ PROMAX (COM AUTO-RECOVERY) ===")
+    logger.info("=== INICIANDO ROBÔ PROMAX FECHAMENTO (COM AUTO-RECOVERY) ===")
+    logger.info(
+        "Grupo de fechamento selecionado: botzapfechamento | rotinas=%s | unidades=%s",
+        ", ".join(_normalizar_lista_identificadores(routines)) or "todas",
+        ", ".join(_normalizar_lista_identificadores(units)) or "todas",
+    )
 
     def tarefa_0513(unidades_alvo=None):
         janela = menu_page.acessar_rotina("0513")

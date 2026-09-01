@@ -142,6 +142,21 @@ def main(
     download_workers=5,
     use_api_dates=True,
 ):
+    if str(profile or "").strip().lower() == "botzapfechamento":
+        from entrypoints.reports.relatorios_fechamento import main as fechamento_main
+
+        logger.warning(
+            "Perfil botzapfechamento recebido no entrypoint normal; "
+            "redirecionando para o entrypoint de fechamento."
+        )
+        return fechamento_main(
+            units=units,
+            routines=routines,
+            publish=publish,
+            job_id=job_id,
+            download_workers=download_workers,
+        )
+
     logger.info("=== INICIANDO ROBÔ PROMAX (COM AUTO-RECOVERY) ===")
     requested_units = _normalize_list(units)
     requested_routines = _normalize_list(routines)
