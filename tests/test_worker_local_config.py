@@ -47,6 +47,35 @@ def test_worker_runner_uses_local_cli_path():
     assert str(PROJECT_ROOT / "cli.py") in command
 
 
+def test_worker_runner_uses_fechamento_entrypoint_for_botzapfechamento():
+    runner_config = PromaxRunnerConfig.from_values(
+        driver_dir=PROJECT_ROOT,
+        python_executable=sys.executable,
+    )
+
+    command = PromaxRunner(runner_config).build_command(
+        {
+            "id": "job-fechamento-relatorios",
+            "job_type": "botzapfechamento",
+            "payload": {
+                "profile": "botzapfechamento",
+                "routines": ["150501"],
+                "units": ["2210003"],
+                "publish": True,
+            },
+        }
+    )
+
+    assert command[:4] == [
+        str(Path(sys.executable).resolve()),
+        str(PROJECT_ROOT / "cli.py"),
+        "fechamento",
+        "--perfil",
+    ]
+    assert "relatorios" not in command
+    assert command[command.index("--job-id") + 1] == "job-fechamento-relatorios"
+
+
 def test_worker_runner_builds_fechamento_mapa_command():
     runner_config = PromaxRunnerConfig.from_values(
         driver_dir=PROJECT_ROOT,
