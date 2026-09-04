@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 import time
+import unicodedata
 
 from selenium.webdriver.common.by import By
 
@@ -185,6 +186,21 @@ class Processo030322Page(RotinaPage):
             """
         ) or {}
 
+    @staticmethod
+    def _normalizar_texto_alerta(texto) -> str:
+        texto = str(texto or "").lower()
+        texto = unicodedata.normalize("NFKD", texto)
+        return "".join(char for char in texto if not unicodedata.combining(char))
+
+    @classmethod
+    def _alertas_sem_mapa(cls, alertas) -> list[str]:
+        encontrados = []
+        for alerta in alertas or []:
+            normalizado = cls._normalizar_texto_alerta(alerta)
+            if "nao existem mapas" in normalizado or "nao existe mapas" in normalizado:
+                encontrados.append(str(alerta))
+        return encontrados
+
     def preencher_parametros(
         self,
         *,
@@ -251,6 +267,16 @@ class Processo030322Page(RotinaPage):
             self._marcar_checkbox("idMapasAtualizados", mapas_atualizados)
 
             alertas = self.lidar_com_alertas(tentativas=1, timeout=1, max_alertas=3)
+            self.logger.info(
+                "030322 | Parametros preenchidos: mapaInicial=%s | mapaFinal=%s | caixaInicial=%s | caixaFinal=%s | data=%s | mapas=%s | listaProdutos=%s",
+                preenchimento.get("mapaInicial"),
+                preenchimento.get("mapaFinal"),
+                preenchimento.get("nrCaixaInicial"),
+                preenchimento.get("nrCaixaFinal"),
+                preenchimento.get("data"),
+                status_mapas,
+                bool(lista_produtos),
+            )
             return ExecutionResult(
                 status=ExecutionStatus.SUCCESS,
                 message="Parametros da 030322 preenchidos.",
@@ -284,6 +310,19 @@ class Processo030322Page(RotinaPage):
             self.js_click_ie(botao)
             retorno = {"acionado": "BotVisualizar"}
             alertas = self.lidar_com_alertas(tentativas=2, timeout=2, max_alertas=5)
+            alertas_sem_mapa = self._alertas_sem_mapa(alertas)
+            if alertas_sem_mapa:
+                return ExecutionResult(
+                    status=ExecutionStatus.BUSINESS_FAILURE,
+                    message=alertas_sem_mapa[0],
+                    retry=False,
+                    metadata={
+                        **(resultado.metadata or {}),
+                        "acao": retorno,
+                        "alertas_apos_acao": alertas,
+                        "sem_mapa_para_listar": True,
+                    },
+                )
             return ExecutionResult(
                 status=ExecutionStatus.SUCCESS,
                 message="Visualizacao da 030322 acionada.",

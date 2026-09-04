@@ -1,4 +1,5 @@
 import argparse
+import json
 import time
 import unicodedata
 import dotenv
@@ -71,6 +72,41 @@ def _metadata_resultado(resultado):
         "retry": resultado.retry,
         **(resultado.metadata or {}),
     }
+
+
+def _json_safe(value):
+    if isinstance(value, ExecutionResult):
+        return _metadata_resultado(value)
+    if isinstance(value, ExecutionStatus):
+        return value.value
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(item) for item in value]
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
+
+
+def _emitir_resultado_parcial(sync_scope, rotina, mapa, mensagem, metadata):
+    try:
+        print(
+            json.dumps(
+                {
+                    "event": "promax_partial_result",
+                    "sync_scope": sync_scope,
+                    "routine": rotina,
+                    "status": "partial_success",
+                    "message": mensagem,
+                    "metadata": _json_safe(metadata or {}),
+                    "mapa": str(mapa or "").strip(),
+                },
+                ensure_ascii=True,
+            ),
+            flush=True,
+        )
+    except Exception as exc:
+        logger.warning("Nao foi possivel emitir resultado parcial %s do mapa %s: %s", rotina, mapa, exc)
 
 
 def _km_fallback_reabertura_030302(resultado):
@@ -172,6 +208,7 @@ def _executar_030330_sessao_unica(menu_page, mapa, dt_emissao=None, tp_mapa="COM
 
 def _extrair_prestacao_030322_sessao_unica(menu_page, mapa, data=None):
     logger.info("--- PASSO 3: EXTRAINDO PRESTACAO DE CONTAS (030322) ---")
+    logger.info("030322 | Solicitando prestacao: mapaInicial=%s | mapaFinal=%s | data=%s | mapas=todos", mapa, mapa, data or "")
     janela_030322 = menu_page.acessar_rotina("030322")
     page_030322 = Processo030322Page(janela_030322.driver, janela_030322.handle_menu)
     try:
@@ -180,7 +217,7 @@ def _extrair_prestacao_030322_sessao_unica(menu_page, mapa, data=None):
                 mapa_inicial=mapa,
                 mapa_final=mapa,
                 data=data,
-                mapas="liberados",
+                mapas="todos",
                 lista_produtos=True,
             )
         )
@@ -493,6 +530,19 @@ def fechar_mapa_sessao_unica(
                     "dados_fechamento_03030702": None,
                 },
             )
+        _emitir_resultado_parcial(
+            "030302",
+            "030302",
+            mapa,
+            f"Fechamento fisico 030302 do mapa {mapa} concluido.",
+            {
+                "mapa": mapa,
+                "resultado_030303": _metadata_resultado(res_030303),
+                "resultado_030330": _metadata_resultado(res_030330),
+                "resultado_fisico": _metadata_resultado(res_fisico),
+                "integration_code": "MAPA_LIBERADO_FISICO",
+            },
+        )
 
         # Retornar o foco para o Menu Principal antes de abrir a proxima rotina
         try:
@@ -547,6 +597,21 @@ def fechar_mapa_sessao_unica(
                     "dados_fechamento_03030702": dados_fechamento_03030702,
                 },
             )
+        _emitir_resultado_parcial(
+            "03030702",
+            "03030702",
+            mapa,
+            f"Fechamento financeiro 03030702 do mapa {mapa} concluido.",
+            {
+                "mapa": mapa,
+                "resultado_030303": _metadata_resultado(res_030303),
+                "resultado_030330": _metadata_resultado(res_030330),
+                "resultado_fisico": _metadata_resultado(res_fisico),
+                "resultado_financeiro": _metadata_resultado(res_financeiro),
+                "dados_fechamento_03030702": dados_fechamento_03030702,
+                "integration_code": "MAPA_LIBERADO_FINANCEIRO",
+            },
+        )
 
         try:
             driver.switch_to.window(janela_03030702.handle_menu)
@@ -555,6 +620,18 @@ def fechar_mapa_sessao_unica(
 
         time.sleep(1.0)
         dados_030322 = _extrair_prestacao_030322_sessao_unica(menu_page, mapa, data=data)
+        if isinstance(dados_030322, dict) and not dados_030322.get("erro"):
+            _emitir_resultado_parcial(
+                "030322",
+                "030322",
+                mapa,
+                f"Prestacao 030322 do mapa {mapa} extraida.",
+                {
+                    "mapa": mapa,
+                    "dados_030322": dados_030322,
+                    "integration_code": "PRESTACAO_030322_EXTRAIDA",
+                },
+            )
 
         logger.info("=========================================================================")
         logger.info("FECHAMENTO COMPLETO CONCLUIDO COM SUCESSO | Mapa: %s", mapa)
