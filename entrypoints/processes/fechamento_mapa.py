@@ -855,6 +855,19 @@ def main(
                 manter_aberto_ao_falhar=manter_aberto_ao_falhar,
             )
         )
+        if resultado.ok:
+            _emitir_resultado_parcial(
+                "030302",
+                "030302",
+                mapa,
+                f"Fechamento fisico 030302 do mapa {mapa} concluido.",
+                {
+                    "mapa": mapa,
+                    "resultado_030303": _metadata_resultado(resultado_030303),
+                    "resultado_fisico": _metadata_resultado(resultado),
+                    "integration_code": "MAPA_LIBERADO_FISICO",
+                },
+            )
         return _anexar_metadata_resultado(
             resultado,
             mapa=mapa,
