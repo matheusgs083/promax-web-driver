@@ -110,6 +110,54 @@ class Processo030322Page(RotinaPage):
             description="formulario da 030322 carregado",
         )
 
+    def _garantir_tela_parametros(self, timeout: int = 15):
+        self._entrar_formulario(timeout=timeout)
+        tem_campos = self.driver.execute_script(
+            """
+            return !!(
+                document.getElementsByName('mapaInicial')[0]
+                && document.getElementsByName('mapaFinal')[0]
+                && document.getElementsByName('data')[0]
+            );
+            """
+        )
+        if tem_campos:
+            return
+
+        self.driver.execute_script(
+            """
+            if (typeof VoltarRelatorio === 'function') {
+                VoltarRelatorio();
+                return true;
+            }
+            var botao = document.getElementsByName('selimp')[0];
+            if (botao) {
+                botao.click();
+                return true;
+            }
+            if (document.form1) {
+                document.form1.opcao.value = '00';
+                document.form1.submit();
+                return true;
+            }
+            return false;
+            """
+        )
+        self.entrar_frame_rotina_blindado(self.FRAME_ROTINA, timeout=timeout)
+        self.wait_for_js_condition(
+            """
+            return !!(
+                document.forms
+                && document.forms['form1']
+                && document.getElementsByName('mapaInicial')[0]
+                && document.getElementsByName('mapaFinal')[0]
+                && document.getElementsByName('data')[0]
+            );
+            """,
+            timeout=timeout,
+            description="parametros da 030322 carregados",
+        )
+
     def _marcar_checkbox(self, nome: str, marcado: bool):
         self.driver.execute_script(
             """
@@ -164,7 +212,7 @@ class Processo030322Page(RotinaPage):
             if caixa_ini and not caixa_fim:
                 caixa_fim = caixa_ini
 
-            self._entrar_formulario()
+            self._garantir_tela_parametros()
             payload = {
                 "mapaInicial": mapa_ini,
                 "mapaFinal": mapa_fim,
@@ -176,12 +224,31 @@ class Processo030322Page(RotinaPage):
                 """
                 var valores = arguments[0];
                 var retorno = {};
+                function disparar(campo, tipo) {
+                    try {
+                        if (typeof Event === 'function') {
+                            campo.dispatchEvent(new Event(tipo, { bubbles: true }));
+                            return;
+                        }
+                    } catch(e) {}
+                    try {
+                        var evento = document.createEvent('HTMLEvents');
+                        evento.initEvent(tipo, true, false);
+                        campo.dispatchEvent(evento);
+                    } catch(e) {}
+                }
+                function buscarCampo(nome) {
+                    return document.getElementsByName(nome)[0] || document.getElementById(nome);
+                }
                 Object.keys(valores).forEach(function(nome) {
-                    var campo = document.getElementsByName(nome)[0];
-                    retorno[nome] = !!campo;
+                    var campo = buscarCampo(nome);
+                    retorno[nome] = { existe: !!campo, valor: '' };
                     if (campo) {
                         campo.value = valores[nome] || '';
-                        try { campo.dispatchEvent(new Event('change')); } catch(e) {}
+                        disparar(campo, 'input');
+                        disparar(campo, 'change');
+                        try { campo.blur(); } catch(e) {}
+                        retorno[nome].valor = campo.value || '';
                     }
                 });
                 return retorno;
@@ -189,12 +256,27 @@ class Processo030322Page(RotinaPage):
                 payload,
             )
 
-            faltantes = [nome for nome, existe in (preenchimento or {}).items() if not existe]
+            faltantes = [
+                nome
+                for nome, info in (preenchimento or {}).items()
+                if not (isinstance(info, dict) and info.get("existe"))
+            ]
             if faltantes:
                 return ExecutionResult(
                     status=ExecutionStatus.TECHNICAL_FAILURE,
                     message=f"Campos nao encontrados na 030322: {', '.join(faltantes)}",
                     metadata={"campos_faltantes": faltantes},
+                )
+            divergentes = {
+                nome: {"esperado": esperado, "atual": (preenchimento.get(nome) or {}).get("valor", "")}
+                for nome, esperado in payload.items()
+                if esperado and (preenchimento.get(nome) or {}).get("valor", "") != esperado
+            }
+            if divergentes:
+                return ExecutionResult(
+                    status=ExecutionStatus.TECHNICAL_FAILURE,
+                    message="Campos da 030322 nao mantiveram os valores preenchidos.",
+                    metadata={"campos_divergentes": divergentes, "preenchimento": preenchimento},
                 )
 
             self._marcar_radio_mapas(status_mapas)

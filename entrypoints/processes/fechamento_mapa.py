@@ -303,9 +303,9 @@ def _parse_args():
     )
     parser.add_argument(
         "--modo",
-        choices=["completo", "fisico", "financeiro"],
+        choices=["completo", "fisico", "financeiro", "prestacao", "030322"],
         default="completo",
-        help="Modo de execucao: completo (030303 + 030302 + 03030702), fisico (apenas 030303 + 030302) ou financeiro (apenas 03030702).",
+        help="Modo de execucao: completo (030303 + 030302 + 03030702 + 030322), fisico, financeiro ou prestacao (apenas 030322).",
     )
     parser.add_argument(
         "--nao-salvar",
@@ -712,6 +712,29 @@ def main(
 
     ponto_apoio = _normalizar_ponto_apoio(ponto_apoio)
     modo = str(modo or "completo").strip().lower()
+    if modo in {"prestacao", "030322"}:
+        dados_030322 = _extrair_prestacao_030322_sessao_separada(
+            mapa,
+            data=data,
+            unidade=unidade,
+            manter_aberto_ao_falhar=manter_aberto_ao_falhar,
+        )
+        if isinstance(dados_030322, dict) and dados_030322.get("erro"):
+            return ExecutionResult(
+                status=ExecutionStatus.TECHNICAL_FAILURE,
+                message=f"Falha ao extrair prestacao 030322 do mapa {mapa}: {dados_030322.get('erro')}",
+                metadata={"mapa": mapa, "modo": modo, "dados_030322": dados_030322},
+            )
+        return ExecutionResult(
+            status=ExecutionStatus.SUCCESS,
+            message=f"Prestacao 030322 do mapa {mapa} extraida com sucesso.",
+            metadata={
+                "mapa": mapa,
+                "modo": modo,
+                "integration_code": "PRESTACAO_030322_EXTRAIDA",
+                "dados_030322": dados_030322,
+            },
+        )
     if modo == "fisico":
         resultado_030303 = normalize_execution_result(
             main_030303(
@@ -790,7 +813,7 @@ def main(
     if modo != "completo":
         return ExecutionResult(
             status=ExecutionStatus.BUSINESS_FAILURE,
-            message="Modo de fechamento invalido. Use completo, fisico ou financeiro.",
+            message="Modo de fechamento invalido. Use completo, fisico, financeiro ou prestacao.",
             metadata={"mapa": mapa, "modo": modo},
         )
 

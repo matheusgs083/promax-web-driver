@@ -63,7 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
             command_parser.add_argument("--unidade", default=None)
             command_parser.add_argument(
                 "--modo",
-                choices=("completo", "fisico", "financeiro"),
+                choices=("completo", "fisico", "financeiro", "prestacao", "030322"),
                 default="completo",
             )
             command_parser.add_argument("--nao-salvar", action="store_true")
