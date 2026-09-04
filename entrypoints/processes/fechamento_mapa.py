@@ -170,7 +170,7 @@ def _executar_030330_sessao_unica(menu_page, mapa, dt_emissao=None, tp_mapa="COM
     return resultado_final, novo_menu
 
 
-def _extrair_prestacao_030322_sessao_unica(menu_page, mapa):
+def _extrair_prestacao_030322_sessao_unica(menu_page, mapa, data=None):
     logger.info("--- PASSO 3: EXTRAINDO PRESTACAO DE CONTAS (030322) ---")
     janela_030322 = menu_page.acessar_rotina("030322")
     page_030322 = Processo030322Page(janela_030322.driver, janela_030322.handle_menu)
@@ -179,6 +179,7 @@ def _extrair_prestacao_030322_sessao_unica(menu_page, mapa):
             page_030322.visualizar(
                 mapa_inicial=mapa,
                 mapa_final=mapa,
+                data=data,
                 mapas="liberados",
                 lista_produtos=True,
             )
@@ -206,6 +207,25 @@ def _extrair_prestacao_030322_sessao_unica(menu_page, mapa):
             page_030322.fechar_e_voltar()
         except Exception as exc:
             logger.warning("030322 | Falha ao fechar rotina: %s", exc)
+
+
+def _extrair_prestacao_030322_sessao_separada(mapa, data=None, unidade=None, manter_aberto_ao_falhar=True):
+    unidade = (unidade or settings.unidade_pedidos).strip().upper()
+    driver = None
+    dados = None
+    try:
+        logger.info("--- EXECUTANDO EM SESSAO SEPARADA: PRESTACAO DE CONTAS 030322 ---")
+        driver, menu_page = iniciar_sessao_padrao(logger, settings, unidade)
+        dados = _extrair_prestacao_030322_sessao_unica(menu_page, mapa, data=data)
+        return dados
+    except Exception as exc:
+        logger.warning("030322 | Falha ao extrair prestacao em sessao separada do mapa %s: %s", mapa, exc)
+        return {"rotina": "030322", "mapa": str(mapa).strip(), "erro": str(exc)}
+    finally:
+        if manter_aberto_ao_falhar and isinstance(dados, dict) and dados.get("erro"):
+            logger.warning("030322 | navegador mantido aberto para inspecao da falha.")
+        else:
+            encerrar_driver(driver)
 
 
 def _escolher_dados_030303(dados_carga, dados_salvar):
@@ -277,6 +297,11 @@ def _parse_args():
         help="Unidade Promax para login. Padrao: PROMAX_PEDIDOS_UNIT.",
     )
     parser.add_argument(
+        "--data",
+        default=None,
+        help="Data usada na rotina 030322. Aceita YYYY-MM-DD, DD/MM/AAAA ou DDMMAAAA.",
+    )
+    parser.add_argument(
         "--modo",
         choices=["completo", "fisico", "financeiro"],
         default="completo",
@@ -306,6 +331,7 @@ def fechar_mapa_sessao_unica(
     km_atual=None,
     km_inicial=None,
     km_prev=None,
+    data=None,
     unidade=None,
     salvar=True,
     manter_aberto_ao_falhar=True,
@@ -528,7 +554,7 @@ def fechar_mapa_sessao_unica(
             pass
 
         time.sleep(1.0)
-        dados_030322 = _extrair_prestacao_030322_sessao_unica(menu_page, mapa)
+        dados_030322 = _extrair_prestacao_030322_sessao_unica(menu_page, mapa, data=data)
 
         logger.info("=========================================================================")
         logger.info("FECHAMENTO COMPLETO CONCLUIDO COM SUCESSO | Mapa: %s", mapa)
@@ -574,6 +600,7 @@ def fechar_mapa_sessoes_separadas(
     km_atual=None,
     km_inicial=None,
     km_prev=None,
+    data=None,
     unidade=None,
     salvar=True,
     manter_aberto_ao_falhar=True,
@@ -637,12 +664,21 @@ def fechar_mapa_sessoes_separadas(
             manter_aberto_ao_falhar=manter_aberto_ao_falhar,
         )
     )
+    dados_030322 = None
+    if res_financeiro.ok:
+        dados_030322 = _extrair_prestacao_030322_sessao_separada(
+            mapa,
+            data=data,
+            unidade=unidade,
+            manter_aberto_ao_falhar=manter_aberto_ao_falhar,
+        )
 
     return _anexar_metadata_resultado(
         res_financeiro,
         mapa=mapa,
         resultado_030303=_metadata_resultado(res_030303),
         resultado_fisico=_metadata_resultado(res_fisico),
+        dados_030322=dados_030322,
     )
 
 
@@ -652,6 +688,7 @@ def main(
     km_atual=None,
     km_inicial=None,
     km_prev=None,
+    data=None,
     unidade=None,
     modo="completo",
     salvar=True,
@@ -666,6 +703,7 @@ def main(
         km_atual = args.km_atual
         km_inicial = args.km_inicial
         km_prev = args.km_prev
+        data = args.data
         unidade = args.unidade
         modo = args.modo
         salvar = not args.nao_salvar
@@ -734,10 +772,19 @@ def main(
                 manter_aberto_ao_falhar=manter_aberto_ao_falhar,
             )
         )
+        dados_030322 = None
+        if resultado.ok:
+            dados_030322 = _extrair_prestacao_030322_sessao_separada(
+                mapa,
+                data=data,
+                unidade=unidade,
+                manter_aberto_ao_falhar=manter_aberto_ao_falhar,
+            )
         return _anexar_metadata_resultado(
             resultado,
             mapa=mapa,
             resultado_030303=_metadata_resultado(resultado_030303),
+            dados_030322=dados_030322,
             integration_code="MAPA_LIBERADO_FINANCEIRO",
         )
     if modo != "completo":
@@ -754,6 +801,7 @@ def main(
             km_atual=km_atual,
             km_inicial=km_inicial,
             km_prev=km_prev,
+            data=data,
             unidade=unidade,
             salvar=salvar,
             manter_aberto_ao_falhar=manter_aberto_ao_falhar,
@@ -765,6 +813,7 @@ def main(
             km_atual=km_atual,
             km_inicial=km_inicial,
             km_prev=km_prev,
+            data=data,
             unidade=unidade,
             salvar=salvar,
             manter_aberto_ao_falhar=manter_aberto_ao_falhar,

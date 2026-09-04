@@ -59,6 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
             command_parser.add_argument("--km-atual", default=None)
             command_parser.add_argument("--km-inicial", default=None)
             command_parser.add_argument("--km-prev", default=None)
+            command_parser.add_argument("--data", default=None)
             command_parser.add_argument("--unidade", default=None)
             command_parser.add_argument(
                 "--modo",
@@ -181,6 +182,7 @@ def main_cli() -> int:
             "km_atual": args.km_atual,
             "km_inicial": args.km_inicial,
             "km_prev": args.km_prev,
+            "data": args.data,
             "unidade": args.unidade,
             "modo": args.modo,
             "salvar": not args.nao_salvar,
