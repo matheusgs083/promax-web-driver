@@ -4,6 +4,8 @@ import datetime as dt
 import re
 import time
 
+from selenium.webdriver.common.by import By
+
 from core.execution.execution_result import ExecutionResult, ExecutionStatus
 from pages.common.rotina_page import RotinaPage
 
@@ -159,39 +161,37 @@ class Processo030322Page(RotinaPage):
         )
 
     def _marcar_checkbox(self, nome: str, marcado: bool):
-        self.driver.execute_script(
-            """
-            var campo = document.getElementsByName(arguments[0])[0] || document.getElementById(arguments[0]);
-            if (!campo) return false;
-            campo.checked = !!arguments[1];
-            if (campo.name === 'idMapasAtualizados' && typeof ControleMapas === 'function') {
-                ControleMapas();
-            }
-            return true;
-            """,
-            nome,
-            bool(marcado),
-        )
+        self.js_set_checkbox_by_name(nome, bool(marcado), force_click=True)
+        if nome == "idMapasAtualizados":
+            self.driver.execute_script("if (typeof ControleMapas === 'function') ControleMapas();")
 
     def _marcar_radio_mapas(self, status: str):
+        return self.js_set_radio_by_name("mapas", status)
+
+    def _ler_parametros_formulario(self) -> dict[str, str]:
         return self.driver.execute_script(
             """
-            var radios = document.getElementsByName('mapas');
-            for (var i = 0; i < radios.length; i++) {
-                radios[i].checked = radios[i].value === arguments[0];
+            function valor(nome) {
+                var campo = document.getElementsByName(nome)[0] || document.getElementById(nome);
+                return campo ? String(campo.value || '') : null;
             }
-            return true;
-            """,
-            status,
-        )
+            return {
+                mapaInicial: valor('mapaInicial'),
+                mapaFinal: valor('mapaFinal'),
+                nrCaixaInicial: valor('nrCaixaInicial'),
+                nrCaixaFinal: valor('nrCaixaFinal'),
+                data: valor('data')
+            };
+            """
+        ) or {}
 
     def preencher_parametros(
         self,
         *,
         mapa_inicial=None,
         mapa_final=None,
-        caixa_inicial=None,
-        caixa_final=None,
+        caixa_inicial="0",
+        caixa_final="999999",
         data=None,
         mapas: str = "todos",
         lista_descartavel: bool = False,
@@ -220,47 +220,12 @@ class Processo030322Page(RotinaPage):
                 "nrCaixaFinal": caixa_fim,
                 "data": data_fmt,
             }
-            preenchimento = self.driver.execute_script(
-                """
-                var valores = arguments[0];
-                var retorno = {};
-                function disparar(campo, tipo) {
-                    try {
-                        if (typeof Event === 'function') {
-                            campo.dispatchEvent(new Event(tipo, { bubbles: true }));
-                            return;
-                        }
-                    } catch(e) {}
-                    try {
-                        var evento = document.createEvent('HTMLEvents');
-                        evento.initEvent(tipo, true, false);
-                        campo.dispatchEvent(evento);
-                    } catch(e) {}
-                }
-                function buscarCampo(nome) {
-                    return document.getElementsByName(nome)[0] || document.getElementById(nome);
-                }
-                Object.keys(valores).forEach(function(nome) {
-                    var campo = buscarCampo(nome);
-                    retorno[nome] = { existe: !!campo, valor: '' };
-                    if (campo) {
-                        campo.value = valores[nome] || '';
-                        disparar(campo, 'input');
-                        disparar(campo, 'change');
-                        try { campo.blur(); } catch(e) {}
-                        retorno[nome].valor = campo.value || '';
-                    }
-                });
-                return retorno;
-                """,
-                payload,
-            )
+            for nome, valor in payload.items():
+                if valor:
+                    self.js_set_input_by_name(nome, valor)
 
-            faltantes = [
-                nome
-                for nome, info in (preenchimento or {}).items()
-                if not (isinstance(info, dict) and info.get("existe"))
-            ]
+            preenchimento = self._ler_parametros_formulario()
+            faltantes = [nome for nome, valor in preenchimento.items() if valor is None]
             if faltantes:
                 return ExecutionResult(
                     status=ExecutionStatus.TECHNICAL_FAILURE,
@@ -268,9 +233,9 @@ class Processo030322Page(RotinaPage):
                     metadata={"campos_faltantes": faltantes},
                 )
             divergentes = {
-                nome: {"esperado": esperado, "atual": (preenchimento.get(nome) or {}).get("valor", "")}
+                nome: {"esperado": esperado, "atual": preenchimento.get(nome, "")}
                 for nome, esperado in payload.items()
-                if esperado and (preenchimento.get(nome) or {}).get("valor", "") != esperado
+                if esperado and preenchimento.get(nome, "") != esperado
             }
             if divergentes:
                 return ExecutionResult(
@@ -298,6 +263,7 @@ class Processo030322Page(RotinaPage):
                         "somente_resumo": bool(somente_resumo),
                         "mapas_atualizados": bool(mapas_atualizados),
                     },
+                    "preenchimento": preenchimento,
                     "alertas": alertas,
                 },
             )
@@ -314,20 +280,9 @@ class Processo030322Page(RotinaPage):
 
         try:
             self._entrar_formulario()
-            retorno = self.driver.execute_script(
-                """
-                if (typeof Visualizar === 'function') {
-                    Visualizar();
-                    return {acionado: 'Visualizar'};
-                }
-                if (document.form1) {
-                    document.form1.opcao.value = 1;
-                    document.form1.submit();
-                    return {acionado: 'submit_opcao_1'};
-                }
-                return {erro: 'form1 nao encontrado'};
-                """
-            )
+            botao = self.find_element((By.NAME, "BotVisualizar"))
+            self.js_click_ie(botao)
+            retorno = {"acionado": "BotVisualizar"}
             alertas = self.lidar_com_alertas(tentativas=2, timeout=2, max_alertas=5)
             return ExecutionResult(
                 status=ExecutionStatus.SUCCESS,
