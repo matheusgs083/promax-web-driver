@@ -332,7 +332,7 @@ def main(
             quebra2_final="2",
             itens="s",
             lista_nota_compra=True,
-            data_inicial=report_start_text or primeiro_dia_mes_atual,
+            data_inicial=report_start_text or "28/08/2026",
             data_final=report_end_text or data_hoje_formatada,
             nome_arquivo=f"{mes_atual}-{ano_atual} nomeUnidade030237",
         )
