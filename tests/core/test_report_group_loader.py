@@ -21,6 +21,7 @@ EXPECTED_GROUPS = {
     "fluxo_caixa",
     "giro",
     "inadimplencia",
+    "nfs_incentivo",
     "obz",
     "outros",
     "relatorios",

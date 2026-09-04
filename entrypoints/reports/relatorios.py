@@ -1,4 +1,4 @@
-﻿import os
+import os
 import dotenv
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -315,6 +315,30 @@ def main(
         page.fechar_e_voltar()
         return resultado
 
+    def tarefa_030237_entrada(unidades_alvo=None):
+        janela = menu_page.acessar_rotina("030237")
+        page = Relatorio030237Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "030237 Entrada"
+        page.tracker_name = "Rotina 030237 Entrada"
+        resultado = page.gerar_relatorio(
+            unidade=unidades_alvo,
+            quebra1="14",
+            quebra2="12",
+            quebra3="39",
+            tipo_nota="NE",
+            quebra1_inicial="251",
+            quebra1_final="314",
+            quebra2_inicial="1",
+            quebra2_final="2",
+            itens="s",
+            lista_nota_compra=True,
+            data_inicial=report_start_text or primeiro_dia_mes_atual,
+            data_final=report_end_text or data_hoje_formatada,
+            nome_arquivo=f"{mes_atual}-{ano_atual} nomeUnidade030237",
+        )
+        page.fechar_e_voltar()
+        return resultado
+
     def tarefa_020220_Auditool(unidades_alvo=None):
         janela = menu_page.acessar_rotina("020220")
         page = Relatorio020220Page(janela.driver, janela.handle_menu)
@@ -601,6 +625,7 @@ def main(
         "030237_GIRO": tarefa_030237_Giro,
         "020220_GIRO": tarefa_020220_Giro,
         "030237_ESTOQUE": tarefa_030237_estoque,
+        "030237_ENTRADA": tarefa_030237_entrada,
         "020502": tarefa_020502,
         "140506": tarefa_140506,
         "120606": tarefa_120606,
@@ -672,6 +697,7 @@ def main(
             os.path.join(str(pasta_intermediaria), "150501", f"{ano_atual}-{mes_atual} Barra.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\OBZ\Fato\15.05.01\{ano_atual}\7. BARRA",
             os.path.join(str(pasta_intermediaria), "150501", f"{ano_atual}-{mes_atual} Caculé.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\OBZ\Fato\15.05.01\{ano_atual}\8. CACULÉ",
             os.path.join(str(pasta_intermediaria), "030237"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\ADF",
+            os.path.join(str(pasta_intermediaria), "030237 Entrada"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\GERÊNCIA\Relatorios\030237 - Incentivo",
             os.path.join(str(pasta_intermediaria), "020220 Auditool"):fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\GERÊNCIA\Relatorios\02.02.20 - auditool",
             os.path.join(str(pasta_intermediaria), "020220 Recolhas"):fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\GERÊNCIA\Relatorios\02.02.20 - recolhas",
             os.path.join(str(pasta_intermediaria), "030237 Giro", f"{mes_atual}-{ano_atual} Sousa.csv"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Giro\Fato\03.02.37\Total\{ano_atual}\01. Sousa",

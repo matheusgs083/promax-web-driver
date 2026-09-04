@@ -174,6 +174,15 @@ def test_bot_zap_geo_routines_use_single_download_without_unit_loop(monkeypatch,
             relatorios.primeiro_dia_mes_passado,
             relatorios.data_hoje_formatada,
         ),
+        (
+            "nfs_incentivo",
+            "030237_ENTRADA",
+            "Relatorio030237Page",
+            "data_inicial",
+            "data_final",
+            relatorios.primeiro_dia_mes_atual,
+            relatorios.data_hoje_formatada,
+        ),
     ],
 )
 def test_missing_job_period_preserves_each_routine_configured_dates(

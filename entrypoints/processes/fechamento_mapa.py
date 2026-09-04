@@ -10,6 +10,7 @@ from core.observability.logger import get_logger
 from pages.processes.processo_030303_page import Processo030303Page
 from pages.processes.processo_030302_page import Processo030302Page
 from pages.processes.processo_030330_page import Processo030330Page
+from pages.processes.processo_030322_page import Processo030322Page
 from pages.processes.processo_03030702_page import Processo03030702Page
 from entrypoints.processes.mapa_030303 import main as main_030303
 from entrypoints.processes.mapa_030302 import main as main_030302
@@ -169,6 +170,44 @@ def _executar_030330_sessao_unica(menu_page, mapa, dt_emissao=None, tp_mapa="COM
     return resultado_final, novo_menu
 
 
+def _extrair_prestacao_030322_sessao_unica(menu_page, mapa):
+    logger.info("--- PASSO 3: EXTRAINDO PRESTACAO DE CONTAS (030322) ---")
+    janela_030322 = menu_page.acessar_rotina("030322")
+    page_030322 = Processo030322Page(janela_030322.driver, janela_030322.handle_menu)
+    try:
+        resultado = normalize_execution_result(
+            page_030322.visualizar(
+                mapa_inicial=mapa,
+                mapa_final=mapa,
+                mapas="liberados",
+                lista_produtos=True,
+            )
+        )
+        if not resultado.ok:
+            return {
+                "rotina": "030322",
+                "mapa": str(mapa).strip(),
+                "erro": resultado.message,
+                "resultado_030322": _metadata_resultado(resultado),
+            }
+        dados = page_030322.extrair_relatorio_json(timeout_segundos=12)
+        logger.info(
+            "030322 | Prestacao extraida: mapa=%s | notas=%s | vasilhames=%s",
+            mapa,
+            (dados.get("resumo") or {}).get("notas"),
+            (dados.get("resumo") or {}).get("vasilhames"),
+        )
+        return dados
+    except Exception as exc:
+        logger.warning("030322 | Falha ao extrair prestacao do mapa %s: %s", mapa, exc)
+        return {"rotina": "030322", "mapa": str(mapa).strip(), "erro": str(exc)}
+    finally:
+        try:
+            page_030322.fechar_e_voltar()
+        except Exception as exc:
+            logger.warning("030322 | Falha ao fechar rotina: %s", exc)
+
+
 def _escolher_dados_030303(dados_carga, dados_salvar):
     validar = getattr(Processo030303Page, "_dados_equipe_validos", None)
     if callable(validar):
@@ -283,6 +322,7 @@ def fechar_mapa_sessao_unica(
     res_fisico = None
     res_financeiro = None
     dados_fechamento_03030702 = None
+    dados_030322 = None
 
     try:
         logger.info("=========================================================================")
@@ -482,6 +522,14 @@ def fechar_mapa_sessao_unica(
                 },
             )
 
+        try:
+            driver.switch_to.window(janela_03030702.handle_menu)
+        except Exception:
+            pass
+
+        time.sleep(1.0)
+        dados_030322 = _extrair_prestacao_030322_sessao_unica(menu_page, mapa)
+
         logger.info("=========================================================================")
         logger.info("FECHAMENTO COMPLETO CONCLUIDO COM SUCESSO | Mapa: %s", mapa)
         logger.info("=========================================================================")
@@ -496,6 +544,7 @@ def fechar_mapa_sessao_unica(
                 "resultado_fisico": res_fisico,
                 "resultado_financeiro": res_financeiro,
                 "dados_fechamento_03030702": dados_fechamento_03030702,
+                "dados_030322": dados_030322,
                 "integration_code": "MAPA_LIBERADO_FINANCEIRO",
             },
         )
