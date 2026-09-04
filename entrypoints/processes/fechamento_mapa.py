@@ -741,6 +741,21 @@ def fechar_mapa_sessoes_separadas(
             manter_aberto_ao_falhar=manter_aberto_ao_falhar,
         )
     )
+    if res_financeiro.ok:
+        _emitir_resultado_parcial(
+            "03030702",
+            "03030702",
+            mapa,
+            f"Fechamento financeiro 03030702 do mapa {mapa} concluido.",
+            {
+                "mapa": mapa,
+                "resultado_030303": _metadata_resultado(res_030303),
+                "resultado_fisico": _metadata_resultado(res_fisico),
+                "resultado_financeiro": _metadata_resultado(res_financeiro),
+                "dados_fechamento_03030702": (res_financeiro.metadata or {}).get("dados_fechamento_03030702"),
+                "integration_code": "MAPA_LIBERADO_FINANCEIRO",
+            },
+        )
     dados_030322 = None
     if res_financeiro.ok:
         dados_030322 = _extrair_prestacao_030322_sessao_separada(
@@ -872,6 +887,20 @@ def main(
                 manter_aberto_ao_falhar=manter_aberto_ao_falhar,
             )
         )
+        if resultado.ok:
+            _emitir_resultado_parcial(
+                "03030702",
+                "03030702",
+                mapa,
+                f"Fechamento financeiro 03030702 do mapa {mapa} concluido.",
+                {
+                    "mapa": mapa,
+                    "resultado_030303": _metadata_resultado(resultado_030303),
+                    "resultado_financeiro": _metadata_resultado(resultado),
+                    "dados_fechamento_03030702": (resultado.metadata or {}).get("dados_fechamento_03030702"),
+                    "integration_code": "MAPA_LIBERADO_FINANCEIRO",
+                },
+            )
         dados_030322 = None
         if resultado.ok:
             dados_030322 = _extrair_prestacao_030322_sessao_separada(

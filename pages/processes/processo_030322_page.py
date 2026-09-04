@@ -186,6 +186,55 @@ class Processo030322Page(RotinaPage):
             """
         ) or {}
 
+    def _preencher_data(self, valor: str) -> dict:
+        return self.driver.execute_script(
+            """
+            var valor = String(arguments[0] || '');
+            var form = document.forms && document.forms['form1'];
+            var campo = (form && form.elements && form.elements['data'])
+                || document.getElementsByName('data')[0]
+                || document.getElementById('data');
+            if (!campo) {
+                return {ok: false, error: 'campo data nao encontrado'};
+            }
+            try { campo.disabled = false; campo.readOnly = false; } catch (e) {}
+            try { campo.scrollIntoView(true); } catch (e) {}
+            try { campo.focus(); } catch (e) {}
+            campo.value = valor;
+            try { campo.setAttribute('value', valor); } catch (e) {}
+            try {
+                if (typeof FormataCampo === 'function') {
+                    FormataCampo(campo, '99/99/9999');
+                }
+            } catch (e) {}
+            try {
+                if (document.createEvent) {
+                    var inputEvent = document.createEvent('HTMLEvents');
+                    inputEvent.initEvent('input', true, true);
+                    campo.dispatchEvent(inputEvent);
+                    var changeEvent = document.createEvent('HTMLEvents');
+                    changeEvent.initEvent('change', true, true);
+                    campo.dispatchEvent(changeEvent);
+                    var blurEvent = document.createEvent('HTMLEvents');
+                    blurEvent.initEvent('blur', true, true);
+                    campo.dispatchEvent(blurEvent);
+                } else if (campo.fireEvent) {
+                    campo.fireEvent('onpropertychange');
+                    campo.fireEvent('onchange');
+                    campo.fireEvent('onblur');
+                }
+            } catch (e) {}
+            try { campo.blur(); } catch (e) {}
+            return {
+                ok: true,
+                value: String(campo.value || ''),
+                defaultValue: String(campo.defaultValue || ''),
+                name: String(campo.name || '')
+            };
+            """,
+            valor,
+        ) or {}
+
     @staticmethod
     def _normalizar_texto_alerta(texto) -> str:
         texto = str(texto or "").lower()
@@ -238,7 +287,12 @@ class Processo030322Page(RotinaPage):
             }
             for nome, valor in payload.items():
                 if valor:
-                    self.js_set_input_by_name(nome, valor)
+                    if nome == "data":
+                        resultado_data = self._preencher_data(valor)
+                        if not resultado_data.get("ok"):
+                            raise RuntimeError(resultado_data.get("error") or "falha ao preencher data")
+                    else:
+                        self.js_set_input_by_name(nome, valor)
 
             preenchimento = self._ler_parametros_formulario()
             faltantes = [nome for nome, valor in preenchimento.items() if valor is None]
