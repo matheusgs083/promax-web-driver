@@ -2282,16 +2282,27 @@ class Processo03030702Page(RotinaPage):
                 time.sleep(0.25)
 
             if alerta_texto:
-                texto_lower = alerta_texto.lower()
+                texto_lower = self._normalizar_descricao_conta(alerta_texto).lower()
+                termos_negativos = (
+                    "nao foi liberad",
+                    "nao liberad",
+                    "nao foi fechad",
+                    "nao fechad",
+                    "falha",
+                    "erro",
+                    "bloquead",
+                    "nao pode",
+                    "nao foi possivel",
+                )
 
                 if (
-                    "liberad" in texto_lower
-                    or "sucesso" in texto_lower
-                    or "fechado" in texto_lower
-                    or "prestacao de contas sera executado" in texto_lower
-                    or "prestacao de contas sera executada" in texto_lower
-                    or "prestação de contas será executado" in texto_lower
-                    or "prestação de contas será executada" in texto_lower
+                    not any(termo in texto_lower for termo in termos_negativos)
+                    and (
+                        "liberad" in texto_lower
+                        or "sucesso" in texto_lower
+                        or "fechado" in texto_lower
+                        or "prestacao de contas sera executad" in texto_lower
+                    )
                 ):
                     self.logger.info(
                         f"03030702 | Sucesso confirmado pelo Promax: {alerta_texto}"

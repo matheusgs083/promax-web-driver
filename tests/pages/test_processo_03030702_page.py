@@ -178,6 +178,24 @@ def test_salvar_mapa_trata_prestacao_de_contas_com_acento_como_sucesso():
     assert result.status == ExecutionStatus.SUCCESS
 
 
+def test_salvar_mapa_nao_aceita_mensagem_negativa_com_palavra_liberado():
+    page = _fake_page_03030702()
+
+    class DriverFake:
+        def execute_script(self, _script):
+            return True
+
+    page.driver = DriverFake()
+    page._garantir_frame_rotina = lambda *args, **kwargs: None
+    page._instalar_interceptador_alertas_salvar = lambda *args, **kwargs: None
+    page.obter_resumo_diferencas = lambda: {"produtos": "0", "vasilhames": "0", "contas": "0", "total": "0"}
+    page._lidar_com_alerta_ie = lambda: "Mapa nao foi liberado para o financeiro"
+
+    result = page.salvar_mapa()
+
+    assert result.status == ExecutionStatus.BUSINESS_FAILURE
+
+
 def test_salvar_mapa_bloqueia_quando_diferenca_continua_apos_reequilibrio():
     page = _fake_page_03030702()
     chamadas_salvar = []

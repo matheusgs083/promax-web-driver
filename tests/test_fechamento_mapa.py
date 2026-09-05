@@ -1,7 +1,55 @@
 from types import SimpleNamespace
 
+import pytest
+
 from core.execution.execution_result import ExecutionResult, ExecutionStatus
 from entrypoints.processes import fechamento_mapa
+
+
+@pytest.fixture(autouse=True)
+def _isolar_prestacao_030322(monkeypatch):
+    monkeypatch.setattr(
+        fechamento_mapa,
+        "_extrair_prestacao_030322_sessao_unica",
+        lambda *_args, **_kwargs: {
+            "rotina": "030322",
+            "notas": [],
+            "vasilhames": [],
+            "produtos": [],
+            "resumo": {},
+        },
+    )
+    monkeypatch.setattr(
+        fechamento_mapa,
+        "_extrair_prestacao_030322_sessao_separada",
+        lambda *_args, **_kwargs: {
+            "rotina": "030322",
+            "notas": [],
+            "vasilhames": [],
+            "produtos": [],
+            "resumo": {},
+        },
+    )
+
+
+def test_03030702_preserva_dados_anteriores_quando_tela_muda_apos_salvar():
+    dados_antes = {
+        "rotina": "03030702",
+        "etapa": "antes_salvar_financeiro",
+        "saida": {"itens": [{"descricao": "DINHEIRO", "valor": "10,00"}]},
+    }
+    dados_depois = {
+        "rotina": "03030702",
+        "etapa": "apos_salvar_financeiro",
+        "erro": "tela encerrada",
+    }
+
+    escolhido = fechamento_mapa._escolher_dados_fechamento_03030702(
+        dados_antes,
+        dados_depois,
+    )
+
+    assert escolhido == dados_antes
 
 
 def test_fechamento_mapa_inclui_dados_estruturados_da_03030702(monkeypatch):
@@ -106,24 +154,11 @@ def test_fechamento_mapa_inclui_dados_estruturados_da_03030702(monkeypatch):
 def test_fechamento_mapa_modo_financeiro_executa_030303_antes_da_03030702(monkeypatch):
     chamadas = []
 
-    def fake_030303(**kwargs):
-        chamadas.append(("030303", kwargs))
-        return ExecutionResult(
-            ExecutionStatus.SUCCESS,
-            "030303 salva",
-            metadata={"dados_030303": {"motorista": {"nome": "MATHEUS"}, "placa": "ABC1D23"}},
-        )
+    def fake_financeiro(**kwargs):
+        chamadas.append(kwargs)
+        return ExecutionResult(ExecutionStatus.SUCCESS, "financeiro concluido")
 
-    def fake_03030702(**kwargs):
-        chamadas.append(("03030702", kwargs))
-        return ExecutionResult(
-            ExecutionStatus.SUCCESS,
-            "03030702 salva",
-            metadata={"dados_fechamento_03030702": {"mapa": "93741"}},
-        )
-
-    monkeypatch.setattr(fechamento_mapa, "main_030303", fake_030303)
-    monkeypatch.setattr(fechamento_mapa, "main_03030702", fake_03030702)
+    monkeypatch.setattr(fechamento_mapa, "fechar_mapa_financeiro_sessao_unica", fake_financeiro)
 
     result = fechamento_mapa.main(
         mapa="93741",
@@ -132,12 +167,10 @@ def test_fechamento_mapa_modo_financeiro_executa_030303_antes_da_03030702(monkey
         salvar=True,
     )
 
-    assert [item[0] for item in chamadas] == ["030303", "03030702"]
-    assert chamadas[0][1]["mapa"] == "93741"
-    assert chamadas[1][1]["mapa"] == "93741"
+    assert len(chamadas) == 1
+    assert chamadas[0]["mapa"] == "93741"
+    assert chamadas[0]["unidade"] == "2210003"
     assert result.status == ExecutionStatus.SUCCESS
-    assert result.metadata["resultado_030303"]["dados_030303"]["motorista"]["nome"] == "MATHEUS"
-    assert result.metadata["integration_code"] == "MAPA_LIBERADO_FINANCEIRO"
 
 
 def test_fechamento_mapa_reabre_030302_com_km_fallback(monkeypatch):
@@ -241,7 +274,7 @@ def test_fechamento_mapa_reabre_030302_com_km_fallback(monkeypatch):
     assert result.status == ExecutionStatus.SUCCESS
     assert rotinas_acessadas == ["030303", "030302", "030302", "03030702"]
     assert km_recebidos_030302 == [None, "94975"]
-    assert fechamentos_030302 == [True]
+    assert fechamentos_030302 == [True, True]
     assert result.metadata["resultado_fisico"].metadata["reabriu_030302_por_km"] is True
     assert result.metadata["resultado_fisico"].metadata["km_atual_reabertura"] == "94975"
 
@@ -365,7 +398,7 @@ def test_fechamento_mapa_executa_030330_quando_030302_pede_comodato(monkeypatch)
 
     assert result.status == ExecutionStatus.SUCCESS
     assert rotinas_acessadas == ["030303", "030302", "030330", "030302", "03030702"]
-    assert fechamentos_030302 == [True]
+    assert fechamentos_030302 == [True, True]
     assert cancelamentos_030330 == [True]
     assert fechamentos_030330 == [True]
     assert result.metadata["resultado_030330"]["status"] == "SUCESSO"
@@ -498,3 +531,63 @@ def test_fechamento_mapa_para_quando_030302_falha(monkeypatch):
     assert result.metadata["resultado_financeiro"] is None
     assert result.metadata["dados_fechamento_03030702"] is None
     assert rotinas_acessadas == ["030303", "030302"]
+
+
+def test_financeiro_continua_e_sincroniza_03030702_quando_auxiliares_falham(monkeypatch):
+    eventos = []
+
+    class FakeDriver:
+        pass
+
+    class FakeMenuPage:
+        def acessar_rotina(self, rotina):
+            assert rotina == "03030702"
+            return SimpleNamespace(driver=FakeDriver(), handle_menu="menu")
+
+    class Fake03030702Page:
+        def __init__(self, _driver, _handle_menu):
+            pass
+
+        def carregar_mapa(self, _mapa, ponto_apoio=None):
+            return ExecutionResult(ExecutionStatus.SUCCESS, "03030702 carregada")
+
+        def salvar_mapa(self):
+            return ExecutionResult(ExecutionStatus.SUCCESS, "03030702 salva")
+
+        def extrair_pagina_json(self, timeout_segundos=8):
+            return {"saida": {"itens": []}, "retorno": {"itens": []}, "resumo": {}}
+
+        def fechar_e_voltar(self):
+            return FakeMenuPage()
+
+    falha_030303 = ExecutionResult(ExecutionStatus.TECHNICAL_FAILURE, "dados da equipe indisponiveis")
+    monkeypatch.setattr(fechamento_mapa, "iniciar_sessao_padrao", lambda *_args: (FakeDriver(), FakeMenuPage()))
+    monkeypatch.setattr(fechamento_mapa, "encerrar_driver", lambda _driver: None)
+    monkeypatch.setattr(fechamento_mapa.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(fechamento_mapa, "Processo03030702Page", Fake03030702Page)
+    monkeypatch.setattr(
+        fechamento_mapa,
+        "_executar_030303_sessao_unica",
+        lambda menu, *_args, **_kwargs: (falha_030303, menu),
+    )
+    monkeypatch.setattr(
+        fechamento_mapa,
+        "_extrair_prestacao_030322_sessao_unica",
+        lambda *_args, **_kwargs: {"rotina": "030322", "erro": "relatorio indisponivel"},
+    )
+    monkeypatch.setattr(
+        fechamento_mapa,
+        "_emitir_resultado_parcial",
+        lambda scope, *_args, **_kwargs: eventos.append(scope),
+    )
+
+    result = fechamento_mapa.fechar_mapa_financeiro_sessao_unica(
+        "94041",
+        unidade="2210003",
+        manter_aberto_ao_falhar=False,
+    )
+
+    assert result.status == ExecutionStatus.PARTIAL_SUCCESS
+    assert eventos == ["03030702"]
+    assert [item["rotina"] for item in result.metadata["pendencias_auxiliares"]] == ["030303", "030322"]
+    assert result.metadata["fechamento_principal_concluido"] is True

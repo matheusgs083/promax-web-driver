@@ -48,6 +48,33 @@ def _extrair_dados_fechamento_03030702(page_03030702, etapa):
         }
 
 
+def _dados_fechamento_03030702_validos(dados):
+    if not isinstance(dados, dict) or dados.get("erro"):
+        return False
+    saida = dados.get("saida")
+    retorno = dados.get("retorno")
+    return bool(
+        (isinstance(saida, dict) and isinstance(saida.get("itens"), list))
+        or (
+            isinstance(retorno, dict)
+            and (
+                isinstance(retorno.get("itens"), list)
+                or isinstance(retorno.get("linhas"), list)
+            )
+        )
+        or isinstance(dados.get("resumo"), dict)
+        or isinstance(dados.get("diferencas"), dict)
+    )
+
+
+def _escolher_dados_fechamento_03030702(dados_antes, dados_depois):
+    if _dados_fechamento_03030702_validos(dados_depois):
+        return dados_depois
+    if _dados_fechamento_03030702_validos(dados_antes):
+        return dados_antes
+    return dados_depois or dados_antes
+
+
 def _anexar_metadata_resultado(resultado, **metadata_extra):
     if resultado is None:
         return None
@@ -147,6 +174,24 @@ def _fechar_rotina_030302_para_reabrir(page_030302, driver, janela_030302):
         except Exception:
             pass
         return None
+
+
+def _fechar_rotina_e_voltar_ao_menu(page, menu_page, rotina):
+    try:
+        return page.fechar_e_voltar()
+    except Exception as exc:
+        logger.warning("%s | Falha ao fechar a aba pelo helper: %s", rotina, exc)
+    try:
+        driver = page.driver
+        handle_menu = page.handle_menu
+        if driver.current_window_handle != handle_menu:
+            driver.close()
+        driver.switch_to.window(handle_menu)
+        driver.switch_to.default_content()
+        return menu_page
+    except Exception as exc:
+        logger.warning("%s | Falha ao fechar a aba manualmente e retornar ao menu: %s", rotina, exc)
+        return menu_page
 
 
 def _tipos_para_processar_030330(tp_mapa="COMODATO"):
@@ -265,6 +310,64 @@ def _extrair_prestacao_030322_sessao_separada(mapa, data=None, unidade=None, man
             encerrar_driver(driver)
 
 
+def _emitir_resultado_030303(mapa, resultado_030303, integration_code="MAPA_DADOS_030303"):
+    _emitir_resultado_parcial(
+        "030303",
+        "030303",
+        mapa,
+        f"Dados do mapa {mapa} carregados pela 030303.",
+        {
+            "mapa": mapa,
+            "resultado_030303": _metadata_resultado(resultado_030303),
+            "integration_code": integration_code,
+        },
+    )
+
+
+def _resultado_tem_dados_030303_validos(resultado):
+    if resultado is None:
+        return False
+    dados = (resultado.metadata or {}).get("dados_030303")
+    validar = getattr(Processo030303Page, "_dados_equipe_validos", None)
+    return bool(callable(validar) and validar(dados))
+
+
+def _pendencia_auxiliar(rotina, resultado=None, erro=None):
+    detalhe = str(erro or (resultado.message if resultado is not None else "") or "Falha sem detalhe.")
+    return {
+        "rotina": rotina,
+        "status": (
+            resultado.status.value
+            if resultado is not None and hasattr(resultado.status, "value")
+            else "FALHA_TECNICA"
+        ),
+        "mensagem": detalhe,
+    }
+
+
+def _finalizar_com_pendencias_auxiliares(resultado_base, pendencias, mensagem_sucesso, **metadata):
+    metadata_final = {
+        **(resultado_base.metadata or {}),
+        **metadata,
+        "pendencias_auxiliares": list(pendencias or []),
+        "fechamento_principal_concluido": True,
+    }
+    if pendencias:
+        rotinas = ", ".join(str(item.get("rotina") or "-") for item in pendencias)
+        return ExecutionResult(
+            status=ExecutionStatus.PARTIAL_SUCCESS,
+            message=f"Fechamento principal concluido com pendencias auxiliares: {rotinas}.",
+            retry=False,
+            metadata=metadata_final,
+        )
+    return ExecutionResult(
+        status=ExecutionStatus.SUCCESS,
+        message=mensagem_sucesso,
+        retry=False,
+        metadata=metadata_final,
+    )
+
+
 def _escolher_dados_030303(dados_carga, dados_salvar):
     validar = getattr(Processo030303Page, "_dados_equipe_validos", None)
     if callable(validar):
@@ -280,27 +383,188 @@ def _escolher_dados_030303(dados_carga, dados_salvar):
 
 def _executar_030303_sessao_unica(menu_page, mapa, salvar=True):
     logger.info("--- PASSO 0: INICIANDO ROTINA 030303 ---")
-    janela_030303 = menu_page.acessar_rotina("030303")
-    page_030303 = Processo030303Page(janela_030303.driver, janela_030303.handle_menu)
+    page_030303 = None
+    resultado = None
+    novo_menu = menu_page
+    try:
+        janela_030303 = menu_page.acessar_rotina("030303")
+        page_030303 = Processo030303Page(janela_030303.driver, janela_030303.handle_menu)
+        resultado = normalize_execution_result(page_030303.carregar_mapa(mapa))
+        metadata_carga = resultado.metadata or {}
+        if resultado.ok and salvar:
+            resultado_salvar = normalize_execution_result(page_030303.salvar_mapa())
+            dados_carga = metadata_carga.get("dados_030303")
+            dados_salvar = (resultado_salvar.metadata or {}).get("dados_030303")
+            resultado = _anexar_metadata_resultado(
+                resultado_salvar,
+                mapa=metadata_carga.get("mapa") or str(mapa).strip(),
+                dados_030303=_escolher_dados_030303(dados_carga, dados_salvar),
+            )
+    except Exception as exc:
+        logger.warning("030303 | Falha isolada durante coleta do mapa %s: %s", mapa, exc)
+        resultado = ExecutionResult(
+            status=ExecutionStatus.TECHNICAL_FAILURE,
+            message=f"Falha isolada na rotina 030303: {exc}",
+            retry=True,
+            metadata={"mapa": str(mapa).strip()},
+        )
+    finally:
+        if page_030303 is not None:
+            novo_menu = _fechar_rotina_e_voltar_ao_menu(page_030303, menu_page, "030303")
 
-    resultado = normalize_execution_result(page_030303.carregar_mapa(mapa))
-    metadata_carga = resultado.metadata or {}
-    if resultado.ok and salvar:
-        resultado = normalize_execution_result(page_030303.salvar_mapa())
-        dados_carga = metadata_carga.get("dados_030303")
-        dados_salvar = (resultado.metadata or {}).get("dados_030303")
-        resultado = _anexar_metadata_resultado(
-            resultado,
-            mapa=metadata_carga.get("mapa") or str(mapa).strip(),
-            dados_030303=_escolher_dados_030303(dados_carga, dados_salvar),
+    logger.info("030303 | Resultado do processo: ok=%s, msg=%s", resultado.ok, resultado.message)
+    return resultado, novo_menu
+
+
+def fechar_mapa_financeiro_sessao_unica(
+    mapa,
+    ponto_apoio=None,
+    data=None,
+    unidade=None,
+    salvar=True,
+    manter_aberto_ao_falhar=True,
+):
+    unidade = (unidade or settings.unidade_pedidos).strip().upper()
+    driver = None
+    res_030303 = None
+    res_financeiro = None
+    dados_fechamento_03030702 = None
+    dados_030322 = None
+    pendencias_auxiliares = []
+
+    try:
+        logger.info("=========================================================================")
+        logger.info("FECHAMENTO FINANCEIRO DE MAPA | INICIO | Mapa: %s | Unidade: %s", mapa, unidade)
+        logger.info("=========================================================================")
+
+        driver, menu_page = iniciar_sessao_padrao(logger, settings, unidade)
+
+        res_030303, menu_page = _executar_030303_sessao_unica(menu_page, mapa, salvar=salvar)
+        if not res_030303.ok:
+            pendencias_auxiliares.append(_pendencia_auxiliar("030303", res_030303))
+            logger.warning(
+                "030303 | Coleta auxiliar falhou; o fechamento financeiro seguira: %s",
+                res_030303.message,
+            )
+        if _resultado_tem_dados_030303_validos(res_030303):
+            _emitir_resultado_030303(mapa, res_030303)
+        time.sleep(1.0)
+
+        logger.info("--- PASSO 2: INICIANDO ROTINA FINANCEIRA (03030702) ---")
+        janela_03030702 = menu_page.acessar_rotina("03030702")
+        page_03030702 = Processo03030702Page(janela_03030702.driver, janela_03030702.handle_menu)
+
+        res_financeiro = normalize_execution_result(
+            page_03030702.carregar_mapa(mapa, ponto_apoio=ponto_apoio)
+        )
+        dados_antes_salvar = None
+        if res_financeiro.ok:
+            dados_antes_salvar = _extrair_dados_fechamento_03030702(
+                page_03030702,
+                etapa="antes_salvar_financeiro",
+            )
+        if res_financeiro.ok and salvar:
+            res_financeiro = normalize_execution_result(page_03030702.salvar_mapa())
+            dados_depois_salvar = _extrair_dados_fechamento_03030702(
+                page_03030702,
+                etapa="apos_salvar_financeiro",
+            )
+            dados_fechamento_03030702 = _escolher_dados_fechamento_03030702(
+                dados_antes_salvar,
+                dados_depois_salvar,
+            )
+            res_financeiro = _anexar_metadata_resultado(
+                res_financeiro,
+                dados_fechamento_03030702=dados_fechamento_03030702,
+            )
+        elif res_financeiro.ok:
+            dados_fechamento_03030702 = dados_antes_salvar
+            res_financeiro = _anexar_metadata_resultado(
+                res_financeiro,
+                dados_fechamento_03030702=dados_fechamento_03030702,
+            )
+
+        if not res_financeiro.ok:
+            return ExecutionResult(
+                status=res_financeiro.status,
+                message=f"Falha no Fechamento Financeiro (03030702): {res_financeiro.message}",
+                retry=res_financeiro.retry,
+                metadata={
+                    "mapa": mapa,
+                    "passo_falha": "03030702",
+                    "resultado_030303": _metadata_resultado(res_030303),
+                    "resultado_financeiro": _metadata_resultado(res_financeiro),
+                    "dados_fechamento_03030702": dados_fechamento_03030702,
+                    "pendencias_auxiliares": pendencias_auxiliares,
+                },
+            )
+
+        if isinstance(dados_fechamento_03030702, dict) and dados_fechamento_03030702.get("erro"):
+            pendencias_auxiliares.append(
+                _pendencia_auxiliar("03030702_dados", erro=dados_fechamento_03030702.get("erro"))
+            )
+
+        _emitir_resultado_parcial(
+            "03030702",
+            "03030702",
+            mapa,
+            f"Fechamento financeiro 03030702 do mapa {mapa} concluido.",
+            {
+                "mapa": mapa,
+                "resultado_030303": _metadata_resultado(res_030303),
+                "resultado_financeiro": _metadata_resultado(res_financeiro),
+                "dados_fechamento_03030702": dados_fechamento_03030702,
+                "integration_code": "MAPA_LIBERADO_FINANCEIRO",
+            },
         )
 
-    logger.info(
-        "030303 | Resultado do processo: ok=%s, msg=%s",
-        resultado.ok,
-        resultado.message,
-    )
-    return resultado, janela_030303
+        menu_page = _fechar_rotina_e_voltar_ao_menu(page_03030702, menu_page, "03030702")
+        time.sleep(1.0)
+
+        dados_030322 = _extrair_prestacao_030322_sessao_unica(menu_page, mapa, data=data)
+        if isinstance(dados_030322, dict) and not dados_030322.get("erro"):
+            _emitir_resultado_parcial(
+                "030322",
+                "030322",
+                mapa,
+                f"Prestacao 030322 do mapa {mapa} extraida.",
+                {
+                    "mapa": mapa,
+                    "resultado_030303": _metadata_resultado(res_030303),
+                    "dados_030322": dados_030322,
+                    "integration_code": "PRESTACAO_030322_EXTRAIDA",
+                },
+            )
+        else:
+            pendencias_auxiliares.append(
+                _pendencia_auxiliar("030322", erro=(dados_030322 or {}).get("erro") if isinstance(dados_030322, dict) else "Retorno invalido")
+            )
+
+        return _finalizar_com_pendencias_auxiliares(
+            res_financeiro,
+            pendencias_auxiliares,
+            f"Fechamento financeiro do Mapa {mapa} executado com sucesso.",
+            mapa=mapa,
+            resultado_030303=_metadata_resultado(res_030303),
+            resultado_financeiro=_metadata_resultado(res_financeiro),
+            dados_fechamento_03030702=dados_fechamento_03030702,
+            dados_030322=dados_030322,
+            integration_code="MAPA_LIBERADO_FINANCEIRO",
+        )
+    except Exception as exc:
+        logger.error("Erro inesperado no fechamento financeiro do mapa %s: %s", mapa, exc)
+        return ExecutionResult(
+            status=ExecutionStatus.TECHNICAL_FAILURE,
+            message=f"Falha inesperada no fechamento financeiro do mapa: {str(exc)}",
+            metadata={"mapa": mapa},
+        )
+    finally:
+        time.sleep(0.5)
+        falhou = bool(res_financeiro and not res_financeiro.ok)
+        if manter_aberto_ao_falhar and falhou:
+            logger.warning("Navegador mantido aberto para inspecao da falha no fechamento financeiro.")
+        else:
+            encerrar_driver(driver)
 
 
 def _parse_args():
@@ -386,6 +650,7 @@ def fechar_mapa_sessao_unica(
     res_financeiro = None
     dados_fechamento_03030702 = None
     dados_030322 = None
+    pendencias_auxiliares = []
 
     try:
         logger.info("=========================================================================")
@@ -397,27 +662,15 @@ def fechar_mapa_sessao_unica(
         # ---------------------------------------------------------------------
         # PASSO 0: PREPARACAO DO MAPA (ROTINA 030303)
         # ---------------------------------------------------------------------
-        res_030303, janela_030303 = _executar_030303_sessao_unica(menu_page, mapa, salvar=salvar)
+        res_030303, menu_page = _executar_030303_sessao_unica(menu_page, mapa, salvar=salvar)
         if not res_030303.ok:
-            logger.error("PASSO 0 FALHOU (030303): %s", res_030303.message)
-            return ExecutionResult(
-                status=res_030303.status,
-                message=f"Falha na rotina 030303 antes do Fechamento Fisico: {res_030303.message}",
-                retry=res_030303.retry,
-                metadata={
-                    "mapa": mapa,
-                    "passo_falha": "030303",
-                    "resultado_030303": _metadata_resultado(res_030303),
-                    "resultado_fisico": None,
-                    "resultado_financeiro": None,
-                    "dados_fechamento_03030702": None,
-                },
+            pendencias_auxiliares.append(_pendencia_auxiliar("030303", res_030303))
+            logger.warning(
+                "030303 | Coleta auxiliar falhou; o fechamento completo seguira: %s",
+                res_030303.message,
             )
-
-        try:
-            driver.switch_to.window(janela_030303.handle_menu)
-        except Exception:
-            pass
+        if _resultado_tem_dados_030303_validos(res_030303):
+            _emitir_resultado_030303(mapa, res_030303)
 
         time.sleep(1.0)
 
@@ -528,6 +781,7 @@ def fechar_mapa_sessao_unica(
                     "resultado_fisico": res_fisico,
                     "resultado_financeiro": None,
                     "dados_fechamento_03030702": None,
+                    "pendencias_auxiliares": pendencias_auxiliares,
                 },
             )
         _emitir_resultado_parcial(
@@ -545,10 +799,7 @@ def fechar_mapa_sessao_unica(
         )
 
         # Retornar o foco para o Menu Principal antes de abrir a proxima rotina
-        try:
-            driver.switch_to.window(janela_030302.handle_menu)
-        except Exception:
-            pass
+        menu_page = _fechar_rotina_e_voltar_ao_menu(page_030302, menu_page, "030302")
 
         time.sleep(1.5)
 
@@ -562,22 +813,29 @@ def fechar_mapa_sessao_unica(
         res_financeiro = normalize_execution_result(
             page_03030702.carregar_mapa(mapa, ponto_apoio=ponto_apoio)
         )
+        dados_antes_salvar = None
+        if res_financeiro.ok:
+            dados_antes_salvar = _extrair_dados_fechamento_03030702(
+                page_03030702,
+                etapa="antes_salvar_financeiro",
+            )
 
         if res_financeiro.ok and salvar:
             res_financeiro = normalize_execution_result(page_03030702.salvar_mapa())
-            dados_fechamento_03030702 = _extrair_dados_fechamento_03030702(
+            dados_depois_salvar = _extrair_dados_fechamento_03030702(
                 page_03030702,
                 etapa="apos_salvar_financeiro",
+            )
+            dados_fechamento_03030702 = _escolher_dados_fechamento_03030702(
+                dados_antes_salvar,
+                dados_depois_salvar,
             )
             res_financeiro = _anexar_metadata_resultado(
                 res_financeiro,
                 dados_fechamento_03030702=dados_fechamento_03030702,
             )
         elif res_financeiro.ok:
-            dados_fechamento_03030702 = _extrair_dados_fechamento_03030702(
-                page_03030702,
-                etapa="apos_carregar_financeiro",
-            )
+            dados_fechamento_03030702 = dados_antes_salvar
             res_financeiro = _anexar_metadata_resultado(
                 res_financeiro,
                 dados_fechamento_03030702=dados_fechamento_03030702,
@@ -595,7 +853,12 @@ def fechar_mapa_sessao_unica(
                     "resultado_fisico": res_fisico,
                     "resultado_financeiro": res_financeiro,
                     "dados_fechamento_03030702": dados_fechamento_03030702,
+                    "pendencias_auxiliares": pendencias_auxiliares,
                 },
+            )
+        if isinstance(dados_fechamento_03030702, dict) and dados_fechamento_03030702.get("erro"):
+            pendencias_auxiliares.append(
+                _pendencia_auxiliar("03030702_dados", erro=dados_fechamento_03030702.get("erro"))
             )
         _emitir_resultado_parcial(
             "03030702",
@@ -613,10 +876,7 @@ def fechar_mapa_sessao_unica(
             },
         )
 
-        try:
-            driver.switch_to.window(janela_03030702.handle_menu)
-        except Exception:
-            pass
+        menu_page = _fechar_rotina_e_voltar_ao_menu(page_03030702, menu_page, "03030702")
 
         time.sleep(1.0)
         dados_030322 = _extrair_prestacao_030322_sessao_unica(menu_page, mapa, data=data)
@@ -632,24 +892,34 @@ def fechar_mapa_sessao_unica(
                     "integration_code": "PRESTACAO_030322_EXTRAIDA",
                 },
             )
+        else:
+            pendencias_auxiliares.append(
+                _pendencia_auxiliar("030322", erro=(dados_030322 or {}).get("erro") if isinstance(dados_030322, dict) else "Retorno invalido")
+            )
 
         logger.info("=========================================================================")
-        logger.info("FECHAMENTO COMPLETO CONCLUIDO COM SUCESSO | Mapa: %s", mapa)
+        if pendencias_auxiliares:
+            logger.warning(
+                "FECHAMENTO PRINCIPAL CONCLUIDO COM PENDENCIAS AUXILIARES | Mapa: %s | Rotinas: %s",
+                mapa,
+                ", ".join(item.get("rotina", "-") for item in pendencias_auxiliares),
+            )
+        else:
+            logger.info("FECHAMENTO COMPLETO CONCLUIDO COM SUCESSO | Mapa: %s", mapa)
         logger.info("=========================================================================")
 
-        return ExecutionResult(
-            status=ExecutionStatus.SUCCESS,
-            message=f"Fechamento Fisico e Financeiro do Mapa {mapa} executados com sucesso.",
-            metadata={
-                "mapa": mapa,
-                "resultado_030303": _metadata_resultado(res_030303),
-                "resultado_030330": _metadata_resultado(res_030330),
-                "resultado_fisico": res_fisico,
-                "resultado_financeiro": res_financeiro,
-                "dados_fechamento_03030702": dados_fechamento_03030702,
-                "dados_030322": dados_030322,
-                "integration_code": "MAPA_LIBERADO_FINANCEIRO",
-            },
+        return _finalizar_com_pendencias_auxiliares(
+            res_financeiro,
+            pendencias_auxiliares,
+            f"Fechamento Fisico e Financeiro do Mapa {mapa} executados com sucesso.",
+            mapa=mapa,
+            resultado_030303=_metadata_resultado(res_030303),
+            resultado_030330=_metadata_resultado(res_030330),
+            resultado_fisico=res_fisico,
+            resultado_financeiro=res_financeiro,
+            dados_fechamento_03030702=dados_fechamento_03030702,
+            dados_030322=dados_030322,
+            integration_code="MAPA_LIBERADO_FINANCEIRO",
         )
 
     except Exception as e:
@@ -661,8 +931,7 @@ def fechar_mapa_sessao_unica(
     finally:
         time.sleep(0.5)
         falhou = bool(
-            (res_030303 and not res_030303.ok)
-            or (res_fisico and not res_fisico.ok)
+            (res_fisico and not res_fisico.ok)
             or (res_financeiro and not res_financeiro.ok)
         )
         if manter_aberto_ao_falhar and falhou:
@@ -685,6 +954,7 @@ def fechar_mapa_sessoes_separadas(
     """
     Executa a conferencia Fisico (030302) e Financeiro (03030702) em sessoes separadas.
     """
+    pendencias_auxiliares = []
     logger.info("--- EXECUTANDO EM SESSOES SEPARADAS: PASSO 0 (030303) ---")
     res_030303 = normalize_execution_result(
         main_030303(
@@ -695,18 +965,10 @@ def fechar_mapa_sessoes_separadas(
         )
     )
     if not res_030303.ok:
-        return ExecutionResult(
-            status=res_030303.status,
-            message=f"Falha na rotina 030303 antes do Fechamento Fisico: {res_030303.message}",
-            retry=res_030303.retry,
-            metadata={
-                "mapa": mapa,
-                "passo_falha": "030303",
-                "resultado_030303": _metadata_resultado(res_030303),
-                "resultado_fisico": None,
-                "resultado_financeiro": None,
-            },
-        )
+        pendencias_auxiliares.append(_pendencia_auxiliar("030303", res_030303))
+        logger.warning("030303 | Coleta auxiliar falhou; o fechamento seguira: %s", res_030303.message)
+    if _resultado_tem_dados_030303_validos(res_030303):
+        _emitir_resultado_030303(mapa, res_030303)
 
     logger.info("--- EXECUTANDO EM SESSOES SEPARADAS: PASSO 1 (FISICO 030302) ---")
     res_fisico = normalize_execution_result(
@@ -729,7 +991,20 @@ def fechar_mapa_sessoes_separadas(
             resultado_030303=_metadata_resultado(res_030303),
             resultado_fisico=_metadata_resultado(res_fisico),
             resultado_financeiro=None,
+            pendencias_auxiliares=pendencias_auxiliares,
         )
+    _emitir_resultado_parcial(
+        "030302",
+        "030302",
+        mapa,
+        f"Fechamento fisico 030302 do mapa {mapa} concluido.",
+        {
+            "mapa": mapa,
+            "resultado_030303": _metadata_resultado(res_030303),
+            "resultado_fisico": _metadata_resultado(res_fisico),
+            "integration_code": "MAPA_LIBERADO_FISICO",
+        },
+    )
 
     logger.info("--- EXECUTANDO EM SESSOES SEPARADAS: PASSO 2 (FINANCEIRO 03030702) ---")
     res_financeiro = normalize_execution_result(
@@ -765,11 +1040,40 @@ def fechar_mapa_sessoes_separadas(
             manter_aberto_ao_falhar=manter_aberto_ao_falhar,
         )
 
-    return _anexar_metadata_resultado(
+    if not res_financeiro.ok:
+        return _anexar_metadata_resultado(
+            res_financeiro,
+            mapa=mapa,
+            passo_falha="03030702",
+            resultado_030303=_metadata_resultado(res_030303),
+            resultado_fisico=_metadata_resultado(res_fisico),
+            resultado_financeiro=_metadata_resultado(res_financeiro),
+            pendencias_auxiliares=pendencias_auxiliares,
+        )
+    if isinstance(dados_030322, dict) and not dados_030322.get("erro"):
+        _emitir_resultado_parcial(
+            "030322",
+            "030322",
+            mapa,
+            f"Prestacao 030322 do mapa {mapa} extraida.",
+            {"mapa": mapa, "dados_030322": dados_030322, "integration_code": "PRESTACAO_030322_EXTRAIDA"},
+        )
+    else:
+        pendencias_auxiliares.append(
+            _pendencia_auxiliar("030322", erro=(dados_030322 or {}).get("erro") if isinstance(dados_030322, dict) else "Retorno invalido")
+        )
+
+    return _finalizar_com_pendencias_auxiliares(
         res_financeiro,
+        pendencias_auxiliares,
+        f"Fechamento Fisico e Financeiro do Mapa {mapa} executados com sucesso.",
         mapa=mapa,
         resultado_030303=_metadata_resultado(res_030303),
         resultado_fisico=_metadata_resultado(res_fisico),
+        resultado_financeiro=_metadata_resultado(res_financeiro),
+        dados_fechamento_03030702=(res_financeiro.metadata or {}).get(
+            "dados_fechamento_03030702"
+        ),
         dados_030322=dados_030322,
     )
 
@@ -836,13 +1140,12 @@ def main(
                 manter_aberto_ao_falhar=manter_aberto_ao_falhar,
             )
         )
+        pendencias_auxiliares = []
         if not resultado_030303.ok:
-            return _anexar_metadata_resultado(
-                resultado_030303,
-                mapa=mapa,
-                passo_falha="030303",
-                resultado_030303=_metadata_resultado(resultado_030303),
-            )
+            pendencias_auxiliares.append(_pendencia_auxiliar("030303", resultado_030303))
+            logger.warning("030303 | Coleta auxiliar falhou; a 030302 seguira: %s", resultado_030303.message)
+        if _resultado_tem_dados_030303_validos(resultado_030303):
+            _emitir_resultado_030303(mapa, resultado_030303, integration_code="MAPA_DADOS_030303_FISICO")
         resultado = normalize_execution_result(
             main_030302(
                 mapa=mapa,
@@ -868,66 +1171,31 @@ def main(
                     "integration_code": "MAPA_LIBERADO_FISICO",
                 },
             )
-        return _anexar_metadata_resultado(
+        if not resultado.ok:
+            return _anexar_metadata_resultado(
+                resultado,
+                mapa=mapa,
+                resultado_030303=_metadata_resultado(resultado_030303),
+                pendencias_auxiliares=pendencias_auxiliares,
+                integration_code="MAPA_LIBERADO_FISICO",
+            )
+        return _finalizar_com_pendencias_auxiliares(
             resultado,
+            pendencias_auxiliares,
+            f"Fechamento fisico do Mapa {mapa} executado com sucesso.",
             mapa=mapa,
             resultado_030303=_metadata_resultado(resultado_030303),
+            resultado_fisico=_metadata_resultado(resultado),
             integration_code="MAPA_LIBERADO_FISICO",
         )
     if modo == "financeiro":
-        resultado_030303 = normalize_execution_result(
-            main_030303(
-                mapa=mapa,
-                unidade=unidade,
-                salvar=salvar,
-                manter_aberto_ao_falhar=manter_aberto_ao_falhar,
-            )
-        )
-        if not resultado_030303.ok:
-            return _anexar_metadata_resultado(
-                resultado_030303,
-                mapa=mapa,
-                passo_falha="030303",
-                resultado_030303=_metadata_resultado(resultado_030303),
-                resultado_financeiro=None,
-            )
-        resultado = normalize_execution_result(
-            main_03030702(
-                mapa=mapa,
-                ponto_apoio=ponto_apoio,
-                unidade=unidade,
-                salvar=salvar,
-                manter_aberto_ao_falhar=manter_aberto_ao_falhar,
-            )
-        )
-        if resultado.ok:
-            _emitir_resultado_parcial(
-                "03030702",
-                "03030702",
-                mapa,
-                f"Fechamento financeiro 03030702 do mapa {mapa} concluido.",
-                {
-                    "mapa": mapa,
-                    "resultado_030303": _metadata_resultado(resultado_030303),
-                    "resultado_financeiro": _metadata_resultado(resultado),
-                    "dados_fechamento_03030702": (resultado.metadata or {}).get("dados_fechamento_03030702"),
-                    "integration_code": "MAPA_LIBERADO_FINANCEIRO",
-                },
-            )
-        dados_030322 = None
-        if resultado.ok:
-            dados_030322 = _extrair_prestacao_030322_sessao_separada(
-                mapa,
-                data=data,
-                unidade=unidade,
-                manter_aberto_ao_falhar=manter_aberto_ao_falhar,
-            )
-        return _anexar_metadata_resultado(
-            resultado,
+        return fechar_mapa_financeiro_sessao_unica(
             mapa=mapa,
-            resultado_030303=_metadata_resultado(resultado_030303),
-            dados_030322=dados_030322,
-            integration_code="MAPA_LIBERADO_FINANCEIRO",
+            ponto_apoio=ponto_apoio,
+            data=data,
+            unidade=unidade,
+            salvar=salvar,
+            manter_aberto_ao_falhar=manter_aberto_ao_falhar,
         )
     if modo != "completo":
         return ExecutionResult(

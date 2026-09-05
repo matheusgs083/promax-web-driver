@@ -33,6 +33,33 @@ def _extrair_dados_fechamento_03030702(page_03030702, etapa):
         return {"rotina": "03030702", "etapa": etapa, "erro": str(exc)}
 
 
+def _dados_fechamento_validos(dados):
+    if not isinstance(dados, dict) or dados.get("erro"):
+        return False
+    saida = dados.get("saida")
+    retorno = dados.get("retorno")
+    return bool(
+        (isinstance(saida, dict) and isinstance(saida.get("itens"), list))
+        or (
+            isinstance(retorno, dict)
+            and (
+                isinstance(retorno.get("itens"), list)
+                or isinstance(retorno.get("linhas"), list)
+            )
+        )
+        or isinstance(dados.get("resumo"), dict)
+        or isinstance(dados.get("diferencas"), dict)
+    )
+
+
+def _escolher_dados_fechamento(dados_antes, dados_depois):
+    if _dados_fechamento_validos(dados_depois):
+        return dados_depois
+    if _dados_fechamento_validos(dados_antes):
+        return dados_antes
+    return dados_depois or dados_antes
+
+
 def _parse_args():
     parser = argparse.ArgumentParser(description="Carrega mapa na rotina 03030702.")
     parser.add_argument("--mapa", required=True, help="Numero do mapa que sera carregado.")
@@ -123,6 +150,12 @@ def main(
                 auto_equilibrar=auto_equilibrar,
             )
         )
+        dados_antes_salvar = None
+        if resultado.ok and salvar:
+            dados_antes_salvar = _extrair_dados_fechamento_03030702(
+                page,
+                etapa="antes_salvar_financeiro",
+            )
 
         if resultado.ok and (retornar_json or caminho_json):
             pagina_json = page.extrair_pagina_json(incluir_html=incluir_html)
@@ -150,9 +183,13 @@ def main(
 
         if resultado.ok and salvar:
             resultado_salvar = normalize_execution_result(page.salvar_mapa())
-            dados_fechamento = _extrair_dados_fechamento_03030702(
+            dados_depois_salvar = _extrair_dados_fechamento_03030702(
                 page,
                 etapa="apos_salvar_financeiro",
+            )
+            dados_fechamento = _escolher_dados_fechamento(
+                dados_antes_salvar,
+                dados_depois_salvar,
             )
             metadata = dict(resultado_salvar.metadata or {})
             metadata["dados_fechamento_03030702"] = dados_fechamento

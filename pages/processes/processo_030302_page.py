@@ -5078,6 +5078,29 @@ class Processo030302Page(RotinaPage):
                     for item in confirmacoes_diretas
                 )
 
+                confirmou_sem_diferencas = bool(
+                    fechamento_direto.get("sem_diferencas")
+                    or self._confirmacoes_tem_sem_diferencas(confirmacoes_diretas)
+                    or self._estado_confirmou_sem_diferencas(fechamento_direto)
+                )
+                if not confirmou_sem_diferencas:
+                    self.switch_to_default_content()
+                    return ExecutionResult(
+                        status=ExecutionStatus.TECHNICAL_FAILURE,
+                        message=(
+                            "A 030302 sem codigos fisicos nao exibiu a confirmacao "
+                            "'Nao existem diferencas'. O fechamento nao sera considerado concluido."
+                        ),
+                        retry=True,
+                        metadata={
+                            "integration_code": "CONFIRMACAO_030302_SEM_DIFERENCAS_AUSENTE",
+                            "mapa": mapa_sem_codigos,
+                            "sem_codigos_fisicos": True,
+                            "financeiro_liberado": financeiro_liberado,
+                            "confirmacoes": confirmacoes_diretas,
+                        },
+                    )
+
                 self.switch_to_default_content()
                 return ExecutionResult(
                     status=ExecutionStatus.SUCCESS,

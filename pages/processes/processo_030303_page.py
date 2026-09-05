@@ -172,6 +172,17 @@ class Processo030303Page(RotinaPage):
             dados_030303 = self._aguardar_dados_equipe_carregados()
             self._logar_dados_equipe(dados_030303, "carregar")
 
+            if not self._dados_equipe_validos(dados_030303):
+                return ExecutionResult(
+                    status=ExecutionStatus.TECHNICAL_FAILURE,
+                    message=(
+                        f"Mapa {mapa_norm} foi aberto na 030303, mas motorista e placa "
+                        "nao foram carregados de forma valida."
+                    ),
+                    retry=True,
+                    metadata={"mapa": mapa_norm, "dados_030303": dados_030303},
+                )
+
             return ExecutionResult(
                 status=ExecutionStatus.SUCCESS,
                 message=f"Mapa {mapa_norm} carregado com sucesso na 030303.",
@@ -402,6 +413,17 @@ class Processo030303Page(RotinaPage):
 
             dados_030303 = self._aguardar_dados_equipe_carregados(timeout=3)
             self._logar_dados_equipe(dados_030303, "salvar")
+
+            if not self._dados_equipe_validos(dados_030303):
+                return ExecutionResult(
+                    status=ExecutionStatus.TECHNICAL_FAILURE,
+                    message=(
+                        "A 030303 respondeu ao salvamento, mas nao retornou motorista "
+                        "e placa validos para sincronizacao."
+                    ),
+                    retry=True,
+                    metadata={"dados_030303": dados_030303},
+                )
 
             return ExecutionResult(
                 status=ExecutionStatus.SUCCESS,

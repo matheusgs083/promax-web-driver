@@ -130,6 +130,30 @@ def test_salvar_mapa_bloqueia_salvar_quando_redigitacao_nao_aplica():
     assert chamadas == {"wait": 0, "salvar": 0}
 
 
+def test_salvar_sem_codigos_exige_confirmacao_nao_existem_diferencas():
+    page = Processo030302Page.__new__(Processo030302Page)
+    page.logger = type(
+        "LoggerFake",
+        (),
+        {"info": lambda *args, **kwargs: None, "debug": lambda *args, **kwargs: None},
+    )()
+    page.entrar_frame_rotina_blindado = lambda *args, **kwargs: None
+    page._instalar_monitor_envio_js = lambda *args, **kwargs: None
+    page._estado_mapa_js = lambda *args, **kwargs: {"mapa": "94041", "produtos": []}
+    page._clicar_salvar_js = lambda *args, **kwargs: {"ok": True}
+    page._aguardar_fechamento_final_isolado_030302 = lambda *args, **kwargs: {
+        "confirmacoes": [
+            {"classificacao_final": "liberacao_financeira", "resposta": "sim", "mensagem": "Liberar mapa?"}
+        ]
+    }
+    page.switch_to_default_content = lambda *args, **kwargs: None
+
+    resultado = page.salvar_mapa()
+
+    assert resultado.status == ExecutionStatus.TECHNICAL_FAILURE
+    assert resultado.metadata["integration_code"] == "CONFIRMACAO_030302_SEM_DIFERENCAS_AUSENTE"
+
+
 def test_salvar_mapa_preenchido_usa_evento_js_no_botao_salvar():
     page = Processo030302Page.__new__(Processo030302Page)
     page.logger = type(

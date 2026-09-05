@@ -38,6 +38,12 @@ def test_carregar_mapa_sucesso():
     page.entrar_frame_rotina_blindado = lambda *args, **kwargs: None
     page.preencher_campo_com_gatilho = lambda campo, val, trig: (True, "OK")
     page.lidar_com_alertas = lambda *args, **kwargs: []
+    page._aguardar_dados_equipe_carregados = lambda *args, **kwargs: {
+        "campos": [
+            {"name": "Motorista", "value": "07410 - LEONARDO VIEIRA"},
+            {"name": "Placa", "value": "TOT4F49"},
+        ]
+    }
 
     resultado = page.carregar_mapa("93703")
 
@@ -83,6 +89,12 @@ def test_salvar_mapa_sucesso():
     page.entrar_frame_rotina_blindado = lambda *args, **kwargs: None
     page.executar_gatilho_e_aguardar = lambda gatilho: (True, "Dados gravados com sucesso")
     page.lidar_com_alertas = lambda *args, **kwargs: []
+    page._aguardar_dados_equipe_carregados = lambda *args, **kwargs: {
+        "campos": [
+            {"name": "Motorista", "value": "07410 - LEONARDO VIEIRA"},
+            {"name": "Placa", "value": "TOT4F49"},
+        ]
+    }
 
     resultado = page.salvar_mapa()
 
@@ -110,6 +122,20 @@ def test_salvar_mapa_falha():
 
     assert resultado.status == ExecutionStatus.TECHNICAL_FAILURE
     assert "Falha ao salvar" in resultado.message
+
+
+def test_carregar_mapa_falha_quando_equipe_nao_foi_carregada():
+    page = Processo030303Page.__new__(Processo030303Page)
+    page.logger = type("LoggerFake", (), {"info": lambda *args, **kwargs: None, "error": lambda *args, **kwargs: None})()
+    page.entrar_frame_rotina_blindado = lambda *args, **kwargs: None
+    page.preencher_campo_com_gatilho = lambda *_args, **_kwargs: (True, "OK")
+    page.lidar_com_alertas = lambda *args, **kwargs: []
+    page._aguardar_dados_equipe_carregados = lambda *args, **kwargs: {"campos": []}
+
+    resultado = page.carregar_mapa("93703")
+
+    assert resultado.status == ExecutionStatus.TECHNICAL_FAILURE
+    assert resultado.retry is True
 
 
 def test_enriquecer_motorista_usa_cs_motorista_quando_nao_generico():
