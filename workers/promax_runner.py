@@ -18,6 +18,7 @@ from .promax_client import normalize_status
 
 
 LineCallback = Callable[[str, str], None]
+EventCallback = Callable[[Mapping[str, Any]], None]
 TickCallback = Callable[[], None]
 ControlCallback = Callable[[], bool]
 _IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
@@ -33,6 +34,7 @@ class PromaxRunnerConfig:
     python_executable: Path
     heartbeat_interval_seconds: float = 15.0
     control_interval_seconds: float = 5.0
+    max_runtime_seconds: float = 900.0
 
     @classmethod
     def from_values(
@@ -42,6 +44,7 @@ class PromaxRunnerConfig:
         python_executable: str | os.PathLike[str],
         heartbeat_interval_seconds: float = 15.0,
         control_interval_seconds: float = 5.0,
+        max_runtime_seconds: float = 900.0,
     ) -> PromaxRunnerConfig:
         driver_path = Path(driver_dir).expanduser().resolve()
         python_path = Path(python_executable).expanduser().resolve()
@@ -50,6 +53,7 @@ class PromaxRunnerConfig:
             python_executable=python_path,
             heartbeat_interval_seconds=float(heartbeat_interval_seconds),
             control_interval_seconds=float(control_interval_seconds),
+            max_runtime_seconds=float(max_runtime_seconds),
         )
         config.validate()
         return config
@@ -73,6 +77,8 @@ class PromaxRunnerConfig:
             raise PromaxRunnerConfigurationError("Heartbeat interval must be positive.")
         if self.control_interval_seconds <= 0:
             raise PromaxRunnerConfigurationError("Control interval must be positive.")
+        if self.max_runtime_seconds <= 0:
+            raise PromaxRunnerConfigurationError("Maximum runtime must be positive.")
 
 
 @dataclass(frozen=True)
@@ -135,7 +141,7 @@ class PromaxRunner:
                 mapa,
             ]
             ponto_apoio = str(payload.get("ponto_apoio") or payload.get("pontoApoio") or "").strip()
-            if ponto_apoio:
+            if ponto_apoio and ponto_apoio != "0":
                 command.extend(["--ponto-apoio", ponto_apoio])
             km_atual = str(payload.get("km_atual") or payload.get("kmAtual") or payload.get("km") or "").strip()
             if km_atual:
@@ -146,6 +152,20 @@ class PromaxRunner:
             km_prev = str(payload.get("km_prev") or payload.get("kmPrev") or payload.get("km_previsto") or payload.get("kmPrevisto") or "").strip()
             if km_prev:
                 command.extend(["--km-prev", km_prev])
+            data_fechamento = str(
+                payload.get("data_rotina")
+                or payload.get("dataRotina")
+                or payload.get("promax_date")
+                or payload.get("data")
+                or payload.get("caixa_date")
+                or payload.get("caixaDate")
+                or payload.get("start_date")
+                or payload.get("startDate")
+                or ""
+            ).strip()
+            if data_fechamento:
+                date.fromisoformat(data_fechamento)
+                command.extend(["--data", data_fechamento])
             unidade = str(payload.get("unit") or payload.get("unidade") or "").strip()
             units = _identifier_list(payload.get("units"), field_name="units")
             if not unidade and units:
@@ -154,8 +174,10 @@ class PromaxRunner:
                 command.extend(["--unidade", unidade])
             modo = str(payload.get("modo") or payload.get("mode") or "").strip().lower()
             if modo:
-                if modo not in {"completo", "fisico", "financeiro"}:
-                    raise ValueError("Promax fechamento-mapa modo must be completo, fisico or financeiro.")
+                if modo not in {"completo", "fisico", "financeiro", "prestacao", "030322"}:
+                    raise ValueError(
+                        "Promax fechamento-mapa modo must be completo, fisico, financeiro or prestacao."
+                    )
                 command.extend(["--modo", modo])
             if payload.get("save") is False or payload.get("salvar") is False:
                 command.append("--nao-salvar")
@@ -229,6 +251,7 @@ class PromaxRunner:
         job: Mapping[str, Any],
         *,
         on_line: LineCallback,
+        on_event: EventCallback | None = None,
         heartbeat: TickCallback,
         cancel_requested: ControlCallback,
         stop_requested: ControlCallback | None = None,
@@ -260,15 +283,44 @@ class PromaxRunner:
         cancelled = False
         stopped = False
         termination_requested = False
+        timed_out = False
         last_stderr = ""
         result_message = ""
         result_details: dict[str, Any] = {}
         now = self._monotonic()
+        deadline = now + self.config.max_runtime_seconds
         next_heartbeat = now
         next_control = now
 
         while process.poll() is None or open_streams:
             now = self._monotonic()
+            if process.poll() is None and now >= deadline and not termination_requested:
+                termination_requested = True
+                timed_out = True
+                on_line(
+                    "stderr",
+                    f"Tempo limite de {int(self.config.max_runtime_seconds)}s excedido; encerrando processo Promax.",
+                )
+                terminate_process_tree(
+                    child_pid,
+                    platform=self._platform,
+                    run=self._taskkill_runner,
+                )
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    try:
+                        process.kill()
+                    except Exception:
+                        pass
+                    try:
+                        process.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        on_line(
+                            "stderr",
+                            "Subprocesso Promax nao encerrou apos o timeout; o job sera finalizado como falha.",
+                        )
+                        break
             if process.poll() is None and now >= next_heartbeat:
                 heartbeat()
                 next_heartbeat = now + self.config.heartbeat_interval_seconds
@@ -280,6 +332,10 @@ class PromaxRunner:
                     termination_requested = True
                     stopped = should_stop
                     cancelled = should_cancel and not should_stop
+                    on_line(
+                        "stderr",
+                        "Cancelamento detectado; encerrando processo Promax em execucao.",
+                    )
                     terminate_process_tree(
                         child_pid,
                         platform=self._platform,
@@ -311,8 +367,12 @@ class PromaxRunner:
                 continue
             if stream == "stderr":
                 last_stderr = line
-            result_event = _parse_job_result_event(line) if stream == "stdout" else None
+            result_event = _parse_job_event(line) if stream == "stdout" else None
             if result_event is not None:
+                if result_event.get("event") == "promax_partial_result":
+                    if on_event is not None:
+                        on_event(result_event)
+                    continue
                 result_message = str(result_event.get("message") or "").strip()
                 result_details = {
                     key: value
@@ -326,8 +386,14 @@ class PromaxRunner:
 
         for reader in readers:
             reader.join(timeout=1)
-        return_code = int(process.wait())
-        if stopped:
+        polled_return_code = process.poll()
+        if polled_return_code is None and termination_requested:
+            return_code = 1
+        else:
+            return_code = int(process.wait())
+        if timed_out:
+            status = "failed"
+        elif stopped:
             status = "stopped"
         elif cancelled:
             status = "cancelled"
@@ -340,7 +406,8 @@ class PromaxRunner:
         error = None
         if status == "failed":
             error = (
-                last_stderr
+                (f"Execucao Promax excedeu o tempo limite de {int(self.config.max_runtime_seconds)} segundos." if timed_out else "")
+                or last_stderr
                 or result_message
                 or f"Promax process exited with code {return_code}."
             )
@@ -407,7 +474,7 @@ def _start_reader(
     return thread
 
 
-def _parse_job_result_event(line: str) -> dict[str, Any] | None:
+def _parse_job_event(line: str) -> dict[str, Any] | None:
     clean_line = str(line or "").strip()
     if not clean_line.startswith("{"):
         return None
@@ -415,7 +482,10 @@ def _parse_job_result_event(line: str) -> dict[str, Any] | None:
         payload = json.loads(clean_line)
     except (json.JSONDecodeError, TypeError):
         return None
-    if not isinstance(payload, dict) or payload.get("event") != "promax_job_result":
+    if not isinstance(payload, dict) or payload.get("event") not in {
+        "promax_job_result",
+        "promax_partial_result",
+    }:
         return None
     return payload
 
