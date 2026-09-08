@@ -3369,18 +3369,6 @@ class Processo030302Page(RotinaPage):
                     "km_atual_fallback": str(resultado_km.get("km_atual") or ""),
                     "bloqueia_fluxo": True,
                 }
-            if (
-                acertar_diferencas
-                and decisao
-                and decisao.get("classificacao") == "diferencas"
-            ):
-                alerta.accept()
-                return {
-                    "tipo": "alert",
-                    "mensagem": texto,
-                    "resposta": "sim",
-                    "preenchimentoKm": None,
-                }
             if decisao and decisao["resposta"] in ("ok", "sim"):
                 alerta.accept()
                 return {
@@ -3483,7 +3471,7 @@ class Processo030302Page(RotinaPage):
                         && compacto.indexOf('naoexistemdiferenc') === -1
                         && compacto.indexOf('naohadiferenc') === -1
                     ) {
-                        return {classificacao: 'diferencas', resposta: 'sim'};
+                        return {classificacao: 'diferencas', resposta: 'nao'};
                     }
                     return null;
                 }
@@ -4607,7 +4595,10 @@ class Processo030302Page(RotinaPage):
                     }
                     : null;
                 var formBefore = snapshotFormulario(ctx);
-                var forcarEnvioManual = sufixo === '.apos-aplicar-diferencas';
+                var forcarEnvioManual = (
+                    sufixo === '.apos-aplicar-diferencas'
+                    || sufixo === '.apos-aplicar-produtos'
+                );
                 if (!cliqueSimples) {
                     try {
                         if (
