@@ -251,6 +251,92 @@ def _executar_030330_sessao_unica(menu_page, mapa, dt_emissao=None, tp_mapa="COM
     return resultado_final, novo_menu
 
 
+def _executar_03030702_com_retentativa_030330(
+    menu_page,
+    mapa,
+    ponto_apoio=None,
+    salvar=True,
+    res_030330_atual=None,
+):
+    res_030330 = res_030330_atual
+    comodato_030330_executado = bool(res_030330 and res_030330.ok)
+    tentativa = 1
+    ultimo_page_03030702 = None
+    ultimo_res_financeiro = None
+    ultimos_dados_fechamento = None
+
+    while tentativa <= 2:
+        sufixo = " | APOS 030330" if comodato_030330_executado else ""
+        logger.info("--- PASSO 2: INICIANDO ROTINA FINANCEIRA (03030702)%s ---", sufixo)
+        janela_03030702 = menu_page.acessar_rotina("03030702")
+        page_03030702 = Processo03030702Page(janela_03030702.driver, janela_03030702.handle_menu)
+        ultimo_page_03030702 = page_03030702
+
+        res_financeiro = normalize_execution_result(
+            page_03030702.carregar_mapa(mapa, ponto_apoio=ponto_apoio)
+        )
+        dados_antes_salvar = None
+
+        if res_financeiro.ok:
+            dados_antes_salvar = _extrair_dados_fechamento_03030702(
+                page_03030702,
+                etapa="antes_salvar_financeiro",
+            )
+
+        if res_financeiro.ok and salvar:
+            res_financeiro = normalize_execution_result(page_03030702.salvar_mapa())
+            dados_depois_salvar = _extrair_dados_fechamento_03030702(
+                page_03030702,
+                etapa="apos_salvar_financeiro",
+            )
+            ultimos_dados_fechamento = _escolher_dados_fechamento_03030702(
+                dados_antes_salvar,
+                dados_depois_salvar,
+            )
+            res_financeiro = _anexar_metadata_resultado(
+                res_financeiro,
+                dados_fechamento_03030702=ultimos_dados_fechamento,
+            )
+        elif res_financeiro.ok:
+            ultimos_dados_fechamento = dados_antes_salvar
+            res_financeiro = _anexar_metadata_resultado(
+                res_financeiro,
+                dados_fechamento_03030702=ultimos_dados_fechamento,
+            )
+
+        ultimo_res_financeiro = res_financeiro
+
+        if _resultado_pede_030330_por_comodato(res_financeiro) and not comodato_030330_executado:
+            logger.warning(
+                "03030702 | Mapa %s pediu fechamento de comodato pela 030330. Fechando 03030702 e executando 030330.",
+                mapa,
+            )
+            menu_page = _fechar_rotina_e_voltar_ao_menu(page_03030702, menu_page, "03030702")
+            res_030330, novo_menu = _executar_030330_sessao_unica(menu_page, mapa)
+            if novo_menu is not None:
+                menu_page = novo_menu
+            if not res_030330.ok:
+                res_financeiro = ExecutionResult(
+                    status=res_030330.status,
+                    message=f"Falha na rotina 030330 antes do Fechamento Financeiro: {res_030330.message}",
+                    retry=res_030330.retry,
+                    metadata={
+                        "mapa": mapa,
+                        "passo_falha": "030330",
+                        "resultado_030330": _metadata_resultado(res_030330),
+                    },
+                )
+                return res_financeiro, ultimos_dados_fechamento, menu_page, page_03030702, res_030330
+            comodato_030330_executado = True
+            tentativa += 1
+            time.sleep(1.0)
+            continue
+
+        return res_financeiro, ultimos_dados_fechamento, menu_page, page_03030702, res_030330
+
+    return ultimo_res_financeiro, ultimos_dados_fechamento, menu_page, ultimo_page_03030702, res_030330
+
+
 def _extrair_prestacao_030322_sessao_unica(menu_page, mapa, data=None):
     logger.info("--- PASSO 3: EXTRAINDO PRESTACAO DE CONTAS (030322) ---")
     logger.info("030322 | Solicitando prestacao: mapaInicial=%s | mapaFinal=%s | data=%s | mapas=todos", mapa, mapa, data or "")
@@ -427,6 +513,7 @@ def fechar_mapa_financeiro_sessao_unica(
     unidade = (unidade or settings.unidade_pedidos).strip().upper()
     driver = None
     res_030303 = None
+    res_030330 = None
     res_financeiro = None
     dados_fechamento_03030702 = None
     dados_030322 = None
@@ -450,39 +537,19 @@ def fechar_mapa_financeiro_sessao_unica(
             _emitir_resultado_030303(mapa, res_030303)
         time.sleep(1.0)
 
-        logger.info("--- PASSO 2: INICIANDO ROTINA FINANCEIRA (03030702) ---")
-        janela_03030702 = menu_page.acessar_rotina("03030702")
-        page_03030702 = Processo03030702Page(janela_03030702.driver, janela_03030702.handle_menu)
-
-        res_financeiro = normalize_execution_result(
-            page_03030702.carregar_mapa(mapa, ponto_apoio=ponto_apoio)
+        (
+            res_financeiro,
+            dados_fechamento_03030702,
+            menu_page,
+            page_03030702,
+            res_030330,
+        ) = _executar_03030702_com_retentativa_030330(
+            menu_page,
+            mapa,
+            ponto_apoio=ponto_apoio,
+            salvar=salvar,
+            res_030330_atual=res_030330,
         )
-        dados_antes_salvar = None
-        if res_financeiro.ok:
-            dados_antes_salvar = _extrair_dados_fechamento_03030702(
-                page_03030702,
-                etapa="antes_salvar_financeiro",
-            )
-        if res_financeiro.ok and salvar:
-            res_financeiro = normalize_execution_result(page_03030702.salvar_mapa())
-            dados_depois_salvar = _extrair_dados_fechamento_03030702(
-                page_03030702,
-                etapa="apos_salvar_financeiro",
-            )
-            dados_fechamento_03030702 = _escolher_dados_fechamento_03030702(
-                dados_antes_salvar,
-                dados_depois_salvar,
-            )
-            res_financeiro = _anexar_metadata_resultado(
-                res_financeiro,
-                dados_fechamento_03030702=dados_fechamento_03030702,
-            )
-        elif res_financeiro.ok:
-            dados_fechamento_03030702 = dados_antes_salvar
-            res_financeiro = _anexar_metadata_resultado(
-                res_financeiro,
-                dados_fechamento_03030702=dados_fechamento_03030702,
-            )
 
         if not res_financeiro.ok:
             return ExecutionResult(
@@ -493,6 +560,7 @@ def fechar_mapa_financeiro_sessao_unica(
                     "mapa": mapa,
                     "passo_falha": "03030702",
                     "resultado_030303": _metadata_resultado(res_030303),
+                    "resultado_030330": _metadata_resultado(res_030330),
                     "resultado_financeiro": _metadata_resultado(res_financeiro),
                     "dados_fechamento_03030702": dados_fechamento_03030702,
                     "pendencias_auxiliares": pendencias_auxiliares,
@@ -512,6 +580,7 @@ def fechar_mapa_financeiro_sessao_unica(
             {
                 "mapa": mapa,
                 "resultado_030303": _metadata_resultado(res_030303),
+                "resultado_030330": _metadata_resultado(res_030330),
                 "resultado_financeiro": _metadata_resultado(res_financeiro),
                 "dados_fechamento_03030702": dados_fechamento_03030702,
                 "integration_code": "MAPA_LIBERADO_FINANCEIRO",
@@ -606,7 +675,7 @@ def _parse_args():
         "--modo",
         choices=["completo", "fisico", "financeiro", "prestacao", "030322"],
         default="completo",
-        help="Modo de execucao: completo (030303 + 030302 + 03030702 + 030322), fisico, financeiro ou prestacao (apenas 030322).",
+        help="Modo de execucao: completo (030303 + 030302 + 03030702 + 030322), fisico, financeiro, 030303 ou prestacao (apenas 030322).",
     )
     parser.add_argument(
         "--nao-salvar",
@@ -806,40 +875,19 @@ def fechar_mapa_sessao_unica(
         # ---------------------------------------------------------------------
         # PASSO 2: CONFERENCIA E LIBERACAO FINANCEIRA (ROTINA 03030702)
         # ---------------------------------------------------------------------
-        logger.info("--- PASSO 2: INICIANDO ROTINA FINANCEIRA (03030702) ---")
-        janela_03030702 = menu_page.acessar_rotina("03030702")
-        page_03030702 = Processo03030702Page(janela_03030702.driver, janela_03030702.handle_menu)
-
-        res_financeiro = normalize_execution_result(
-            page_03030702.carregar_mapa(mapa, ponto_apoio=ponto_apoio)
+        (
+            res_financeiro,
+            dados_fechamento_03030702,
+            menu_page,
+            page_03030702,
+            res_030330,
+        ) = _executar_03030702_com_retentativa_030330(
+            menu_page,
+            mapa,
+            ponto_apoio=ponto_apoio,
+            salvar=salvar,
+            res_030330_atual=res_030330,
         )
-        dados_antes_salvar = None
-        if res_financeiro.ok:
-            dados_antes_salvar = _extrair_dados_fechamento_03030702(
-                page_03030702,
-                etapa="antes_salvar_financeiro",
-            )
-
-        if res_financeiro.ok and salvar:
-            res_financeiro = normalize_execution_result(page_03030702.salvar_mapa())
-            dados_depois_salvar = _extrair_dados_fechamento_03030702(
-                page_03030702,
-                etapa="apos_salvar_financeiro",
-            )
-            dados_fechamento_03030702 = _escolher_dados_fechamento_03030702(
-                dados_antes_salvar,
-                dados_depois_salvar,
-            )
-            res_financeiro = _anexar_metadata_resultado(
-                res_financeiro,
-                dados_fechamento_03030702=dados_fechamento_03030702,
-            )
-        elif res_financeiro.ok:
-            dados_fechamento_03030702 = dados_antes_salvar
-            res_financeiro = _anexar_metadata_resultado(
-                res_financeiro,
-                dados_fechamento_03030702=dados_fechamento_03030702,
-            )
 
         if not res_financeiro.ok:
             logger.error("PASSO 2 FALHOU (03030702 - FINANCEIRO): %s", res_financeiro.message)
@@ -1108,6 +1156,29 @@ def main(
 
     ponto_apoio = _normalizar_ponto_apoio(ponto_apoio)
     modo = str(modo or "completo").strip().lower()
+    if modo == "030303":
+        resultado_030303 = normalize_execution_result(
+            main_030303(
+                mapa=mapa,
+                unidade=unidade,
+                salvar=salvar,
+                manter_aberto_ao_falhar=manter_aberto_ao_falhar,
+            )
+        )
+        if not resultado_030303.ok:
+            return _anexar_metadata_resultado(
+                resultado_030303,
+                mapa=mapa,
+                modo=modo,
+                integration_code="MAPA_DADOS_030303",
+            )
+        return _anexar_metadata_resultado(
+            resultado_030303,
+            mapa=mapa,
+            modo=modo,
+            integration_code="MAPA_DADOS_030303",
+            resultado_030303=_metadata_resultado(resultado_030303),
+        )
     if modo in {"prestacao", "030322"}:
         dados_030322 = _extrair_prestacao_030322_sessao_separada(
             mapa,
@@ -1200,7 +1271,7 @@ def main(
     if modo != "completo":
         return ExecutionResult(
             status=ExecutionStatus.BUSINESS_FAILURE,
-            message="Modo de fechamento invalido. Use completo, fisico, financeiro ou prestacao.",
+            message="Modo de fechamento invalido. Use completo, fisico, financeiro, 030303 ou prestacao.",
             metadata={"mapa": mapa, "modo": modo},
         )
 

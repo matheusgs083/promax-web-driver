@@ -4595,11 +4595,6 @@ class Processo030302Page(RotinaPage):
                     }
                     : null;
                 var formBefore = snapshotFormulario(ctx);
-                var forcarEnvioManual = (
-                    sufixo === '.verificar-diferencas'
-                    || sufixo === '.apos-aplicar-diferencas'
-                    || sufixo === '.apos-aplicar-produtos'
-                );
                 if (!cliqueSimples) {
                     try {
                         if (
@@ -4616,31 +4611,6 @@ class Processo030302Page(RotinaPage):
                     } catch (e) {}
 
                     try { botSalvar.focus(); } catch (e) {}
-                }
-
-                if (forcarEnvioManual) {
-                    var manualForcado = salvarManual(ctx);
-                    if (manualForcado && manualForcado.ok) {
-                        manualForcado.formBefore = formBefore;
-                        manualForcado.formAfter = snapshotFormulario(ctx);
-                        manualForcado.activeBefore = ativoAntes;
-                        manualForcado.activeAfter = ctx.doc.activeElement
-                            ? {name: ctx.doc.activeElement.name || '', id: ctx.doc.activeElement.id || ''}
-                            : null;
-                        manualForcado.trigger = 'Salvar.manual-forcado' + sufixo;
-                        return manualForcado;
-                    }
-                    return {
-                        ok: false,
-                        error: 'salvar-manual-forcado-falhou',
-                        manualError: manualForcado,
-                        formBefore: formBefore,
-                        formAfter: snapshotFormulario(ctx),
-                        activeBefore: ativoAntes,
-                        activeAfter: ctx.doc.activeElement
-                            ? {name: ctx.doc.activeElement.name || '', id: ctx.doc.activeElement.id || ''}
-                            : null
-                    };
                 }
 
                 if (preferClick) {
@@ -6587,23 +6557,6 @@ class Processo030302Page(RotinaPage):
                         campoKm.className = 'campo';
                         campoKm.value = kmAtual;
                         kmAtualPreDigitado = campoKm.value;
-                        try {
-                            if (campoKm.fireEvent) {
-                                campoKm.fireEvent('onkeyup');
-                                campoKm.fireEvent('onchange');
-                                campoKm.fireEvent('onblur');
-                            } else if (document.createEvent) {
-                                var evtKmKey = document.createEvent('HTMLEvents');
-                                evtKmKey.initEvent('keyup', false, true);
-                                campoKm.dispatchEvent(evtKmKey);
-                                var evtKmChange = document.createEvent('HTMLEvents');
-                                evtKmChange.initEvent('change', false, true);
-                                campoKm.dispatchEvent(evtKmChange);
-                                var evtKmBlur = document.createEvent('HTMLEvents');
-                                evtKmBlur.initEvent('blur', false, true);
-                                campoKm.dispatchEvent(evtKmBlur);
-                            }
-                        } catch (e) {}
                     }
                 }
 
@@ -6919,8 +6872,26 @@ class Processo030302Page(RotinaPage):
 
             resultado_km = None
             if km_atual_normalizado:
-                self.logger.info("Preenchendo KM atual %s no mapa %s da 030302.", km_atual_normalizado, mapa_normalizado)
-                resultado_km = self._preencher_km_atual_js(km_atual_normalizado)
+                km_pre_digitado = str((resultado_js or {}).get("kmAtualPreDigitado") or "").strip()
+                if km_pre_digitado == km_atual_normalizado:
+                    resultado_km = {
+                        "ok": True,
+                        "skipped": True,
+                        "reason": "km-ja-preenchido-antes-carregamapa",
+                        "kmAtualDigitado": km_pre_digitado,
+                    }
+                    self.logger.info(
+                        "KM atual %s ja estava preenchido na carga do mapa %s da 030302; mantendo fluxo de salvamento original.",
+                        km_atual_normalizado,
+                        mapa_normalizado,
+                    )
+                else:
+                    self.logger.info(
+                        "Preenchendo KM atual %s no mapa %s da 030302.",
+                        km_atual_normalizado,
+                        mapa_normalizado,
+                    )
+                    resultado_km = self._preencher_km_atual_js(km_atual_normalizado)
                 if not resultado_km or not resultado_km.get("ok"):
                     return ExecutionResult(
                         status=ExecutionStatus.TECHNICAL_FAILURE,

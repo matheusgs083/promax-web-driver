@@ -79,6 +79,62 @@ def test_carregar_mapa_reentra_frame_quando_campo_mapa_some_do_contexto():
     assert resultado.metadata["trigger"] == "CarregaMapa"
 
 
+def test_carregar_mapa_nao_redigita_km_quando_ja_preenchido_na_carga():
+    page = Processo030302Page.__new__(Processo030302Page)
+    page.logger = type(
+        "LoggerFake",
+        (),
+        {
+            "info": lambda *args, **kwargs: None,
+            "debug": lambda *args, **kwargs: None,
+            "warning": lambda *args, **kwargs: None,
+            "exception": lambda *args, **kwargs: None,
+        },
+    )()
+    chamadas = {"preencher_km": 0}
+
+    class DriverFake:
+        def execute_script(self, _script, _mapa, _km_atual=None):
+            return {
+                "ok": True,
+                "trigger": "CarregaMapa",
+                "mapaDigitado": "94154",
+                "kmAtualPreDigitado": "195541",
+                "submitCount": 1,
+                "pontoApoioDisabled": True,
+                "pontoApoioValue": "0",
+            }
+
+    page.driver = DriverFake()
+    page.entrar_frame_rotina_blindado = lambda *args, **kwargs: None
+    page._esperar_campo_js = lambda *args, **kwargs: True
+    page._aguardar_e_clicar_sim_recuperar_mapa = lambda *args, **kwargs: None
+    page._aguardar_estado_pos_mapa_js = lambda *args, **kwargs: {
+        "submitCount": 1,
+        "pontoApoioDisabled": True,
+    }
+    page._capturar_alerta_km_aberto_para_reabertura = lambda *args, **kwargs: None
+    page._reentrar_frame = lambda *args, **kwargs: None
+    page._aguardar_carga_mapa = lambda *args, **kwargs: (True, [])
+    page._aceitar_alerta = lambda *args, **kwargs: None
+    page._aguardar_telinhas_pos_carga = lambda *args, **kwargs: {}
+    page._estado_mapa_js = lambda *args, **kwargs: {"mapa": "94154", "produtos": []}
+    page.switch_to_default_content = lambda *args, **kwargs: None
+
+    def preencher_km_nao_deve_ser_chamado(*args, **kwargs):
+        chamadas["preencher_km"] += 1
+        raise AssertionError("km ja preenchido nao deve ser redigitado")
+
+    page._preencher_km_atual_js = preencher_km_nao_deve_ser_chamado
+
+    resultado = page.carregar_mapa("94154", km_atual="195541")
+
+    assert resultado.status == ExecutionStatus.SUCCESS
+    assert resultado.metadata["resultado_km"]["skipped"] is True
+    assert resultado.metadata["resultado_km"]["reason"] == "km-ja-preenchido-antes-carregamapa"
+    assert chamadas["preencher_km"] == 0
+
+
 def test_salvar_mapa_bloqueia_salvar_quando_redigitacao_nao_aplica():
     page = Processo030302Page.__new__(Processo030302Page)
     page.logger = type(
