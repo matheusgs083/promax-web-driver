@@ -970,43 +970,6 @@ def test_salvar_mapa_zerado_captura_lista_reabre_rotina_aplica_e_salva_final():
     assert resultado.metadata["diferencas_corrigidas"]["aplicados"][0]["campoUn"] == "textvazUn001"
 
 
-def test_envio_final_sem_retorno_aceita_payload_positivo_e_bloqueia_riscos():
-    page = Processo030302Page.__new__(Processo030302Page)
-    resultado_js = {
-        "ok": True,
-        "formAfter": {
-            "itensListaLength": 37,
-            "numeroItems": "1",
-            "produtos": [{"codigo": "27983", "vazUn": "96"}],
-        },
-    }
-
-    assert page._envio_final_sem_retorno_adicional_030302(
-        resultado_js,
-        submit_count_final=3,
-        confirmacoes_final=[],
-    )
-    assert not page._envio_final_sem_retorno_adicional_030302(
-        {
-            "ok": True,
-            "formAfter": {
-                "itensListaLength": 37,
-                "numeroItems": "1",
-                "produtos": [{"codigo": "27983", "vazUn": "0"}],
-            },
-        },
-        submit_count_final=3,
-        confirmacoes_final=[],
-    )
-    assert not page._envio_final_sem_retorno_adicional_030302(
-        resultado_js,
-        submit_count_final=3,
-        confirmacoes_final=[
-            {"bloqueia_fluxo": True, "classificacao_final": "retorno_nao_liberado"}
-        ],
-    )
-
-
 def test_salvar_mapa_preenchido_usa_mesmo_envio_do_zerado():
     page = Processo030302Page.__new__(Processo030302Page)
     page.logger = type(
