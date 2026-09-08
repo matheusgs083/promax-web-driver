@@ -124,6 +124,37 @@ def test_salvar_mapa_falha():
     assert "Falha ao salvar" in resultado.message
 
 
+def test_salvar_mapa_preserva_sucesso_quando_pos_salvar_volta_sem_equipe():
+    page = Processo030303Page.__new__(Processo030303Page)
+    page.logger = type(
+        "LoggerFake",
+        (),
+        {
+            "info": lambda *args, **kwargs: None,
+            "debug": lambda *args, **kwargs: None,
+            "warning": lambda *args, **kwargs: None,
+            "error": lambda *args, **kwargs: None,
+        },
+    )()
+
+    page.entrar_frame_rotina_blindado = lambda *args, **kwargs: None
+    page.executar_gatilho_e_aguardar = lambda gatilho: (True, "Dados gravados com sucesso")
+    page.lidar_com_alertas = lambda *args, **kwargs: []
+    page._aguardar_dados_equipe_carregados = lambda *args, **kwargs: {
+        "campos": [
+            {"name": "Motorista", "value": {"texto": "--Selecionar--", "valor": ""}},
+            {"name": "Placa", "value": {"texto": "--Selecionar--", "valor": ""}},
+        ],
+        "motorista": {"nome": "--Selecionar--", "origem_nome": "Motorista"},
+    }
+
+    resultado = page.salvar_mapa()
+
+    assert resultado.status == ExecutionStatus.SUCCESS
+    assert resultado.retry is False
+    assert resultado.metadata["dados_pos_salvar_invalidos"] is True
+
+
 def test_carregar_mapa_falha_quando_equipe_nao_foi_carregada():
     page = Processo030303Page.__new__(Processo030303Page)
     page.logger = type("LoggerFake", (), {"info": lambda *args, **kwargs: None, "error": lambda *args, **kwargs: None})()

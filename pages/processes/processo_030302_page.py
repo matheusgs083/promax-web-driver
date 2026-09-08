@@ -4758,6 +4758,189 @@ class Processo030302Page(RotinaPage):
         except UnexpectedAlertPresentException:
             return {"ok": True, "trigger": f"BotSalvar.click{trigger_suffix}-alerta"}
 
+    def _enviar_salvar_manual_030302_js(self, trigger_suffix=""):
+        try:
+            self._reentrar_frame(timeout=10)
+            resultado = self.driver.execute_script(
+                """
+                var sufixo = arguments[0] || '';
+                function getByName(doc, nome) {
+                    if (!doc) return null;
+                    var porName = doc.getElementsByName ? doc.getElementsByName(nome)[0] : null;
+                    if (porName) return porName;
+                    try { return doc.all ? doc.all[nome] : null; } catch (e) { return null; }
+                }
+                function contextoSalvar() {
+                    var visitados = [];
+                    function visto(win) {
+                        for (var i = 0; i < visitados.length; i++) {
+                            if (visitados[i] === win) return true;
+                        }
+                        return false;
+                    }
+                    function visitar(win) {
+                        if (!win || visto(win)) return null;
+                        visitados.push(win);
+                        var doc = null;
+                        try { doc = win.document; } catch (e) { doc = null; }
+                        if (doc && getByName(doc, 'BotSalvar')) return {win: win, doc: doc};
+                        try {
+                            if (win.frames) {
+                                for (var i = 0; i < win.frames.length; i++) {
+                                    var achou = visitar(win.frames[i]);
+                                    if (achou) return achou;
+                                }
+                            }
+                        } catch (e) {}
+                        return null;
+                    }
+                    return visitar(window) || visitar(window.parent) || visitar(window.top) || {win: window, doc: document};
+                }
+                function padNumero(valor, tamanho) {
+                    var n = parseInt(String(valor || '').replace(/\\D/g, ''), 10);
+                    if (isNaN(n)) n = 0;
+                    var s = String(n);
+                    while (s.length < tamanho) s = '0' + s;
+                    return s;
+                }
+                function auxLinha(index) {
+                    if (index < 10) return '00' + index;
+                    if (index < 100) return '0' + index;
+                    return String(index);
+                }
+                function valorCampo(doc, nome) {
+                    var campo = getByName(doc, nome);
+                    return campo ? campo.value : '';
+                }
+                function checkedCampo(doc, nome) {
+                    var campo = getByName(doc, nome);
+                    return !!(campo && campo.checked);
+                }
+                function setValor(doc, nome, valor) {
+                    var campo = getByName(doc, nome);
+                    if (campo) campo.value = valor;
+                    return campo;
+                }
+                function snapshotFormulario(ctx) {
+                    var doc = ctx.doc;
+                    var lista = doc.getElementById ? doc.getElementById('lista') : null;
+                    if (!lista) lista = getByName(doc, 'lista');
+                    var produtos = [];
+                    if (lista && lista.rows) {
+                        for (var i = 1; i < lista.rows.length; i++) {
+                            var aux = auxLinha(i);
+                            produtos.push({
+                                linha: aux,
+                                codigo: valorCampo(doc, 'textcod' + aux),
+                                devUn: valorCampo(doc, 'textdevUn' + aux),
+                                devAv: valorCampo(doc, 'textdevAv' + aux),
+                                troUn: valorCampo(doc, 'texttroUn' + aux),
+                                troAv: valorCampo(doc, 'texttroAv' + aux),
+                                vazUn: valorCampo(doc, 'textvazUn' + aux),
+                                vazAv: valorCampo(doc, 'textvazAv' + aux)
+                            });
+                        }
+                    }
+                    var itens = valorCampo(doc, 'itensLista');
+                    return {
+                        mapa: valorCampo(doc, 'mapa'),
+                        opcao: valorCampo(doc, 'opcao'),
+                        numeroItems: valorCampo(doc, 'numeroItems'),
+                        itensListaLength: itens ? String(itens).length : 0,
+                        idAchouGuiaMapa: valorCampo(doc, 'idAchouGuiaMapa'),
+                        idAchouGuiasSalvas: valorCampo(doc, 'idAchouGuiasSalvas'),
+                        idMostraMsgAfericao: valorCampo(doc, 'idMostraMsgAfericao'),
+                        listaRows: lista && lista.rows ? lista.rows.length : 0,
+                        produtos: produtos
+                    };
+                }
+
+                var ctx = contextoSalvar();
+                var doc = ctx.doc;
+                var win = ctx.win;
+                var lista = doc.getElementById ? doc.getElementById('lista') : null;
+                if (!lista) lista = getByName(doc, 'lista');
+                if (!lista || !lista.rows || lista.rows.length <= 1) {
+                    return {ok: false, error: 'lista-sem-itens', trigger: 'Salvar.manual-direto' + sufixo};
+                }
+                var antes = snapshotFormulario(ctx);
+                var result = '';
+                for (var i = 1; i < lista.rows.length; i++) {
+                    var aux = auxLinha(i);
+                    var cobrarRepack = checkedCampo(doc, 'textcobrarRepack' + aux) ? 'S' : 'N';
+                    result += padNumero(valorCampo(doc, 'textcod' + aux), 7);
+                    result += padNumero(valorCampo(doc, 'textdevUn' + aux), 5);
+                    result += padNumero(valorCampo(doc, 'textdevAv' + aux), 2);
+                    result += padNumero(valorCampo(doc, 'texttroUn' + aux), 5);
+                    result += padNumero(valorCampo(doc, 'texttroAv' + aux), 2);
+                    result += padNumero(valorCampo(doc, 'textvazUn' + aux), 5);
+                    result += padNumero(valorCampo(doc, 'textvazAv' + aux), 2);
+                    result += cobrarRepack;
+                    result += padNumero(valorCampo(doc, 'texttabCustoRepack' + aux), 3);
+                    result += padNumero(valorCampo(doc, 'textqtdeRepack' + aux), 5);
+                }
+                try {
+                    if (typeof win.nomeArqwor !== 'undefined') {
+                        setValor(doc, 'nomeArquivo', win.nomeArqwor);
+                    }
+                } catch (e) {}
+                setValor(doc, 'idMostraMsgAfericao', 'N');
+                setValor(doc, 'numeroItems', lista.rows.length - 1);
+                setValor(doc, 'itensLista', result);
+                setValor(doc, 'opcao', 6);
+
+                var bot = getByName(doc, 'BotSalvar');
+                var botLanc = getByName(doc, 'BotLancamentos');
+                if (bot) bot.disabled = true;
+                if (botLanc) botLanc.disabled = true;
+                try {
+                    var botBonus = getByName(doc, 'BotLancBonusAS');
+                    if (botBonus) botBonus.disabled = true;
+                } catch (e) {}
+
+                var depois = snapshotFormulario(ctx);
+                if (typeof win.EnviarFormulario === 'function') {
+                    win.EnviarFormulario();
+                    return {
+                        ok: true,
+                        trigger: 'Salvar.manual-direto.EnviarFormulario' + sufixo,
+                        formBefore: antes,
+                        formAfter: depois
+                    };
+                }
+                var form = doc.forms ? doc.forms['form1'] : null;
+                if (form && form.submit) {
+                    form.submit();
+                    return {
+                        ok: true,
+                        trigger: 'Salvar.manual-direto.form-submit' + sufixo,
+                        formBefore: antes,
+                        formAfter: depois
+                    };
+                }
+                return {
+                    ok: false,
+                    error: 'enviar-formulario-nao-encontrado',
+                    trigger: 'Salvar.manual-direto' + sufixo,
+                    formBefore: antes,
+                    formAfter: depois
+                };
+                """,
+                trigger_suffix,
+            )
+            if resultado is None:
+                return {"ok": True, "trigger": f"Salvar.manual-direto{trigger_suffix}-sem-retorno"}
+            return resultado
+        except UnexpectedAlertPresentException:
+            return {"ok": True, "trigger": f"Salvar.manual-direto{trigger_suffix}-alerta"}
+        except Exception as exc:
+            return {
+                "ok": False,
+                "error": "salvar-manual-direto-falhou",
+                "message": str(exc),
+                "trigger": f"Salvar.manual-direto{trigger_suffix}",
+            }
+
     def _clicar_salvar_webdriver(self, trigger_suffix=""):
         try:
             estado_antes = self._estado_mapa_js()
@@ -5835,10 +6018,8 @@ class Processo030302Page(RotinaPage):
                         )
                         estado_pre_salvar_final = self._estado_mapa_js() or {}
 
-                        resultado_final = self._clicar_salvar_js(
-                            ".apos-aplicar-diferencas",
-                            prefer_click=True,
-                            clique_simples=False,
+                        resultado_final = self._enviar_salvar_manual_030302_js(
+                            ".apos-aplicar-diferencas"
                         )
                         self.logger.info(
                             "Clique final em salvar 030302 apos reabrir e aplicar diferencas: %s",

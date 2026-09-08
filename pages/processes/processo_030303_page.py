@@ -415,14 +415,22 @@ class Processo030303Page(RotinaPage):
             self._logar_dados_equipe(dados_030303, "salvar")
 
             if not self._dados_equipe_validos(dados_030303):
+                self.logger.warning(
+                    "030303 | Salvar respondeu, mas a tela pos-salvar nao manteve "
+                    "motorista/placa validos. O orquestrador deve preservar os dados "
+                    "capturados na carga quando existirem."
+                )
                 return ExecutionResult(
-                    status=ExecutionStatus.TECHNICAL_FAILURE,
+                    status=ExecutionStatus.SUCCESS,
                     message=(
-                        "A 030303 respondeu ao salvamento, mas nao retornou motorista "
-                        "e placa validos para sincronizacao."
+                        "Mapa salvo na 030303; dados pos-salvar sem motorista/placa "
+                        "validos, usando dados capturados na carga quando disponiveis."
                     ),
-                    retry=True,
-                    metadata={"dados_030303": dados_030303},
+                    retry=False,
+                    metadata={
+                        "dados_030303": dados_030303,
+                        "dados_pos_salvar_invalidos": True,
+                    },
                 )
 
             return ExecutionResult(

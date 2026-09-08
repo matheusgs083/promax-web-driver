@@ -795,7 +795,7 @@ def test_salvar_mapa_zerado_captura_lista_reabre_rotina_aplica_e_salva_final():
         "divMensagemDisplay": "none",
         "listaDiferencasLength": 0,
     }
-    chamadas = {"salvar": 0, "recarregar": 0, "aplicar": 0, "fluxo": 0}
+    chamadas = {"salvar": 0, "salvar_manual": 0, "recarregar": 0, "aplicar": 0, "fluxo": 0}
     cliques_salvar = []
 
     page.entrar_frame_rotina_blindado = lambda *args, **kwargs: None
@@ -828,9 +828,6 @@ def test_salvar_mapa_zerado_captura_lista_reabre_rotina_aplica_e_salva_final():
     def clicar_salvar(trigger_suffix="", *args, **kwargs):
         chamadas["salvar"] += 1
         cliques_salvar.append((trigger_suffix, kwargs))
-        produtos = [{"codigo": "27983", "vazUn": "0"}]
-        if trigger_suffix == ".apos-aplicar-diferencas":
-            produtos = [{"codigo": "27983", "vazUn": "96"}]
         return {
             "ok": True,
             "trigger": "BotSalvar.click" + trigger_suffix,
@@ -838,11 +835,27 @@ def test_salvar_mapa_zerado_captura_lista_reabre_rotina_aplica_e_salva_final():
                 "itensListaLength": 37,
                 "numeroItems": "1",
                 "opcao": "6",
-                "produtos": produtos,
+                "produtos": [{"codigo": "27983", "vazUn": "0"}],
             },
         }
 
     page._clicar_salvar_js = clicar_salvar
+
+    def salvar_manual_final(trigger_suffix="", *args, **kwargs):
+        chamadas["salvar_manual"] += 1
+        cliques_salvar.append((trigger_suffix, kwargs))
+        return {
+            "ok": True,
+            "trigger": "Salvar.manual-direto.EnviarFormulario" + trigger_suffix,
+            "formAfter": {
+                "itensListaLength": 37,
+                "numeroItems": "1",
+                "opcao": "6",
+                "produtos": [{"codigo": "27983", "vazUn": "96"}],
+            },
+        }
+
+    page._enviar_salvar_manual_030302_js = salvar_manual_final
     def seguir_fluxo(*args, **kwargs):
         chamadas["fluxo"] += 1
         if chamadas["fluxo"] == 1:
@@ -958,15 +971,15 @@ def test_salvar_mapa_zerado_captura_lista_reabre_rotina_aplica_e_salva_final():
     assert resultado.status == ExecutionStatus.SUCCESS
     assert "diferencas capturadas" in resultado.message
     assert chamadas == {
-        "salvar": 2,
+        "salvar": 1,
+        "salvar_manual": 1,
         "recarregar": 1,
         "aplicar": 1,
         "fluxo": 2,
         "aguardar_lista": 1,
     }
     assert cliques_salvar[1][0] == ".apos-aplicar-diferencas"
-    assert cliques_salvar[1][1]["prefer_click"] is True
-    assert cliques_salvar[1][1]["clique_simples"] is False
+    assert cliques_salvar[1][1] == {}
     assert resultado.metadata["diferencas_corrigidas"]["aplicados"][0]["campoUn"] == "textvazUn001"
 
 
