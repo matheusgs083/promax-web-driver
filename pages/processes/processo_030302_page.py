@@ -5973,17 +5973,35 @@ class Processo030302Page(RotinaPage):
                             or self._confirmacoes_tem_sem_diferencas(confirmacoes_final)
                             or self._estado_confirmou_sem_diferencas(estado_fluxo_final)
                         )
-                        if tem_sem_diferencas:
+                        envio_final_sem_retorno = (
+                            self._envio_final_sem_retorno_adicional_030302(
+                                resultado_final,
+                                submit_count_final=submit_count_final,
+                                confirmacoes_final=confirmacoes_final,
+                            )
+                        )
+                        if tem_sem_diferencas or envio_final_sem_retorno:
                             self.switch_to_default_content()
                             return ExecutionResult(
                                 status=ExecutionStatus.SUCCESS,
                                 message=(
-                                    "Salvar da 030302 concluido com diferencas capturadas e "
-                                    "alerta 'Nao existem diferencas'."
+                                    (
+                                        "Salvar da 030302 concluido com diferencas capturadas e "
+                                        "alerta 'Nao existem diferencas'."
+                                    )
+                                    if tem_sem_diferencas
+                                    else (
+                                        "Salvar da 030302 concluido com payload positivo e sem "
+                                        "retorno adicional bloqueador do Promax."
+                                    )
                                 ),
                                 metadata={
                                     "trigger": resultado_final.get("trigger"),
-                                    "fluxo": "final-nao-existem-diferencas",
+                                    "fluxo": (
+                                        "final-nao-existem-diferencas"
+                                        if tem_sem_diferencas
+                                        else "final-payload-positivo-sem-retorno-adicional"
+                                    ),
                                     "alertas": alertas
                                     + self._extrair_alertas_capturados(
                                         confirmacoes,
@@ -6170,10 +6188,6 @@ class Processo030302Page(RotinaPage):
         submit_count_final=0,
         confirmacoes_final=None,
     ):
-        # Nao usar payload/submit como confirmacao de fechamento da 030302.
-        # O fluxo estavel depende do alerta "Nao existem diferencas".
-        return False
-
         if not resultado_js:
             return False
         if not (
