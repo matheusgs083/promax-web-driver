@@ -92,3 +92,41 @@ RESUMO FINANCEIRO
     assert payload["notas"][0]["nota"] == "204742"
     assert payload["notas"][1]["situacao"] == "DEV"
     assert payload["vasilhames"][0]["codigo"] == "27983"
+
+
+def test_coletar_paginas_relatorio_usa_pg2_e_navega_todas_paginas():
+    page = Processo030322Page.__new__(Processo030322Page)
+    page.logger = type("LoggerFake", (), {"info": lambda *args, **kwargs: None})()
+    page.entrar_frame_rotina_blindado = lambda *args, **kwargs: None
+    page.wait_for_js_condition = lambda *args, **kwargs: True
+
+    class DriverFake:
+        def __init__(self):
+            self.pagina = 1
+            self.navegadas = []
+
+        def execute_script(self, script, *args):
+            if "IrParaPagina" in script:
+                self.pagina = int(args[0])
+                self.navegadas.append(self.pagina)
+                return {"ok": True, "metodo": "IrParaPagina", "pagina": str(self.pagina)}
+            return {
+                "texto": (
+                    "PW02136R-t-Promax Web Prestacao de Contas "
+                    f"Mapa: 94.155 de 08/09/2026 Pag.    {self.pagina}\n"
+                    f"conteudo pagina {self.pagina}"
+                ),
+                "pagina": self.pagina,
+                "total_paginas": 3,
+                "pg2": "3",
+                "label_paginacao": f"{self.pagina} / 3",
+            }
+
+    driver = DriverFake()
+    page.driver = driver
+
+    paginas = page._coletar_paginas_relatorio(timeout_segundos=1)
+
+    assert [item["pagina"] for item in paginas] == [1, 2, 3]
+    assert driver.navegadas == [2, 3]
+    assert "conteudo pagina 3" in paginas[-1]["texto"]

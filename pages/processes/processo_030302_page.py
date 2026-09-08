@@ -4607,6 +4607,7 @@ class Processo030302Page(RotinaPage):
                     }
                     : null;
                 var formBefore = snapshotFormulario(ctx);
+                var forcarEnvioManual = sufixo === '.apos-aplicar-diferencas';
                 if (!cliqueSimples) {
                     try {
                         if (
@@ -4623,6 +4624,31 @@ class Processo030302Page(RotinaPage):
                     } catch (e) {}
 
                     try { botSalvar.focus(); } catch (e) {}
+                }
+
+                if (forcarEnvioManual) {
+                    var manualForcado = salvarManual(ctx);
+                    if (manualForcado && manualForcado.ok) {
+                        manualForcado.formBefore = formBefore;
+                        manualForcado.formAfter = snapshotFormulario(ctx);
+                        manualForcado.activeBefore = ativoAntes;
+                        manualForcado.activeAfter = ctx.doc.activeElement
+                            ? {name: ctx.doc.activeElement.name || '', id: ctx.doc.activeElement.id || ''}
+                            : null;
+                        manualForcado.trigger = 'Salvar.manual-forcado' + sufixo;
+                        return manualForcado;
+                    }
+                    return {
+                        ok: false,
+                        error: 'salvar-manual-forcado-falhou',
+                        manualError: manualForcado,
+                        formBefore: formBefore,
+                        formAfter: snapshotFormulario(ctx),
+                        activeBefore: ativoAntes,
+                        activeAfter: ctx.doc.activeElement
+                            ? {name: ctx.doc.activeElement.name || '', id: ctx.doc.activeElement.id || ''}
+                            : null
+                    };
                 }
 
                 if (preferClick) {
@@ -5901,7 +5927,7 @@ class Processo030302Page(RotinaPage):
 
                         fechamento_final = self._aguardar_fechamento_final_isolado_030302(
                             resultado_final,
-                            timeout=min(max(timeout, 8), 12),
+                            timeout=min(max(timeout, 35), 50),
                         )
                         confirmacoes_final = (
                             confirmacoes_final + (fechamento_final.get("confirmacoes") or [])

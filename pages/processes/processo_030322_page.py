@@ -493,11 +493,24 @@ class Processo030322Page(RotinaPage):
         paginas = [primeira]
         total_paginas = int(primeira.get("total_paginas") or 1)
         for pagina in range(2, total_paginas + 1):
+            texto_anterior = str(paginas[-1].get("texto") or "")
             self._ir_para_pagina_relatorio(pagina)
-            paginas.append(self._ler_pagina_relatorio(timeout_segundos=timeout_segundos, pagina_esperada=pagina))
+            paginas.append(
+                self._ler_pagina_relatorio(
+                    timeout_segundos=timeout_segundos,
+                    pagina_esperada=pagina,
+                    texto_anterior=texto_anterior,
+                )
+            )
         return paginas
 
-    def _ler_pagina_relatorio(self, *, timeout_segundos: int = 10, pagina_esperada: int | None = None) -> dict:
+    def _ler_pagina_relatorio(
+        self,
+        *,
+        timeout_segundos: int = 10,
+        pagina_esperada: int | None = None,
+        texto_anterior: str | None = None,
+    ) -> dict:
         limite = time.time() + max(1, timeout_segundos)
         ultimo = {}
         while time.time() < limite:
@@ -510,16 +523,32 @@ class Processo030322Page(RotinaPage):
                     var mTotal = texto.match(/p[áa]ginas?\\s+de\\s+1\\s+at[eé]\\s+(\\d+)/i);
                     var irpara = document.getElementsByName('irpara')[0];
                     var paginaatual = document.getElementsByName('paginaatual')[0];
+                    var pg2 = document.getElementsByName('pg2')[0];
+                    var labelPag = '';
+                    var labels = document.getElementsByTagName('label');
+                    for (var i = 0; i < labels.length; i++) {
+                        var t = String(labels[i].innerText || labels[i].textContent || '');
+                        if (/\\b\\d+\\s*\\/\\s*\\d+\\b/.test(t)) {
+                            labelPag = t;
+                            break;
+                        }
+                    }
+                    var mLabel = labelPag.match(/(\\d+)\\s*\\/\\s*(\\d+)/);
                     return {
                         texto: texto,
-                        pagina: mPag ? Number(mPag[1]) : (paginaatual && paginaatual.value ? Number(paginaatual.value) : null),
-                        total_paginas: mTotal ? Number(mTotal[1]) : null,
-                        irpara_max: irpara && irpara.outerHTML ? irpara.outerHTML : ''
+                        pagina: mPag ? Number(mPag[1]) : (mLabel ? Number(mLabel[1]) : (paginaatual && paginaatual.value ? Number(paginaatual.value) : null)),
+                        total_paginas: mTotal ? Number(mTotal[1]) : (mLabel ? Number(mLabel[2]) : (pg2 && pg2.value ? Number(pg2.value) : null)),
+                        irpara_max: irpara && irpara.outerHTML ? irpara.outerHTML : '',
+                        pg2: pg2 && pg2.value ? String(pg2.value) : '',
+                        label_paginacao: labelPag
                     };
                     """
                 ) or {}
                 texto = str(dados.get("texto") or "")
-                if texto.strip() and (pagina_esperada is None or int(dados.get("pagina") or pagina_esperada) == pagina_esperada):
+                pagina_atual = int(dados.get("pagina") or 0)
+                pagina_ok = pagina_esperada is None or pagina_atual == pagina_esperada
+                texto_mudou = not texto_anterior or texto.strip() != str(texto_anterior or "").strip()
+                if texto.strip() and pagina_ok and texto_mudou:
                     if not dados.get("total_paginas"):
                         total = self._inferir_total_paginas(texto, dados.get("irpara_max"))
                         dados["total_paginas"] = total
@@ -534,34 +563,40 @@ class Processo030322Page(RotinaPage):
         return ultimo
 
     def _ir_para_pagina_relatorio(self, pagina: int) -> None:
-        self.driver.execute_script(
+        retorno = self.driver.execute_script(
             """
+            var pagina = String(arguments[0]);
             var ir = document.getElementsByName('irpara')[0];
+            if (typeof IrParaPagina === 'function') {
+                if (ir) ir.value = pagina;
+                IrParaPagina();
+                return {ok: true, metodo: 'IrParaPagina', pagina: pagina};
+            }
             var atual = document.getElementsByName('paginaatual')[0];
             var opcao = document.getElementsByName('opcao')[0];
             var opcaorelat = document.getElementsByName('opcaorelat')[0];
-            if (ir) ir.value = String(arguments[0]);
-            if (atual) atual.value = String(arguments[0]);
+            if (ir) ir.value = pagina;
+            if (atual) atual.value = pagina;
             if (opcao) opcao.value = 88;
             if (opcaorelat) opcaorelat.value = 0;
-            if (typeof IrParaPagina === 'function') {
-                IrParaPagina();
-                return true;
-            }
             if (document.form1) {
                 document.form1.submit();
-                return true;
+                return {ok: true, metodo: 'form-submit', pagina: pagina};
             }
-            return false;
+            return {ok: false, error: 'formulario-nao-encontrado', pagina: pagina};
             """,
             int(pagina),
         )
+        if not retorno or not retorno.get("ok"):
+            raise RuntimeError(f"Nao foi possivel navegar para a pagina {pagina} da 030322: {retorno}")
+        self.logger.info("030322 | Navegando para pagina %s do relatorio: %s", pagina, retorno)
 
     @staticmethod
     def _inferir_total_paginas(texto: str, html_irpara: str | None = None) -> int:
         candidatos = [int(item) for item in re.findall(r"Pag\.\s*(\d+)", texto or "", flags=re.I)]
         html = str(html_irpara or "")
         candidatos.extend(int(item) for item in re.findall(r"Informar p.ginas de 1 at.\s*(\d+)", html, flags=re.I))
+        candidatos.extend(int(item) for item in re.findall(r"\b\d+\s*/\s*(\d+)\b", texto or "", flags=re.I))
         return max(candidatos or [1])
 
     @classmethod
