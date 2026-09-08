@@ -4596,7 +4596,8 @@ class Processo030302Page(RotinaPage):
                     : null;
                 var formBefore = snapshotFormulario(ctx);
                 var forcarEnvioManual = (
-                    sufixo === '.apos-aplicar-diferencas'
+                    sufixo === '.verificar-diferencas'
+                    || sufixo === '.apos-aplicar-diferencas'
                     || sufixo === '.apos-aplicar-produtos'
                 );
                 if (!cliqueSimples) {
