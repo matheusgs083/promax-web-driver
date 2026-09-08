@@ -5491,6 +5491,12 @@ class Processo030302Page(RotinaPage):
                 tem_valor_editavel,
                 espera_envio,
             )
+            reabrir_com_km = getattr(self, "_reabrir_030302_com_km", None)
+            if reabrir_com_km:
+                return self._resultado_reabertura_km_030302(
+                    mapa_normalizado,
+                    reabrir_com_km,
+                )
 
             if submit_count > 0 or resultado_js.get("ok"):
                 payload_com_itens = self._resultado_salvar_tem_itens_030302(resultado_js)
