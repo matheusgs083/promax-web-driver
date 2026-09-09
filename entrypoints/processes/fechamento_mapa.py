@@ -150,18 +150,27 @@ def _normalizar_texto_fluxo(texto):
     return "".join(char for char in texto if not unicodedata.combining(char))
 
 
-def _resultado_pede_030330_por_comodato(resultado):
+def _tipo_pendente_030330(resultado):
     if not resultado:
-        return False
+        return None
     metadata = resultado.metadata or {}
     textos = [resultado.message]
     textos.extend(metadata.get("alertas") or [])
     texto = _normalizar_texto_fluxo(" | ".join(str(item or "") for item in textos))
-    return (
-        "comodato" in texto
-        and ("030330" in texto or "03.03.30" in texto)
-        and ("nao foi fechado" in texto or "nao fechado" in texto)
-    )
+    if not (
+        ("030330" in texto or "03.03.30" in texto)
+        and ("nao foi fechad" in texto or "nao fechad" in texto)
+    ):
+        return None
+    if "consignacao" in texto:
+        return "CONSIGNACAO"
+    if "comodato" in texto:
+        return "COMODATO"
+    return None
+
+
+def _resultado_pede_030330_por_comodato(resultado):
+    return _tipo_pendente_030330(resultado) == "COMODATO"
 
 
 def _fechar_rotina_030302_para_reabrir(page_030302, driver, janela_030302):
@@ -202,8 +211,10 @@ def _tipos_para_processar_030330(tp_mapa="COMODATO"):
 
 
 def _executar_030330_sessao_unica(menu_page, mapa, dt_emissao=None, tp_mapa="COMODATO"):
+    tipo_log = str(tp_mapa or "COMODATO").strip().upper()
     logger.warning(
-        "030302 | Comodato pendente detectado. Executando 030330 antes de retentar o fechamento fisico do mapa %s.",
+        "030330 pendente detectado (%s). Executando 030330 antes de retentar o fechamento do mapa %s.",
+        tipo_log,
         mapa,
     )
     janela_030330 = menu_page.acessar_rotina("030330")
@@ -773,15 +784,21 @@ def fechar_mapa_sessao_unica(
             res_fisico = normalize_execution_result(
                 page_030302.carregar_mapa(mapa, **carregar_030302_kwargs)
             )
-            if _resultado_pede_030330_por_comodato(res_fisico) and not comodato_030330_executado:
+            tipo_030330_fisico = _tipo_pendente_030330(res_fisico)
+            if tipo_030330_fisico and not comodato_030330_executado:
                 logger.warning(
-                    "030302 | Mapa %s pediu fechamento de comodato pela 030330. Fechando 030302 e executando 030330.",
+                    "030302 | Mapa %s pediu fechamento de %s pela 030330. Fechando 030302 e executando 030330.",
                     mapa,
+                    tipo_030330_fisico,
                 )
                 novo_menu = _fechar_rotina_030302_para_reabrir(page_030302, driver, janela_030302)
                 if novo_menu is not None:
                     menu_page = novo_menu
-                res_030330, novo_menu = _executar_030330_sessao_unica(menu_page, mapa)
+                res_030330, novo_menu = _executar_030330_sessao_unica(
+                    menu_page,
+                    mapa,
+                    tp_mapa=tipo_030330_fisico,
+                )
                 if novo_menu is not None:
                     menu_page = novo_menu
                 if not res_030330.ok:

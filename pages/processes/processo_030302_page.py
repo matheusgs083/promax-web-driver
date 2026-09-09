@@ -176,9 +176,9 @@ class Processo030302Page(RotinaPage):
         if self._eh_alerta_recuperar_mapa(texto_normalizado):
             return {"classificacao": "recuperar_mapa", "resposta": "sim"}
         if (
-            "comodato" in texto_normalizado
+            ("comodato" in texto_normalizado or "consignacao" in texto_normalizado)
             and ("030330" in texto_normalizado or "03.03.30" in texto_normalizado)
-            and ("nao foi fechado" in texto_normalizado or "nao fechado" in texto_normalizado)
+            and ("nao foi fechad" in texto_normalizado or "nao fechad" in texto_normalizado)
         ):
             return {"classificacao": "comodato_030330_pendente", "resposta": "ok"}
         if "impress" in texto_normalizado and "direcionad" in texto_normalizado:
@@ -3759,18 +3759,15 @@ class Processo030302Page(RotinaPage):
                     else:
                         continue
                 if tipo == "ok_sem_diferencas":
-                    resultado_pendente = {
+                    resultado = {
                         "alertaRespondido": resposta,
                         "alertasRespondidos": list(confirmacoes),
                         "mensagemOk": True,
                         "mensagemSemDiferencas": True,
                         "listaDiferencasLength": 0,
                     }
-                    if not exigir_financeiro or etapas["financeiro"]:
-                        etapas["resultado"] = True
-                        resultado = resultado_pendente
-                        break
-                    continue
+                    etapas["resultado"] = True
+                    break
                 continue
 
             dados_confirmacao_js = self._obter_confirmacoes_salvar_js() or {}
@@ -3812,17 +3809,15 @@ class Processo030302Page(RotinaPage):
                     else:
                         continue
                 elif tipo_js == "ok_sem_diferencas" and resposta_js == "ok":
-                    resultado_pendente = {
+                    resultado = {
                         "alertaRespondido": confirmacao_js,
                         "alertasRespondidos": list(confirmacoes),
                         "mensagemOk": True,
                         "mensagemSemDiferencas": True,
                         "listaDiferencasLength": 0,
                     }
-                    if not exigir_financeiro or etapas["financeiro"]:
-                        etapas["resultado"] = True
-                        resultado = resultado_pendente
-                        break
+                    etapas["resultado"] = True
+                    break
             if resultado:
                 break
 
@@ -5994,8 +5989,10 @@ class Processo030302Page(RotinaPage):
                         )
                         estado_pre_salvar_final = self._estado_mapa_js() or {}
 
-                        resultado_final = self._enviar_salvar_manual_030302_js(
-                            ".apos-aplicar-diferencas"
+                        resultado_final = self._clicar_salvar_js(
+                            ".verificar-diferencas",
+                            prefer_click=True,
+                            clique_simples=False,
                         )
                         self.logger.info(
                             "Clique final em salvar 030302 apos reabrir e aplicar diferencas: %s",
@@ -6066,21 +6063,11 @@ class Processo030302Page(RotinaPage):
                         # Perguntas podem aparecer em qualquer ordem ou nao aparecer.
                         # O padrao estavel da 030302 so considera finalizado quando
                         # o Promax confirma explicitamente que nao existem diferencas.
-                        fluxo_final_salvar = self._seguir_fluxo_salvar_030302(
-                            timeout=min(timeout, 25),
-                            exigir_financeiro=False,
-                            parar_apos_financeiro=False,
-                        )
-                        confirmacoes_final = fluxo_final_salvar.get("confirmacoes") or []
-                        estado_fluxo_final = fluxo_final_salvar.get("resultado") or {}
-
                         fechamento_final = self._aguardar_fechamento_final_isolado_030302(
                             resultado_final,
                             timeout=min(max(timeout, 35), 50),
                         )
-                        confirmacoes_final = (
-                            confirmacoes_final + (fechamento_final.get("confirmacoes") or [])
-                        )
+                        confirmacoes_final = fechamento_final.get("confirmacoes") or []
                         dados_confirmacao_final = self._obter_confirmacoes_salvar_js() or {}
                         submit_count_final = int(
                             dados_confirmacao_final.get("submitCount") or 0
@@ -6129,7 +6116,6 @@ class Processo030302Page(RotinaPage):
                         tem_sem_diferencas = bool(
                             fechamento_final.get("sem_diferencas")
                             or self._confirmacoes_tem_sem_diferencas(confirmacoes_final)
-                            or self._estado_confirmou_sem_diferencas(estado_fluxo_final)
                         )
                         if tem_sem_diferencas:
                             self.switch_to_default_content()
@@ -6563,6 +6549,23 @@ class Processo030302Page(RotinaPage):
                         campoKm.className = 'campo';
                         campoKm.value = kmAtual;
                         kmAtualPreDigitado = campoKm.value;
+                        try {
+                            if (campoKm.fireEvent) {
+                                campoKm.fireEvent('onkeyup');
+                                campoKm.fireEvent('onchange');
+                                campoKm.fireEvent('onblur');
+                            } else if (document.createEvent) {
+                                var evtKmKey = document.createEvent('HTMLEvents');
+                                evtKmKey.initEvent('keyup', false, true);
+                                campoKm.dispatchEvent(evtKmKey);
+                                var evtKmChange = document.createEvent('HTMLEvents');
+                                evtKmChange.initEvent('change', false, true);
+                                campoKm.dispatchEvent(evtKmChange);
+                                var evtKmBlur = document.createEvent('HTMLEvents');
+                                evtKmBlur.initEvent('blur', false, true);
+                                campoKm.dispatchEvent(evtKmBlur);
+                            }
+                        } catch (eKm) {}
                     }
                 }
 

@@ -168,6 +168,33 @@ def test_worker_runner_builds_standalone_030322_with_routine_date():
     assert "--fechar-ao-falhar" in command
 
 
+def test_worker_runner_builds_standalone_030303_from_panel_payload():
+    runner_config = PromaxRunnerConfig.from_values(
+        driver_dir=PROJECT_ROOT,
+        python_executable=sys.executable,
+    )
+
+    command = PromaxRunner(runner_config).build_command(
+        {
+            "id": "job-030303-1",
+            "job_type": "fechamento_mapa",
+            "payload": {
+                "operation": "fechamento-mapa",
+                "mapa": "94041",
+                "filial": "3",
+                "data": "2026-09-05",
+                "data_rotina": "2026-09-03",
+                "modo": "030303",
+                "units": ["2210003"],
+            },
+        }
+    )
+
+    assert command[command.index("--modo") + 1] == "030303"
+    assert command[command.index("--data") + 1] == "2026-09-03"
+    assert command[command.index("--unidade") + 1] == "2210003"
+
+
 def test_partial_result_is_retained_and_retried_after_temporary_api_failure():
     client = Mock()
     client.sync_financeiro_fechamento_mapa.side_effect = PromaxApiUnavailable(

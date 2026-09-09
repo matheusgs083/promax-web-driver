@@ -135,6 +135,62 @@ def test_carregar_mapa_nao_redigita_km_quando_ja_preenchido_na_carga():
     assert chamadas["preencher_km"] == 0
 
 
+def test_fluxo_salvar_030302_nao_exige_lista_quando_promax_confirma_sem_diferencas():
+    page = Processo030302Page.__new__(Processo030302Page)
+    page.logger = type(
+        "LoggerFake",
+        (),
+        {
+            "info": lambda *args, **kwargs: None,
+            "debug": lambda *args, **kwargs: None,
+            "warning": lambda *args, **kwargs: None,
+        },
+    )()
+    chamadas = {"lista": 0, "estado": 0}
+    respostas = [
+        {"tipo": "msgbxSimNao", "mensagem": "Libera mapa para o financeiro?", "resposta": "sim"},
+        {"tipo": "alert", "mensagem": "Nao existem diferencas", "resposta": "ok"},
+    ]
+
+    def responder_alerta(*args, **kwargs):
+        if respostas:
+            return respostas.pop(0)
+        return None
+
+    def aguardar_lista(*args, **kwargs):
+        chamadas["lista"] += 1
+        raise AssertionError("nao deve aguardar lista quando o Promax ja confirmou sem diferencas")
+
+    def adicionar_confirmacao(confirmacoes, confirmacao, origem=""):
+        if not confirmacao:
+            return False
+        confirmacoes.append(confirmacao)
+        return True
+
+    page._responder_alerta_nativo = responder_alerta
+    page._responder_pergunta_html_js = lambda *args, **kwargs: None
+    page._adicionar_confirmacao_030302 = adicionar_confirmacao
+    page._classificar_alerta_030302 = lambda confirmacao: page._decidir_resposta_msgbox_030302(
+        confirmacao.get("mensagem")
+    )["classificacao"]
+    page._obter_confirmacoes_salvar_js = lambda *args, **kwargs: {}
+    page._estado_telinhas_js = (
+        lambda *args, **kwargs: chamadas.__setitem__("estado", chamadas["estado"] + 1) or {}
+    )
+    page._aguardar_lista_diferencas = aguardar_lista
+
+    resultado = page._seguir_fluxo_salvar_030302(
+        timeout=2,
+        exigir_financeiro=True,
+        parar_apos_financeiro=False,
+    )
+
+    assert resultado["etapas"]["financeiro"] is True
+    assert resultado["etapas"]["resultado"] is True
+    assert resultado["resultado"]["mensagemSemDiferencas"] is True
+    assert chamadas["lista"] == 0
+
+
 def test_salvar_mapa_bloqueia_salvar_quando_redigitacao_nao_aplica():
     page = Processo030302Page.__new__(Processo030302Page)
     page.logger = type(
@@ -312,6 +368,11 @@ def test_salvar_mapa_preenchido_usa_evento_js_no_botao_salvar():
         ),
         (
             "Comodato nao foi fechado atraves da rotina 03.03.30",
+            "comodato_030330_pendente",
+            "ok",
+        ),
+        (
+            "Consignacao nao foi fechada atraves da rotina 03.03.30",
             "comodato_030330_pendente",
             "ok",
         ),
@@ -884,6 +945,7 @@ def test_salvar_mapa_zerado_captura_lista_reabre_rotina_aplica_e_salva_final():
     def clicar_salvar(trigger_suffix="", *args, **kwargs):
         chamadas["salvar"] += 1
         cliques_salvar.append((trigger_suffix, kwargs))
+        produtos = [{"codigo": "27983", "vazUn": "96"}] if chamadas["salvar"] > 1 else [{"codigo": "27983", "vazUn": "0"}]
         return {
             "ok": True,
             "trigger": "BotSalvar.click" + trigger_suffix,
@@ -891,7 +953,7 @@ def test_salvar_mapa_zerado_captura_lista_reabre_rotina_aplica_e_salva_final():
                 "itensListaLength": 37,
                 "numeroItems": "1",
                 "opcao": "6",
-                "produtos": [{"codigo": "27983", "vazUn": "0"}],
+                "produtos": produtos,
             },
         }
 
@@ -1019,6 +1081,16 @@ def test_salvar_mapa_zerado_captura_lista_reabre_rotina_aplica_e_salva_final():
         }
 
     page._aplicar_diferencas_capturadas_js = aplicar
+    page._aguardar_fechamento_final_isolado_030302 = lambda *args, **kwargs: {
+        "sem_diferencas": True,
+        "confirmacoes": [
+            {
+                "tipo": "alert",
+                "mensagem": "Nao existem diferencas",
+                "resposta": "ok",
+            }
+        ],
+    }
 
     page.switch_to_default_content = lambda *args, **kwargs: None
 
@@ -1027,15 +1099,16 @@ def test_salvar_mapa_zerado_captura_lista_reabre_rotina_aplica_e_salva_final():
     assert resultado.status == ExecutionStatus.SUCCESS
     assert "diferencas capturadas" in resultado.message
     assert chamadas == {
-        "salvar": 1,
-        "salvar_manual": 1,
+        "salvar": 2,
+        "salvar_manual": 0,
         "recarregar": 1,
         "aplicar": 1,
-        "fluxo": 2,
+        "fluxo": 1,
         "aguardar_lista": 1,
     }
-    assert cliques_salvar[1][0] == ".apos-aplicar-diferencas"
-    assert cliques_salvar[1][1] == {}
+    assert cliques_salvar[1][0] == ".verificar-diferencas"
+    assert cliques_salvar[1][1]["prefer_click"] is True
+    assert cliques_salvar[1][1]["clique_simples"] is False
     assert resultado.metadata["diferencas_corrigidas"]["aplicados"][0]["campoUn"] == "textvazUn001"
 
 
@@ -1266,7 +1339,7 @@ def test_salvar_mapa_preenchido_reenvia_opcao8_com_payload_salvo():
     )
 
 
-def test_fluxo_salvar_030302_exige_financeiro_antes_do_resultado():
+def test_fluxo_salvar_030302_resultado_final_do_promax_nao_depende_da_ordem():
     page = Processo030302Page.__new__(Processo030302Page)
     page.logger = type(
         "LoggerFake",
@@ -1287,15 +1360,64 @@ def test_fluxo_salvar_030302_exige_financeiro_antes_do_resultado():
     page._estado_telinhas_js = lambda *args, **kwargs: {}
     page._aguardar_lista_diferencas = lambda *args, **kwargs: {}
 
-    resultado = page._seguir_fluxo_salvar_030302(timeout=1, exigir_financeiro=True)
+    resultado = page._seguir_fluxo_salvar_030302(
+        timeout=1,
+        exigir_financeiro=True,
+        parar_apos_financeiro=False,
+    )
+
+    assert resultado["etapas"] == {
+        "diferencas": True,
+        "financeiro": False,
+        "resultado": True,
+    }
+    assert [item["resposta"] for item in resultado["confirmacoes"]] == ["nao", "ok"]
+    assert resultado["resultado"]["mensagemSemDiferencas"] is True
+
+
+def test_fluxo_salvar_030302_liberacao_financeira_pode_vir_antes_da_lista():
+    page = Processo030302Page.__new__(Processo030302Page)
+    page.logger = type(
+        "LoggerFake",
+        (),
+        {"info": lambda *args, **kwargs: None, "debug": lambda *args, **kwargs: None},
+    )()
+
+    respostas = iter(
+        [
+            {"tipo": "alert", "mensagem": "Existem diferencas deseja alterar?", "resposta": "nao"},
+            {"tipo": "alert", "mensagem": "Liberar mapa para o financeiro?", "resposta": "sim"},
+        ]
+    )
+    chamadas = {"lista": 0}
+
+    def estado_telinhas(*args, **kwargs):
+        chamadas["lista"] += 1
+        return {
+            "listaDiferencasLength": 2,
+            "divDiferencasVisivel": True,
+            "mensagemSemDiferencas": False,
+        }
+
+    page._responder_alerta_nativo = lambda *args, **kwargs: next(respostas, None)
+    page._responder_pergunta_html_js = lambda *args, **kwargs: None
+    page._estado_telinhas_js = estado_telinhas
+    page._aguardar_lista_diferencas = lambda *args, **kwargs: {}
+
+    resultado = page._seguir_fluxo_salvar_030302(
+        timeout=1,
+        exigir_financeiro=True,
+        parar_apos_financeiro=False,
+    )
 
     assert resultado["etapas"] == {
         "diferencas": True,
         "financeiro": True,
         "resultado": True,
     }
-    assert [item["resposta"] for item in resultado["confirmacoes"]] == ["nao", "ok", "sim"]
-    assert resultado["resultado"]["mensagemSemDiferencas"] is True
+    assert [item["resposta"] for item in resultado["confirmacoes"]] == ["nao", "sim"]
+    assert resultado["resultado"]["listaDiferencasLength"] == 2
+    assert chamadas["lista"] > 0
 
 
 def test_fluxo_salvar_030302_financeiro_opcional_aceita_ok_sem_financeiro():
