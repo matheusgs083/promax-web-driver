@@ -195,6 +195,34 @@ def test_worker_runner_builds_standalone_030303_from_panel_payload():
     assert command[command.index("--unidade") + 1] == "2210003"
 
 
+def test_worker_runner_uses_panel_km_fallback_as_km_atual():
+    runner_config = PromaxRunnerConfig.from_values(
+        driver_dir=PROJECT_ROOT,
+        python_executable=sys.executable,
+    )
+
+    command = PromaxRunner(runner_config).build_command(
+        {
+            "id": "job-fechamento-km",
+            "job_type": "fechamento_mapa",
+            "payload": {
+                "operation": "fechamento-mapa",
+                "mapa": "94154",
+                "filial": "3",
+                "modo": "completo",
+                "km_inicial": "195234",
+                "km_prev": "307",
+                "km_fallback_atual": "195541",
+                "units": ["2210003"],
+            },
+        }
+    )
+
+    assert command[command.index("--km-atual") + 1] == "195541"
+    assert command[command.index("--km-inicial") + 1] == "195234"
+    assert command[command.index("--km-prev") + 1] == "307"
+
+
 def test_partial_result_is_retained_and_retried_after_temporary_api_failure():
     client = Mock()
     client.sync_financeiro_fechamento_mapa.side_effect = PromaxApiUnavailable(

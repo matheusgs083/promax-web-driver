@@ -143,7 +143,14 @@ class PromaxRunner:
             ponto_apoio = str(payload.get("ponto_apoio") or payload.get("pontoApoio") or "").strip()
             if ponto_apoio and ponto_apoio != "0":
                 command.extend(["--ponto-apoio", ponto_apoio])
-            km_atual = str(payload.get("km_atual") or payload.get("kmAtual") or payload.get("km") or "").strip()
+            km_atual = str(
+                payload.get("km_atual")
+                or payload.get("kmAtual")
+                or payload.get("km")
+                or payload.get("km_fallback_atual")
+                or payload.get("kmFallbackAtual")
+                or ""
+            ).strip()
             if km_atual:
                 command.extend(["--km-atual", km_atual])
             km_inicial = str(payload.get("km_inicial") or payload.get("kmInicial") or "").strip()
