@@ -179,12 +179,21 @@ class ReportOrchestrationService:
             return ExecutionResult(status=ExecutionStatus.SUCCESS, message=mensagem)
 
         self.logger.info("================ FASE: EXECUCAO DAS ROTINAS ================")
+        resultados: list[ExecutionResult] = []
         for task in tasks.values():
-            self.executar_tarefa_com_retry(task.name, lambda runner=task.runner: runner())
+            resultado = self.executar_tarefa_com_retry(task.name, lambda runner=task.runner: runner())
+            if isinstance(resultado, ExecutionResult):
+                resultados.append(resultado)
 
-        return ExecutionResult(
-            status=ExecutionStatus.SUCCESS,
-            message=f"{len(tasks)} rotina(s) executada(s) com sucesso.",
+        if not resultados:
+            return ExecutionResult(
+                status=ExecutionStatus.SUCCESS,
+                message=f"{len(tasks)} rotina(s) executada(s) com sucesso.",
+            )
+
+        return self._merge_results(
+            *resultados,
+            success_message=f"{len(tasks)} rotina(s) executada(s) com sucesso.",
         )
 
     def executar_repescagem_automatica(self, tasks: dict[str, RoutineTask]) -> ExecutionResult:

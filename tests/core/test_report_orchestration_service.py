@@ -163,6 +163,32 @@ def test_execucao_normal_preserva_defaults_do_runner():
     assert chamadas_runner == [("3610006", "3610007")]
 
 
+def test_execucao_normal_reflete_falha_retornada_pela_tarefa():
+    service = ReportOrchestrationService(
+        logger=DummyLogger(),
+        tracker=FakeTracker(),
+        iniciar_sessao=lambda: None,
+        executar_tarefa_com_retry=lambda _nome, funcao: funcao(),
+        encerrar_sessao=lambda: None,
+    )
+    tarefas = {
+        "030206_BOT": RoutineTask(
+            key="030206_BOT",
+            name="Rotina 030206 Bot",
+            runner=lambda _unidades=None: ExecutionResult(
+                status=ExecutionStatus.TECHNICAL_FAILURE,
+                message="SEM_DOWNLOAD_030206",
+                retry=True,
+            ),
+        )
+    }
+
+    resultado = service.executar_rotinas(tarefas)
+
+    assert resultado.status == ExecutionStatus.TECHNICAL_FAILURE
+    assert "SEM_DOWNLOAD_030206" in resultado.message
+
+
 def test_run_protege_artefatos_quando_execucao_falha(monkeypatch):
     pasta_base = Path.cwd() / ".test_tmp_orquestrador"
     shutil.rmtree(pasta_base, ignore_errors=True)

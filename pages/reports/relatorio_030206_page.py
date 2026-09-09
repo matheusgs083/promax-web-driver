@@ -8,6 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from core.config.settings import get_settings
+from core.execution.execution_result import ExecutionResult, ExecutionStatus
 from pages.common.rotina_page import RotinaPage
 
 
@@ -159,7 +160,11 @@ class Relatorio030206Page(RotinaPage):
         if resultado_download[0]:
             return True, f"DOWNLOAD_OK: {diretorio / nome_arquivo}"
 
-        return False, f"SEM_DOWNLOAD: {resultado_download[1]}"
+        return ExecutionResult(
+            status=ExecutionStatus.TECHNICAL_FAILURE,
+            message=f"SEM_DOWNLOAD_030206: {resultado_download[1]}",
+            retry=True,
+        )
 
     def _capturar_pdf_ignorando_logs(self, nome_arquivo, diretorio_destino, timeout_download):
         diretorio_destino = Path(diretorio_destino)
