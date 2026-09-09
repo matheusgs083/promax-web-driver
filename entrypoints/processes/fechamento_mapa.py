@@ -832,25 +832,40 @@ def fechar_mapa_sessao_unica(
                 tentativa_030302 += 1
                 time.sleep(1.0)
                 continue
+
+            if res_fisico.ok:
+                lista_preenchida = page_030302.tem_codigos_fisicos()
+                logger.info("030302 | Checagem de codigos no HTML: lista_preenchida=%s", lista_preenchida)
+
+                if not lista_preenchida:
+                    logger.info("030302 | A lista do HTML nao esta preenchida com codigos. Executando o salvamento/segundo processo da 030302 para liberacao...")
+                else:
+                    logger.info("030302 | A lista do HTML esta preenchida com codigos. Executando salvamento de acerto fisico...")
+
+            if res_fisico.ok and salvar:
+                res_fisico = normalize_execution_result(page_030302.salvar_mapa())
+                km_fallback = _km_fallback_reabertura_030302(res_fisico)
+                if km_fallback and not reabriu_por_km:
+                    logger.warning(
+                        "030302 | Alerta de KM durante salvamento pediu reabertura. Fechando rotina e reabrindo mapa %s com KM %s.",
+                        mapa,
+                        km_fallback,
+                    )
+                    novo_menu = _fechar_rotina_030302_para_reabrir(page_030302, driver, janela_030302)
+                    if novo_menu is not None:
+                        menu_page = novo_menu
+                    km_atual_030302 = km_fallback
+                    reabriu_por_km = True
+                    tentativa_030302 += 1
+                    time.sleep(1.0)
+                    continue
+                if reabriu_por_km:
+                    res_fisico = _anexar_metadata_resultado(
+                        res_fisico,
+                        reabriu_030302_por_km=True,
+                        km_atual_reabertura=km_atual_030302,
+                    )
             break
-
-        if res_fisico.ok:
-            lista_preenchida = page_030302.tem_codigos_fisicos()
-            logger.info("030302 | Checagem de codigos no HTML: lista_preenchida=%s", lista_preenchida)
-
-            if not lista_preenchida:
-                logger.info("030302 | A lista do HTML nao esta preenchida com codigos. Executando o salvamento/segundo processo da 030302 para liberacao...")
-            else:
-                logger.info("030302 | A lista do HTML esta preenchida com codigos. Executando salvamento de acerto fisico...")
-
-        if res_fisico.ok and salvar:
-            res_fisico = normalize_execution_result(page_030302.salvar_mapa())
-            if reabriu_por_km:
-                res_fisico = _anexar_metadata_resultado(
-                    res_fisico,
-                    reabriu_030302_por_km=True,
-                    km_atual_reabertura=km_atual_030302,
-                )
 
         logger.info("030302 | Resultado do processo na 030302: ok=%s, msg=%s", res_fisico.ok if res_fisico else None, res_fisico.message if res_fisico else None)
 
