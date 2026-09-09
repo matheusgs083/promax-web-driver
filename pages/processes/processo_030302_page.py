@@ -20,6 +20,7 @@ class Processo030302Page(RotinaPage):
         self._km_inicial_030302 = None
         self._km_prev_030302 = None
         self._reabrir_030302_com_km = None
+        self._mapa_atual_030302 = None
         try:
             self.handle_rotina = self.driver.current_window_handle
         except Exception:
@@ -5158,6 +5159,12 @@ class Processo030302Page(RotinaPage):
             self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
             self._instalar_monitor_envio_js(interceptar_msgbx=False)
             estado_pre_salvar = self._estado_mapa_js()
+            mapa_normalizado = str(
+                (estado_pre_salvar or {}).get("mapaSalvo")
+                or (estado_pre_salvar or {}).get("mapa")
+                or getattr(self, "_mapa_atual_030302", None)
+                or ""
+            ).strip()
             mapa_tem_valor_editavel = self._estado_tem_valor_editavel_030302(estado_pre_salvar)
             status_mapa_pre_salvar = str((estado_pre_salvar or {}).get("statusMapa") or "").strip()
             mapa_preenchido_legacy = bool(mapa_tem_valor_editavel and status_mapa_pre_salvar != "0")
@@ -6506,10 +6513,12 @@ class Processo030302Page(RotinaPage):
                 message=str(exc),
                 retry=False,
             )
+
         self._km_atual_030302 = km_atual_normalizado
         self._km_inicial_030302 = km_inicial_normalizado
         self._km_prev_030302 = km_prev_normalizado
         self._reabrir_030302_com_km = None
+        self._mapa_atual_030302 = mapa_normalizado
 
         try:
             self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
