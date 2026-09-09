@@ -4389,13 +4389,17 @@ class Processo030302Page(RotinaPage):
                 "message": str(exc),
             }
 
-    def _clicar_salvar_js(self, trigger_suffix="", prefer_click=False, clique_simples=False):
+    def _clicar_salvar_js(self, trigger_suffix="", prefer_click=False, clique_simples=False, km_atual=None):
         try:
+            km_atual_salvar = self.normalizar_km_atual(
+                km_atual if km_atual is not None else getattr(self, "_km_atual_030302", None)
+            )
             resultado = self.driver.execute_script(
                 """
                 var sufixo = arguments[0] || '';
                 var preferClick = arguments[1] === true;
                 var cliqueSimples = arguments[2] === true;
+                var kmAtualSalvar = arguments[3] || '';
                 function getByName(doc, nome) {
                     if (!doc) return null;
                     var porName = doc.getElementsByName ? doc.getElementsByName(nome)[0] : null;
@@ -4466,6 +4470,40 @@ class Processo030302Page(RotinaPage):
                     return campo;
                 }
 
+                function prepararKmAtual(doc) {
+                    if (!kmAtualSalvar) return {ok: true, skipped: true};
+                    var campo = getByName(doc, 'kmAtual');
+                    if (!campo) return {ok: false, error: 'campo-km-atual-nao-encontrado'};
+                    try { campo.disabled = false; } catch (e) {}
+                    try { campo.readOnly = false; } catch (e) {}
+                    try { campo.className = 'campo'; } catch (e) {}
+                    try { campo.focus(); } catch (e) {}
+                    campo.value = kmAtualSalvar;
+                    try {
+                        if (campo.fireEvent) {
+                            campo.fireEvent('onkeyup');
+                            campo.fireEvent('onchange');
+                            campo.fireEvent('onblur');
+                        } else if (document.createEvent) {
+                            var evtKey = document.createEvent('HTMLEvents');
+                            evtKey.initEvent('keyup', false, true);
+                            campo.dispatchEvent(evtKey);
+                            var evtChange = document.createEvent('HTMLEvents');
+                            evtChange.initEvent('change', false, true);
+                            campo.dispatchEvent(evtChange);
+                            var evtBlur = document.createEvent('HTMLEvents');
+                            evtBlur.initEvent('blur', false, true);
+                            campo.dispatchEvent(evtBlur);
+                        }
+                    } catch (e) {}
+                    return {
+                        ok: true,
+                        value: campo.value,
+                        disabled: !!campo.disabled,
+                        readOnly: !!campo.readOnly
+                    };
+                }
+
                 function snapshotFormulario(ctx) {
                     var doc = ctx.doc;
                     var lista = doc.getElementById ? doc.getElementById('lista') : null;
@@ -4497,6 +4535,7 @@ class Processo030302Page(RotinaPage):
                         itensListaLength: itens ? String(itens).length : 0,
                         itensListaPrefix: itens ? String(itens).substring(0, 80) : '',
                         listaRows: lista && lista.rows ? lista.rows.length : 0,
+                        kmAtual: valorCampo(doc, 'kmAtual'),
                         fBotSalvar: valorCampo(doc, 'fBotSalvar'),
                         idMostraMsgAfericao: valorCampo(doc, 'idMostraMsgAfericao'),
                         idAchouGuiasSalvas: valorCampo(doc, 'idAchouGuiasSalvas'),
@@ -4539,6 +4578,7 @@ class Processo030302Page(RotinaPage):
                     setValor(doc, 'numeroItems', lista.rows.length - 1);
                     setValor(doc, 'itensLista', result);
                     setValor(doc, 'opcao', 6);
+                    var kmPreparadoManual = prepararKmAtual(doc);
 
                     var bot = getByName(doc, 'BotSalvar');
                     var botLanc = getByName(doc, 'BotLancamentos');
@@ -4556,7 +4596,9 @@ class Processo030302Page(RotinaPage):
                             trigger: 'Salvar.manual-EnviarFormulario' + sufixo,
                             numeroItems: lista.rows.length - 1,
                             itensListaLength: result.length,
-                            opcao: valorCampo(doc, 'opcao')
+                            opcao: valorCampo(doc, 'opcao'),
+                            kmAtual: valorCampo(doc, 'kmAtual'),
+                            kmAtualPreparado: kmPreparadoManual
                         };
                     }
 
@@ -4568,7 +4610,9 @@ class Processo030302Page(RotinaPage):
                             trigger: 'Salvar.manual-form-submit' + sufixo,
                             numeroItems: lista.rows.length - 1,
                             itensListaLength: result.length,
-                            opcao: valorCampo(doc, 'opcao')
+                            opcao: valorCampo(doc, 'opcao'),
+                            kmAtual: valorCampo(doc, 'kmAtual'),
+                            kmAtualPreparado: kmPreparadoManual
                         };
                     }
                     return {ok: false, error: 'enviar-formulario-nao-encontrado'};
@@ -4590,6 +4634,7 @@ class Processo030302Page(RotinaPage):
                         value: ctx.doc.activeElement.value || ''
                     }
                     : null;
+                var kmPreparado = prepararKmAtual(ctx.doc);
                 var formBefore = snapshotFormulario(ctx);
                 if (!cliqueSimples) {
                     try {
@@ -4716,10 +4761,19 @@ class Processo030302Page(RotinaPage):
                 trigger_suffix,
                 prefer_click,
                 clique_simples,
+                km_atual_salvar,
             )
             if resultado is None:
                 trigger = "BotSalvar.click" if prefer_click else "BotSalvar.fireEvent(onclick)"
-                return {"ok": True, "trigger": f"{trigger}{trigger_suffix}-sem-retorno"}
+                return {
+                    "ok": True,
+                    "trigger": f"{trigger}{trigger_suffix}-sem-retorno",
+                    "kmAtualPreparado": (
+                        {"ok": True, "value": km_atual_salvar}
+                        if km_atual_salvar
+                        else {"ok": True, "skipped": True}
+                    ),
+                }
             return resultado
         except UnexpectedAlertPresentException:
             return {"ok": True, "trigger": f"BotSalvar.click{trigger_suffix}-alerta"}
