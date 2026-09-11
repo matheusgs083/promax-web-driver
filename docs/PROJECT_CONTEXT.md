@@ -103,7 +103,7 @@ Fluxo tipico dos relatorios:
 
 ## Compatibilidade
 
-Os arquivos da raiz `main.py`, `mainRelatorios.py`, `mainRelatoriosFechamento.py`, `mainPedidos.py`, `mainReprocessarPublicacao.py`, `main140510.py`, `mainMapeador.py` e `alterarCEMC.py` continuam existindo apenas como wrappers para preservar chamadas operacionais antigas.
+Os relatorios sao executados pelo orquestrador via `cli.py`. Permanecem na raiz apenas `cli.py`, `mainWorker.py` e `mainMapeador.py`; wrappers e scripts manuais antigos foram movidos para `old/` como referencia historica.
 
 
 

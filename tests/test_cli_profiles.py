@@ -62,6 +62,33 @@ def test_fechamento_parser_accepts_dynamic_group_contract() -> None:
     assert args.publicar is False
 
 
+def test_150501_nao_versionado_parser_accepts_months_and_units() -> None:
+    parser = cli.build_parser()
+
+    args = parser.parse_args(
+        [
+            "150501-nao-versionado",
+            "--ano",
+            "2026",
+            "--mes",
+            "01",
+            "--mes",
+            "02/2026",
+            "--unidade",
+            "6",
+            "--unidade",
+            "3610007",
+            "--download-workers",
+            "2",
+        ]
+    )
+
+    assert args.ano == 2026
+    assert args.mes == ["01", "02/2026"]
+    assert args.unidade == ["6", "3610007"]
+    assert args.download_workers == 2
+
+
 def test_main_cli_propagates_execution_status(monkeypatch, capsys) -> None:
     calls = []
     from core.observability.relatorio_execucao import tracker

@@ -17,6 +17,10 @@ from core.execution.execution_result import (
 COMMANDS: dict[str, tuple[str, str]] = {
     "relatorios": ("entrypoints.reports.relatorios", "Executa o fluxo principal de relatorios."),
     "fechamento": ("entrypoints.reports.relatorios_fechamento", "Executa o fluxo de fechamento."),
+    "150501-nao-versionado": (
+        "entrypoints.reports.relatorio_150501_nao_versionado",
+        "Baixa a 150501 mes a mes para as operacoes 6, 7 e 8 sem publicacao versionada.",
+    ),
     "fechamento-mapa": ("entrypoints.processes.fechamento_mapa", "Executa o fechamento fisico/financeiro de um mapa."),
     "repescagem": ("entrypoints.reports.repescagem_relatorios", "Executa a repescagem manual de relatorios."),
     "reprocessar-publicacao": ("entrypoints.maintenance.reprocessar_publicacao", "Reprocessa itens em logs/publicacao_pendente."),
@@ -53,6 +57,21 @@ def build_parser() -> argparse.ArgumentParser:
             command_parser.set_defaults(publicar=True)
             command_parser.add_argument("--job-id", default="")
             command_parser.add_argument("--download-workers", type=int, default=5)
+        elif nome == "150501-nao-versionado":
+            command_parser.add_argument("--ano", type=int, default=None)
+            command_parser.add_argument(
+                "--mes",
+                action="append",
+                default=[],
+                help="Mes no formato MM ou MM/AAAA. Pode repetir. Sem informar, baixa 01 a 12 do ano.",
+            )
+            command_parser.add_argument(
+                "--unidade",
+                action="append",
+                default=[],
+                help="Codigo Promax ou numero da operacao. Default: operacoes 6, 7 e 8.",
+            )
+            command_parser.add_argument("--download-workers", type=int, default=3)
         elif nome == "fechamento-mapa":
             command_parser.add_argument("--mapa", required=True)
             command_parser.add_argument("--ponto-apoio", default=None)
@@ -63,7 +82,7 @@ def build_parser() -> argparse.ArgumentParser:
             command_parser.add_argument("--unidade", default=None)
             command_parser.add_argument(
                 "--modo",
-                choices=("completo", "fisico", "financeiro", "prestacao", "030322"),
+                choices=("completo", "fisico", "financeiro", "prestacao", "030303", "030322"),
                 default="completo",
             )
             command_parser.add_argument("--nao-salvar", action="store_true")
@@ -173,6 +192,13 @@ def main_cli() -> int:
             "routines": args.rotinas,
             "publish": args.publicar,
             "job_id": args.job_id,
+            "download_workers": args.download_workers,
+        }
+    elif args.command == "150501-nao-versionado":
+        kwargs = {
+            "year": args.ano,
+            "months": args.mes,
+            "units": args.unidade,
             "download_workers": args.download_workers,
         }
     elif args.command == "fechamento-mapa":

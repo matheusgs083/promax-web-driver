@@ -115,25 +115,15 @@ Pontos operacionais importantes:
 
 ## Compatibilidade
 
-Os scripts da raiz foram preservados para chamadas antigas, mas hoje funcionam como wrappers:
+Os relatorios sao executados pelo orquestrador via `cli.py`.
 
-- `main.py`
-- `mainRelatorios.py`
-- `mainRelatoriosFechamento.py`
-- `mainPedidos.py`
-- `mainReprocessarPublicacao.py`
-- `main140510.py`
-- `mainAdf.py`
-- `mainBotZap.py`
-- `mainEstoque.py`
-- `mainFluxoCaixa.py`
-- `mainGiro.py`
-- `mainInadimplencia.py`
-- `mainObz.py`
-- `mainOutros.py`
-- `alterarCEMC.py`
+Permanecem na raiz apenas entradas operacionais de uso direto:
 
-Para novos usos, prefira sempre `cli.py` e `entrypoints/`.
+- `cli.py`
+- `mainWorker.py`
+- `mainMapeador.py`
+
+Wrappers e scripts manuais antigos foram movidos para `old/`. Eles ficam apenas como referencia historica e nao devem ser usados em novos fluxos.
 
 ## Documentacao
 
@@ -158,7 +148,7 @@ O comportamento do Promax exige cuidados especificos de automacao:
 <!-- Re-run /repo-map to refresh after directory structure changes.     -->
 ```mermaid
 flowchart TB
-    host["Host (CLI / wrappers)"]
+    host["Host (CLI / worker)"]
 
     subgraph runtime["Runtime"]
         entrypoints["entrypoints/<br/>Fluxos executaveis"]
