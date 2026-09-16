@@ -450,6 +450,8 @@ def main(
             listar_produtos=True,
             listar_vasilhames_garrafeiras=False,
             tipo_data="E",
+            periodo_inicial=data_ontem_formatada,
+            periodo_final=data_ontem_formatada,
             nome_arquivo="02,05,02_nUnidade",
         )
         page.fechar_e_voltar()
