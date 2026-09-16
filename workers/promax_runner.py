@@ -34,7 +34,7 @@ class PromaxRunnerConfig:
     python_executable: Path
     heartbeat_interval_seconds: float = 15.0
     control_interval_seconds: float = 5.0
-    max_runtime_seconds: float = 900.0
+    max_runtime_seconds: float = 1500.0
 
     @classmethod
     def from_values(
@@ -44,7 +44,7 @@ class PromaxRunnerConfig:
         python_executable: str | os.PathLike[str],
         heartbeat_interval_seconds: float = 15.0,
         control_interval_seconds: float = 5.0,
-        max_runtime_seconds: float = 900.0,
+        max_runtime_seconds: float = 1500.0,
     ) -> PromaxRunnerConfig:
         driver_path = Path(driver_dir).expanduser().resolve()
         python_path = Path(python_executable).expanduser().resolve()
