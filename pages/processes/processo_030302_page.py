@@ -6561,6 +6561,10 @@ class Processo030302Page(RotinaPage):
             km_atual_normalizado = self.normalizar_km_atual(km_atual)
             km_inicial_normalizado = self.normalizar_km_atual(km_inicial) if km_inicial else None
             km_prev_normalizado = self.normalizar_km_atual(km_prev) if km_prev else None
+            if not km_atual_normalizado and km_inicial_normalizado and km_prev_normalizado:
+                km_atual_normalizado = self.normalizar_km_atual(
+                    int(km_inicial_normalizado) + int(km_prev_normalizado)
+                )
         except ValueError as exc:
             return ExecutionResult(
                 status=ExecutionStatus.BUSINESS_FAILURE,
@@ -6573,6 +6577,14 @@ class Processo030302Page(RotinaPage):
         self._km_prev_030302 = km_prev_normalizado
         self._reabrir_030302_com_km = None
         self._mapa_atual_030302 = mapa_normalizado
+
+        if not km_atual and km_atual_normalizado:
+            self.logger.info(
+                "030302 | KM atual ausente. Usando fallback: km_inicial (%s) + km_prev (%s) = %s.",
+                km_inicial_normalizado,
+                km_prev_normalizado,
+                km_atual_normalizado,
+            )
 
         try:
             self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
