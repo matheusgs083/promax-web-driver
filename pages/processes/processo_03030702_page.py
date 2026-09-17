@@ -1,7 +1,11 @@
 import time
 import unicodedata
 from datetime import datetime
-from selenium.common.exceptions import NoAlertPresentException, StaleElementReferenceException
+from selenium.common.exceptions import (
+    NoAlertPresentException,
+    StaleElementReferenceException,
+    UnexpectedAlertPresentException,
+)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from core.execution.execution_result import ExecutionResult, ExecutionStatus
@@ -351,12 +355,12 @@ class Processo03030702Page(RotinaPage):
             }
         """
         while time.time() < fim:
+            alerta = self._lidar_com_alerta_ie()
+            if alerta:
+                return {"pronto": False, "alerta": alerta}
+
             try:
                 self._garantir_frame_rotina()
-                alerta = self._lidar_com_alerta_ie()
-                if alerta:
-                    return {"pronto": False, "alerta": alerta}
-
                 res = self.driver.execute_script(script_js)
                 if res and isinstance(res, dict) and res.get("pronto"):
                     return res
@@ -367,6 +371,10 @@ class Processo03030702Page(RotinaPage):
                     self._garantir_frame_rotina()
                     if pronto_nat:
                         return {"pronto": True}
+            except UnexpectedAlertPresentException:
+                alerta = self._lidar_com_alerta_ie()
+                if alerta:
+                    return {"pronto": False, "alerta": alerta}
             except Exception:
                 pass
             time.sleep(0.5)
@@ -441,7 +449,18 @@ class Processo03030702Page(RotinaPage):
                     if (typeof r.CarregarMapa === 'function') r.CarregarMapa();
                 }}
             """
-            self.driver.execute_script(script_carga)
+            try:
+                self.driver.execute_script(script_carga)
+            except UnexpectedAlertPresentException:
+                alerta_texto = self._lidar_com_alerta_ie()
+                if alerta_texto:
+                    return ExecutionResult(
+                        status=ExecutionStatus.BUSINESS_FAILURE,
+                        message=f"Alerta retornado ao carregar mapa: {alerta_texto}",
+                        retry=False,
+                        metadata={"alertas": [alerta_texto]},
+                    )
+                raise
 
             self.logger.info("03030702 | Aguardando carregamento do mapa e renderizacao dos dados...")
             time.sleep(3.0)
@@ -453,6 +472,8 @@ class Processo03030702Page(RotinaPage):
                     return ExecutionResult(
                         status=ExecutionStatus.BUSINESS_FAILURE,
                         message=f"Alerta retornado ao carregar mapa: {alerta_texto}",
+                        retry=False,
+                        metadata={"alertas": [alerta_texto]},
                     )
                 self.logger.warning("03030702 | iFrameRetorno demorou a responder, prosseguindo com verificacao.")
 

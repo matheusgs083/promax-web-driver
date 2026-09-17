@@ -102,6 +102,27 @@ def test_extrair_pagina_json_retorna_dom_vivo_estruturado():
     assert payload["dom"]["totalFrames"] == 2
 
 
+def test_esperar_iframes_retorna_alerta_030330_antes_de_trocar_frame():
+    page = _fake_page_03030702()
+    mensagem = "Comodato nao foi fechado atraves da rotina 03.03.30"
+    chamadas = {"alerta": 0, "frame": 0}
+
+    def lidar_com_alerta():
+        chamadas["alerta"] += 1
+        return mensagem
+
+    def garantir_frame():
+        chamadas["frame"] += 1
+
+    page._lidar_com_alerta_ie = lidar_com_alerta
+    page._garantir_frame_rotina = garantir_frame
+
+    resultado = page._esperar_iframes_carregados(timeout_segundos=1)
+
+    assert resultado == {"pronto": False, "alerta": mensagem}
+    assert chamadas == {"alerta": 1, "frame": 0}
+
+
 def test_extrair_pagina_json_usa_campo_mapa_quando_numero_mapa_nao_existe():
     page = _fake_page_03030702()
 
