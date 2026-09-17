@@ -84,9 +84,9 @@ class Processo030302Page(RotinaPage):
             return True
         except UnexpectedAlertPresentException:
             self.logger.info(
-                "Alerta ignorado pela 030302 porque a janela ativa nao e a janela da rotina 030302."
+                "Alerta nativo aberto na 030302; mantendo a janela atual para permitir a leitura da mensagem."
             )
-            return False
+            return True
         except Exception as exc:
             self.logger.debug("Nao foi possivel focar a janela 030302 antes de tratar alerta: %s", exc)
             return False

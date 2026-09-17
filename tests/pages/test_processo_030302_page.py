@@ -1715,3 +1715,50 @@ def test_alerta_km_medio_durante_carga_clica_sim_sem_fallback():
     assert alerta.accepted is True
     assert alerta.dismissed is False
     assert page._reabrir_030302_com_km is None
+
+
+def test_alerta_recolhas_durante_carga_e_retornado_como_erro():
+    page = Processo030302Page.__new__(Processo030302Page)
+    page.handle_rotina = "janela-030302"
+    page.logger = type(
+        "LoggerFake",
+        (),
+        {
+            "info": lambda *args, **kwargs: None,
+            "debug": lambda *args, **kwargs: None,
+            "warning": lambda *args, **kwargs: None,
+        },
+    )()
+
+    class AlertFake:
+        text = "Existem recolhas no mapa"
+
+        def __init__(self):
+            self.accepted = False
+
+        def accept(self):
+            self.accepted = True
+
+    class SwitchFake:
+        def __init__(self, alert):
+            self.alert = alert
+
+    class DriverFake:
+        def __init__(self, alert):
+            self.switch_to = SwitchFake(alert)
+
+        @property
+        def current_window_handle(self):
+            raise UnexpectedAlertPresentException("alerta recolhas")
+
+    alerta = AlertFake()
+    page.driver = DriverFake(alerta)
+    page._registrar_alerta_030302 = lambda *args, **kwargs: None
+
+    resultado = page._tratar_alerta_carregamento_mapa_030302("94419", origem="teste")
+
+    assert resultado == {
+        "acao": "erro",
+        "mensagem": "Existem recolhas no mapa",
+    }
+    assert alerta.accepted is True
