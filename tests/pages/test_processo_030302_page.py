@@ -24,6 +24,115 @@ def test_normalizar_mapa_invalido(entrada):
         Processo030302Page.normalizar_mapa(entrada)
 
 
+def test_aguardar_carga_mapa_captura_mensagem_html_visivel(monkeypatch):
+    page = Processo030302Page.__new__(Processo030302Page)
+    page.logger = type(
+        "LoggerFake",
+        (),
+        {
+            "info": lambda *args, **kwargs: None,
+            "warning": lambda *args, **kwargs: None,
+        },
+    )()
+
+    class SwitchToFake:
+        @property
+        def alert(self):
+            from selenium.common.exceptions import NoAlertPresentException
+
+            raise NoAlertPresentException()
+
+    class DriverFake:
+        switch_to = SwitchToFake()
+
+        def execute_script(self, *_args):
+            return {
+                "ok": False,
+                "motivo": "aguardando-conteudo",
+                "mapa": "94450",
+                "botSalvarDisabled": True,
+                "divMensagemVisivel": True,
+                "divMensagemTexto": "Mapa ja encerrado pelo financeiro",
+                "divMotivosVisivel": False,
+                "divMotivosTexto": "",
+            }
+
+    class WaitFake:
+        def __init__(self, driver, timeout, poll_frequency=None):
+            self.driver = driver
+
+        def until(self, condition):
+            return condition(self.driver)
+
+    page.driver = DriverFake()
+    page._clicar_sim_recuperar_mapa = lambda: None
+    page._garantir_janela_030302 = lambda: True
+    monkeypatch.setattr("pages.processes.processo_030302_page.WebDriverWait", WaitFake)
+
+    carregou, alertas = page._aguardar_carga_mapa("94450", timeout=1)
+
+    assert carregou is False
+    assert alertas == ["DivMensagem: Mapa ja encerrado pelo financeiro"]
+    assert page._ultimo_estado_carga_030302["divMensagemVisivel"] is True
+
+
+def test_aguardar_carga_mapa_preserva_estado_html_oculto_no_timeout(monkeypatch):
+    page = Processo030302Page.__new__(Processo030302Page)
+    page.logger = type(
+        "LoggerFake",
+        (),
+        {
+            "info": lambda *args, **kwargs: None,
+            "warning": lambda *args, **kwargs: None,
+        },
+    )()
+
+    class SwitchToFake:
+        @property
+        def alert(self):
+            from selenium.common.exceptions import NoAlertPresentException
+
+            raise NoAlertPresentException()
+
+    class DriverFake:
+        switch_to = SwitchToFake()
+
+        def execute_script(self, *_args):
+            return {
+                "ok": False,
+                "motivo": "aguardando-conteudo",
+                "mapa": "94456",
+                "statusMapa": "PENDENTE",
+                "botSalvarDisabled": True,
+                "divMensagemVisivel": False,
+                "divMensagemTexto": "Mensagem antiga oculta",
+                "divMotivosVisivel": False,
+                "divMotivosTexto": "",
+            }
+
+    class WaitFake:
+        def __init__(self, driver, timeout, poll_frequency=None):
+            self.driver = driver
+
+        def until(self, condition):
+            condition(self.driver)
+            from selenium.common.exceptions import TimeoutException
+
+            raise TimeoutException()
+
+    page.driver = DriverFake()
+    page._clicar_sim_recuperar_mapa = lambda: None
+    page._garantir_janela_030302 = lambda: True
+    monkeypatch.setattr("pages.processes.processo_030302_page.WebDriverWait", WaitFake)
+
+    carregou, alertas = page._aguardar_carga_mapa("94456", timeout=1)
+
+    assert carregou is False
+    assert alertas == []
+    assert page._ultimo_estado_carga_030302["statusMapa"] == "PENDENTE"
+    assert page._ultimo_estado_carga_030302["divMensagemTexto"] == "Mensagem antiga oculta"
+
+
 def test_carregar_mapa_reentra_frame_quando_campo_mapa_some_do_contexto():
     page = Processo030302Page.__new__(Processo030302Page)
     page.logger = type(

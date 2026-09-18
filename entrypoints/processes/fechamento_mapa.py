@@ -870,7 +870,11 @@ def fechar_mapa_sessao_unica(
         logger.info("030302 | Resultado do processo na 030302: ok=%s, msg=%s", res_fisico.ok if res_fisico else None, res_fisico.message if res_fisico else None)
 
         if not res_fisico.ok:
-            logger.error("PASSO 1 FALHOU (030302 - FISICO): %s", res_fisico.message)
+            logger.error(
+                "PASSO 1 FALHOU (030302 - FISICO): %s | metadata=%s",
+                res_fisico.message,
+                res_fisico.metadata,
+            )
             return ExecutionResult(
                 status=res_fisico.status,
                 message=f"Falha no Fechamento Fisico (030302): {res_fisico.message}",

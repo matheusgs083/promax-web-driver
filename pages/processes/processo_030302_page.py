@@ -1732,6 +1732,21 @@ class Processo030302Page(RotinaPage):
 
     def _aguardar_carga_mapa(self, mapa_normalizado, timeout):
         alertas = []
+        self._ultimo_estado_carga_030302 = None
+
+        def _mensagens_html_visiveis(estado):
+            mensagens = []
+            for campo_visivel, campo_texto, origem in (
+                ("divMensagemVisivel", "divMensagemTexto", "DivMensagem"),
+                ("divMotivosVisivel", "divMotivosTexto", "DivMotivosReabMapa"),
+            ):
+                if not estado.get(campo_visivel):
+                    continue
+                texto = " ".join(str(estado.get(campo_texto) or "").split())
+                if texto:
+                    mensagens.append(f"{origem}: {texto}")
+            return mensagens
+
         def _condition(_driver):
             recuperacao = self._clicar_sim_recuperar_mapa()
             if recuperacao:
@@ -1805,23 +1820,76 @@ class Processo030302Page(RotinaPage):
             try:
                 carregou = self.driver.execute_script(
                     """
+                    function visivel(el) {
+                        if (!el) return false;
+                        if (el.style && el.style.display === 'none') return false;
+                        return true;
+                    }
+                    function texto(el, limite) {
+                        if (!el) return '';
+                        return String(el.innerText || el.textContent || '')
+                            .replace(/\\s+/g, ' ')
+                            .substring(0, limite || 500);
+                    }
+                    function campoHidden(nome) {
+                        var campo = document.getElementsByName(nome)[0];
+                        return campo ? campo.value : null;
+                    }
+                    function textoBotao(el) {
+                        if (!el) return '';
+                        return String(
+                            (el.innerText || '') + ' ' +
+                            (el.textContent || '') + ' ' +
+                            (el.value || '') + ' ' +
+                            (el.name || '') + ' ' +
+                            (el.id || '')
+                        ).replace(/\\s+/g, ' ').substring(0, 120);
+                    }
                     var mapaEsperado = arguments[0];
                     var mapa = document.getElementsByName('mapa')[0];
+                    var pontoApoio = document.getElementsByName('pontoApoio')[0];
                     var lista = document.getElementById('lista') || document.getElementsByName('lista')[0];
                     var botSalvar = document.getElementsByName('BotSalvar')[0];
+                    var divDif = document.getElementById('DivDiferencas');
+                    var divMsg = document.getElementById('DivMensagem');
+                    var divFila = document.getElementById('DivFila');
+                    var divMotivos = document.getElementById('DivMotivosReabMapa');
+                    var botoes = document.querySelectorAll
+                        ? document.querySelectorAll('button,input[type=button],input[type=submit],a')
+                        : [];
+                    var botoesVisiveis = [];
+                    for (var b = 0; b < botoes.length && botoesVisiveis.length < 20; b++) {
+                        if (visivel(botoes[b])) {
+                            botoesVisiveis.push(textoBotao(botoes[b]));
+                        }
+                    }
                     var listaRows = lista && lista.rows ? lista.rows.length : 0;
                     var carregouPorBotao = !!(botSalvar && botSalvar.disabled === false);
                     var carregouPorLista = !!(mapa && mapa.value == mapaEsperado && listaRows > 1);
-                    if (carregouPorBotao || carregouPorLista) {
-                        return {
-                            ok: true,
-                            motivo: carregouPorBotao ? 'botao-salvar-habilitado' : 'lista-carregada',
-                            mapa: mapa ? mapa.value : null,
-                            listaRows: listaRows,
-                            botSalvarDisabled: botSalvar ? !!botSalvar.disabled : null
-                        };
-                    }
-                    return false;
+                    return {
+                        ok: carregouPorBotao || carregouPorLista,
+                        motivo: carregouPorBotao
+                            ? 'botao-salvar-habilitado'
+                            : (carregouPorLista ? 'lista-carregada' : 'aguardando-conteudo'),
+                        mapa: mapa ? mapa.value : null,
+                        mapaSalvo: (typeof mapaSalvo !== 'undefined') ? String(mapaSalvo) : null,
+                        statusMapa: (typeof statusMapa1 !== 'undefined') ? String(statusMapa1) : null,
+                        pontoApoio: pontoApoio ? pontoApoio.value : null,
+                        pontoApoioDisabled: pontoApoio ? !!pontoApoio.disabled : null,
+                        listaRows: listaRows,
+                        botSalvarDisabled: botSalvar ? !!botSalvar.disabled : null,
+                        opcao: campoHidden('opcao'),
+                        numeroItems: campoHidden('numeroItems'),
+                        divDiferencasVisivel: visivel(divDif),
+                        divDiferencasTexto: texto(divDif, 500),
+                        divMensagemVisivel: visivel(divMsg),
+                        divMensagemTexto: texto(divMsg, 500),
+                        divFilaVisivel: visivel(divFila),
+                        divFilaTexto: texto(divFila, 500),
+                        divMotivosVisivel: visivel(divMotivos),
+                        divMotivosTexto: texto(divMotivos, 500),
+                        botoesVisiveis: botoesVisiveis
+                    };
                     """,
                     mapa_normalizado,
                 )
@@ -1847,7 +1915,20 @@ class Processo030302Page(RotinaPage):
                     )
                     return False
                 raise
-            if carregou:
+            self._ultimo_estado_carga_030302 = carregou
+            mensagens_html = _mensagens_html_visiveis(carregou or {})
+            if mensagens_html and not carregou.get("ok"):
+                for mensagem in mensagens_html:
+                    if mensagem not in alertas:
+                        alertas.append(mensagem)
+                self.logger.warning(
+                    "Mensagem HTML detectada durante carga do mapa %s: %s | estado=%s",
+                    mapa_normalizado,
+                    " | ".join(mensagens_html),
+                    carregou,
+                )
+                return "alerta"
+            if carregou.get("ok"):
                 self.logger.info("Carga do mapa 030302 confirmada: %s", carregou)
                 return carregou
             return False
@@ -1858,6 +1939,11 @@ class Processo030302Page(RotinaPage):
                 return False, alertas
             return bool(resultado and resultado != "alerta"), alertas
         except TimeoutException:
+            self.logger.info(
+                "Timeout na espera de carga do mapa %s. Ultimo estado observado: %s",
+                mapa_normalizado,
+                self._ultimo_estado_carga_030302,
+            )
             return False, alertas
 
     def _aguardar_estado_pos_mapa_js(self, timeout=10, mapa_normalizado=""):
@@ -6863,14 +6949,22 @@ class Processo030302Page(RotinaPage):
                     return ExecutionResult(
                         status=ExecutionStatus.TECHNICAL_FAILURE,
                         message=f"Timeout aguardando conteudo do mapa {mapa_normalizado} carregar na 030302.",
-                        metadata={"estado": estado_timeout, "status_pos_mapa": status_pos_mapa},
+                        metadata={
+                            "estado": estado_timeout,
+                            "status_pos_mapa": status_pos_mapa,
+                            "estado_carga": getattr(self, "_ultimo_estado_carga_030302", None),
+                        },
                     )
             except TimeoutException:
                 estado_timeout = self._estado_mapa_js()
                 return ExecutionResult(
                     status=ExecutionStatus.TECHNICAL_FAILURE,
                     message=f"Timeout aguardando conteudo do mapa {mapa_normalizado} carregar na 030302.",
-                    metadata={"estado": estado_timeout, "status_pos_mapa": status_pos_mapa},
+                    metadata={
+                        "estado": estado_timeout,
+                        "status_pos_mapa": status_pos_mapa,
+                        "estado_carga": getattr(self, "_ultimo_estado_carga_030302", None),
+                    },
                 )
 
             alerta = self._aceitar_alerta()
