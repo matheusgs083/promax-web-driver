@@ -590,12 +590,27 @@ class Processo030330Page(RotinaPage):
             and ("etiqueta" in texto_normalizado or "serie" in texto_normalizado or "série" in texto_normalizado)
         )
 
-    def _tratar_alerta_material_controlado_aberto(self) -> Dict[str, Any]:
+    def _tratar_alerta_material_controlado_aberto(
+        self,
+        mensagem_fallback: str = "",
+    ) -> Dict[str, Any]:
         try:
             alerta = self.driver.switch_to.alert
             mensagem = str(alerta.text or "")
         except NoAlertPresentException:
-            return {"ok": False, "error": "alerta-nao-encontrado", "mensagem": ""}
+            mensagem = str(mensagem_fallback or "")
+            if not self._eh_alerta_material_controlado(mensagem):
+                return {
+                    "ok": False,
+                    "error": "alerta-nao-encontrado",
+                    "mensagem": mensagem,
+                }
+            self.logger.info(
+                "030330 | Alerta de material controlado reconhecido pelo texto da excecao; "
+                "o alerta ja nao estava disponivel para aceite: %s",
+                mensagem,
+            )
+            return {"ok": True, "mensagem": mensagem, "alerta_aceito": False}
 
         if not self._eh_alerta_material_controlado(mensagem):
             return {"ok": False, "error": "alerta-nao-reconhecido", "mensagem": mensagem}
@@ -609,7 +624,7 @@ class Processo030330Page(RotinaPage):
             "030330 | Alerta de material controlado aceito antes do preenchimento da etiqueta: %s",
             mensagem,
         )
-        return {"ok": True, "mensagem": mensagem}
+        return {"ok": True, "mensagem": mensagem, "alerta_aceito": True}
 
     def _aguardar_e_tratar_div_numero_serie(
         self,
@@ -669,7 +684,9 @@ class Processo030330Page(RotinaPage):
                 try:
                     res_js = self.driver.execute_script(script_salvar)
                 except UnexpectedAlertPresentException as exc:
-                    alerta_material = self._tratar_alerta_material_controlado_aberto()
+                    alerta_material = self._tratar_alerta_material_controlado_aberto(
+                        mensagem_fallback=str(getattr(exc, "alert_text", "") or ""),
+                    )
                     mensagem_alerta = str(
                         alerta_material.get("mensagem") or getattr(exc, "alert_text", "") or str(exc)
                     )

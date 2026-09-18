@@ -75,6 +75,56 @@ def test_salvar_mapa_trata_alerta_material_controlado_e_repete_salvamento(monkey
     assert resultado.metadata["resultado_salvar"]["trigger"] == "Salvar()"
 
 
+def test_salvar_mapa_usa_texto_da_excecao_quando_alerta_ja_sumiu(monkeypatch):
+    mensagem_alerta = "Nota(s) com material controlado. Falta informar Etiqueta/Nº de Série"
+    estado = {"salvamentos": 0, "modal": 0, "alerta_detectado": False}
+
+    class SwitchToFake:
+        @property
+        def alert(self):
+            raise NoAlertPresentException()
+
+    class DriverFake:
+        switch_to = SwitchToFake()
+
+        def execute_script(self, _script, *_args):
+            estado["salvamentos"] += 1
+            if estado["salvamentos"] == 1:
+                estado["alerta_detectado"] = True
+                raise UnexpectedAlertPresentException(
+                    "material controlado",
+                    alert_text=mensagem_alerta,
+                )
+            return {"ok": True, "trigger": "Salvar()"}
+
+    page = Processo030330Page.__new__(Processo030330Page)
+    page.driver = DriverFake()
+    page.logger = _LoggerFake()
+    page._garantir_frame_rotina = lambda: None
+    page.lidar_com_alertas = lambda **kwargs: []
+    page.obter_resumo_mapa = lambda: {
+        "nrLinhas": "1",
+        "notas": [{"notaSerie": "123"}],
+    }
+
+    def tratar_modal(dt_fechamento=None):
+        if estado["alerta_detectado"] and estado["modal"] == 0:
+            estado["modal"] += 1
+            return True
+        return False
+
+    page.tratar_div_numero_serie = tratar_modal
+    monkeypatch.setattr("pages.processes.processo_030330_page.time.sleep", lambda *_args: None)
+
+    resultado = page.salvar_mapa()
+
+    assert resultado.status == ExecutionStatus.SUCCESS
+    assert estado["modal"] == 1
+    assert estado["salvamentos"] == 2
+    assert resultado.metadata["alertas"] == [mensagem_alerta]
+    assert resultado.metadata["resultado_salvar"]["trigger"] == "Salvar()"
+
+
 def test_salvar_mapa_preserva_alerta_desconhecido_sem_aceitar(monkeypatch):
     estado = {"alerta_aberto": False, "alerta_aceito": False}
 
