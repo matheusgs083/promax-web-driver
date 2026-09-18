@@ -1,7 +1,7 @@
 import random
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
-from selenium.common.exceptions import NoAlertPresentException
+from selenium.common.exceptions import NoAlertPresentException, UnexpectedAlertPresentException
 from core.execution.execution_result import ExecutionResult, ExecutionStatus
 from pages.common.rotina_page import RotinaPage
 
@@ -582,6 +582,47 @@ class Processo030330Page(RotinaPage):
                 message=f"Erro ao alterar caucao: {str(e)}",
             )
 
+    @staticmethod
+    def _eh_alerta_material_controlado(texto: str) -> bool:
+        texto_normalizado = str(texto or "").lower()
+        return (
+            "material controlado" in texto_normalizado
+            and ("etiqueta" in texto_normalizado or "serie" in texto_normalizado or "série" in texto_normalizado)
+        )
+
+    def _tratar_alerta_material_controlado_aberto(self) -> Dict[str, Any]:
+        try:
+            alerta = self.driver.switch_to.alert
+            mensagem = str(alerta.text or "")
+        except NoAlertPresentException:
+            return {"ok": False, "error": "alerta-nao-encontrado", "mensagem": ""}
+
+        if not self._eh_alerta_material_controlado(mensagem):
+            return {"ok": False, "error": "alerta-nao-reconhecido", "mensagem": mensagem}
+
+        alerta.accept()
+        try:
+            self.wait_for_no_alert(timeout=2)
+        except Exception:
+            pass
+        self.logger.info(
+            "030330 | Alerta de material controlado aceito antes do preenchimento da etiqueta: %s",
+            mensagem,
+        )
+        return {"ok": True, "mensagem": mensagem}
+
+    def _aguardar_e_tratar_div_numero_serie(
+        self,
+        dt_fechamento: Optional[str] = None,
+        timeout: float = 8.0,
+    ) -> bool:
+        limite = time.time() + timeout
+        while time.time() <= limite:
+            if self.tratar_div_numero_serie(dt_fechamento=dt_fechamento):
+                return True
+            time.sleep(0.25)
+        return False
+
     def salvar_mapa(self, dt_fechamento: Optional[str] = None) -> ExecutionResult:
         """
         Executa o salvamento e liberação do mapa na rotina 030330 (Salvar(); / opcao=6).
@@ -621,17 +662,76 @@ class Processo030330Page(RotinaPage):
                 }
                 return { ok: false, error: 'funcao-Salvar-nao-encontrada' };
             """
-            res_js = self.driver.execute_script(script_salvar)
-            time.sleep(1.5)
+            alertas = []
+            res_js = None
+            max_tentativas_salvar = max(2, qtd_linhas + 1)
+            for tentativa_salvar in range(1, max_tentativas_salvar + 1):
+                try:
+                    res_js = self.driver.execute_script(script_salvar)
+                except UnexpectedAlertPresentException as exc:
+                    alerta_material = self._tratar_alerta_material_controlado_aberto()
+                    mensagem_alerta = str(
+                        alerta_material.get("mensagem") or getattr(exc, "alert_text", "") or str(exc)
+                    )
+                    if not alerta_material.get("ok"):
+                        return ExecutionResult(
+                            status=ExecutionStatus.BUSINESS_FAILURE,
+                            message=f"Alerta ao salvar mapa na 030330: {mensagem_alerta}",
+                            retry=False,
+                            metadata={
+                                "alertas": [mensagem_alerta],
+                                "integration_code": "ALERTA_030330_NAO_TRATADO",
+                            },
+                        )
+                    alertas.append(mensagem_alerta)
+                    if not self._aguardar_e_tratar_div_numero_serie(
+                        dt_fechamento=dt_fechamento,
+                        timeout=8,
+                    ):
+                        return ExecutionResult(
+                            status=ExecutionStatus.BUSINESS_FAILURE,
+                            message=(
+                                "Alerta de material controlado detectado na 030330, mas a tela "
+                                "de Etiqueta/Numero de Serie nao ficou disponivel para preenchimento."
+                            ),
+                            retry=False,
+                            metadata={
+                                "alertas": alertas,
+                                "integration_code": "ETIQUETA_030330_NAO_PREENCHIDA",
+                            },
+                        )
+                    self.logger.info(
+                        "030330 | Etiqueta preenchida apos alerta de material controlado. "
+                        "Reexecutando Salvar() (tentativa %s/%s).",
+                        tentativa_salvar + 1,
+                        max_tentativas_salvar,
+                    )
+                    continue
 
-            # Se o Salvar() abriu a modal DivNumeroSerie por falta de etiqueta
-            if self.tratar_div_numero_serie(dt_fechamento=dt_fechamento):
-                self.logger.info("030330 | Modal DivNumeroSerie preenchida apos o Salvar(). Re-executando Salvar()...")
-                time.sleep(2.0)
-                self.driver.execute_script(script_salvar)
+                time.sleep(1.5)
+                if self.tratar_div_numero_serie(dt_fechamento=dt_fechamento):
+                    self.logger.info(
+                        "030330 | Modal DivNumeroSerie preenchida apos o Salvar(). "
+                        "Reexecutando Salvar() (tentativa %s/%s).",
+                        tentativa_salvar + 1,
+                        max_tentativas_salvar,
+                    )
+                    time.sleep(2.0)
+                    continue
+                break
+            else:
+                return ExecutionResult(
+                    status=ExecutionStatus.TECHNICAL_FAILURE,
+                    message="Limite de tentativas atingido ao preencher etiquetas e salvar o mapa na 030330.",
+                    retry=False,
+                    metadata={
+                        "alertas": alertas,
+                        "integration_code": "LIMITE_ETIQUETAS_030330",
+                    },
+                )
 
             time.sleep(2.5)
-            alertas = self.lidar_com_alertas(tentativas=3, timeout=3)
+            alertas.extend(self.lidar_com_alertas(tentativas=3, timeout=3))
             msg_alertas = " | ".join(str(a) for a in alertas) if alertas else ""
 
             return ExecutionResult(
@@ -640,6 +740,8 @@ class Processo030330Page(RotinaPage):
                 metadata={
                     "dados_030330": self.obter_resumo_mapa(),
                     "integration_code": "MAPA_030330_SALVO",
+                    "alertas": alertas,
+                    "resultado_salvar": res_js,
                 },
             )
         except Exception as e:
