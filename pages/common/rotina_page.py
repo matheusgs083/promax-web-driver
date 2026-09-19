@@ -355,6 +355,20 @@ class RotinaPage(BasePage):
         total_unidades = len(unidades)
         sucessos = sum(1 for item in resultados if item)
 
+        if (
+            sucessos + falhas_sem_conteudo == total_unidades
+            and falhas_tecnicas == 0
+            and falhas_com_retry == 0
+        ):
+            return ExecutionResult(
+                status=ExecutionStatus.SUCCESS,
+                message=(
+                    f"Execucao concluida: {sucessos}/{total_unidades} unidade(s) com relatorio e "
+                    f"{falhas_sem_conteudo} unidade(s) sem conteudo"
+                ),
+                retry=False,
+            )
+
         if sucessos == total_unidades:
             return ExecutionResult(
                 status=ExecutionStatus.SUCCESS,

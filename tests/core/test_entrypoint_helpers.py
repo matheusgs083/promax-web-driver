@@ -137,7 +137,7 @@ def test_executar_tarefa_com_retry_nao_reexecuta_lote_inteiro_em_sucesso_parcial
     assert resultado.status == ExecutionStatus.PARTIAL_SUCCESS
 
 
-def test_loop_unidades_trata_sem_conteudo_como_sucesso_parcial_sem_repescagem(monkeypatch):
+def test_loop_unidades_trata_sem_conteudo_como_conclusao_sem_repescagem(monkeypatch):
     driver = FakeDriver()
     page = RotinaPage(driver, handle_menu_original="menu")
     registros = []
@@ -160,9 +160,10 @@ def test_loop_unidades_trata_sem_conteudo_como_sucesso_parcial_sem_repescagem(mo
         sleep_entre=0,
     )
 
-    assert resultado.status == ExecutionStatus.PARTIAL_SUCCESS
+    assert resultado.status == ExecutionStatus.SUCCESS
     assert resultado.should_retry is False
-    assert "Nenhuma unidade possuia relatorio" in resultado.message
+    assert "0/1 unidade(s) com relatorio" in resultado.message
+    assert "1 unidade(s) sem conteudo" in resultado.message
     assert registros[0][2] == "SEM CONTEUDO"
 
 
