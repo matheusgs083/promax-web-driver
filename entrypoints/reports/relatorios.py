@@ -22,7 +22,9 @@ from core.services.report_orchestration_service import ReportOrchestrationServic
 from core.services.report_post_processing_service import encontrar_primeira_planilha_excel
 from core.config.settings import get_settings
 
+from pages.reports.relatorio_030224_page import Relatorio030224Page
 from pages.reports.relatorio_030237_page import Relatorio030237Page
+from pages.reports.relatorio_030805_page import Relatorio030805Page
 from pages.reports.relatorio_120601_page import Relatorio120601Page
 from pages.reports.relatorio_0513_page import Relatorio0513Page
 from pages.reports.relatorio_120616_page import Relatorio120616Page
@@ -38,6 +40,7 @@ from pages.reports.relatorio_030111_page import Relatorio030111Page
 from pages.reports.relatorio_031702_page import Relatorio031702Page
 from pages.reports.relatorio_020304_page import Relatorio020304Page
 from pages.reports.relatorio_031120_page import Relatorio031120Page
+from pages.reports.relatorio_031129_page import Relatorio031129Page
 from pages.reports.relatorio_03114902_page import Relatorio03114902Page
 
 dotenv.load_dotenv()
@@ -75,6 +78,21 @@ ultimo_dia_mes_retrasado_dt = ultimo_dia_mes_passado_dt.replace(day=1) - timedel
 primeiro_dia_mes_retrasado = ultimo_dia_mes_retrasado_dt.replace(day=1).strftime("%d/%m/%Y")
 
 
+
+
+def _dias_uteis_periodo(inicio: date, fim: date):
+    atual = inicio
+    while atual <= fim:
+        if atual.weekday() < 5:
+            yield atual
+        atual += timedelta(days=1)
+
+
+def _ultimo_dia_util(ref: date) -> date:
+    atual = ref - timedelta(days=1)
+    while atual.weekday() >= 5:
+        atual -= timedelta(days=1)
+    return atual
 
 def iniciar_sessao():
     global driver, menu_page
@@ -180,6 +198,7 @@ def main(
         report_group.name,
         report_group.key,
     )
+    is_liga_entrega = report_group.key == "liga_entrega"
     if requested_start or requested_end:
         logger.info(
             "Periodo recebido pelo job: %s a %s. "
@@ -269,15 +288,19 @@ def main(
     def tarefa_030237(unidades_alvo=None):
         janela = menu_page.acessar_rotina("030237")
         page = Relatorio030237Page(janela.driver, janela.handle_menu)
-        page.subpasta_download = "030237"
+        page.subpasta_download = "03.02.37 - Entregas" if is_liga_entrega else "030237"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
-            quebra1="14",
-            quebra2="12",
-            quebra3="16",
+            quebra1="25" if is_liga_entrega else "14",
+            quebra2="36" if is_liga_entrega else "12",
+            quebra3="37" if is_liga_entrega else "16",
             data_inicial=report_start_text or primeiro_dia_mes_atual,
             data_final=report_end_text or data_ontem_formatada,
-            nome_arquivo=f"{mes_atual}-{ano_atual} nomeUnidade030237",
+            nome_arquivo=(
+                f"03.02.37_nomeUnidade030237_{mes_atual}-{ano_atual}"
+                if is_liga_entrega
+                else f"{mes_atual}-{ano_atual} nomeUnidade030237"
+            ),
         )
         page.fechar_e_voltar()
         return resultado
@@ -573,18 +596,142 @@ def main(
         page.fechar_e_voltar()
         return resultado
 
+
+
+    def tarefa_030805_liga(unidades_alvo=None):
+        janela = menu_page.acessar_rotina("030805")
+        page = Relatorio030805Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "03.08.05"
+        page.tracker_name = "Rotina 030805 Liga Entrega"
+        inicio = requested_start or _ultimo_dia_util(hoje.date())
+        fim = requested_end or inicio
+        resultados = []
+        unidades = _normalize_list(unidades_alvo)
+        for data_ref in _dias_uteis_periodo(inicio, fim):
+            data_texto = data_ref.strftime("%d/%m/%Y")
+            alvos = unidades or [None]
+            for unidade_alvo in alvos:
+                resultado = page.gerar_relatorio(
+                    unidade=unidade_alvo,
+                    opcao_rel="1",
+                    data_inicial=data_texto,
+                    data_final=data_texto,
+                    transportadora="0",
+                )
+                resultados.append(resultado)
+        page.fechar_e_voltar()
+        if not resultados:
+            return False, f"Nenhum dia util no periodo 030805: {inicio} a {fim}"
+        falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
+        if falhas:
+            return False, f"Falha em uma ou mais datas da 030805: {falhas}"
+        return True, f"030805 gerada para {len(resultados)} dia(s) util(eis)."
+
+    def _gerar_030224_liga(
+        *,
+        unidades_alvo=None,
+        opcao_rel,
+        subpasta,
+        tracker_name,
+        nome_arquivo,
+        somente_resumo=False,
+        resumo_visao=None,
+    ):
+        janela = menu_page.acessar_rotina("030224")
+        page = Relatorio030224Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = subpasta
+        page.tracker_name = tracker_name
+        resultado = page.gerar_relatorio(
+            unidade=unidades_alvo,
+            opcao_rel=opcao_rel,
+            data_inicial=report_start_text or primeiro_dia_mes_atual,
+            data_final=report_end_text or data_hoje_formatada,
+            somente_resumo=somente_resumo,
+            resumo_visao=resumo_visao,
+            nome_arquivo=nome_arquivo,
+        )
+        page.fechar_e_voltar()
+        return resultado
+
+    def tarefa_030224_resumo_liga(unidades_alvo=None):
+        return _gerar_030224_liga(
+            unidades_alvo=unidades_alvo,
+            opcao_rel="03",
+            subpasta="03.02.24/Resumo",
+            tracker_name="Rotina 030224 Resumo Liga Entrega",
+            nome_arquivo=f"03.02.24_Resumo_nomeUnidade030224_{mes_atual}-{ano_atual}",
+            somente_resumo=True,
+            resumo_visao="P",
+        )
+
+    def tarefa_030224_motorista_liga(unidades_alvo=None):
+        return _gerar_030224_liga(
+            unidades_alvo=unidades_alvo,
+            opcao_rel="08",
+            subpasta="03.02.24/Motorista",
+            tracker_name="Rotina 030224 Motorista Liga Entrega",
+            nome_arquivo=f"03.02.24_Motorista_nomeUnidade030224_{mes_atual}-{ano_atual}",
+        )
+
+    def tarefa_030224_ajudante_liga(unidades_alvo=None):
+        return _gerar_030224_liga(
+            unidades_alvo=unidades_alvo,
+            opcao_rel="10",
+            subpasta="03.02.24/Ajudante",
+            tracker_name="Rotina 030224 Ajudante Liga Entrega",
+            nome_arquivo=f"03.02.24_Ajudante_nomeUnidade030224_{mes_atual}-{ano_atual}",
+        )
+
+    def tarefa_030224_mapa_liga(unidades_alvo=None):
+        return _gerar_030224_liga(
+            unidades_alvo=unidades_alvo,
+            opcao_rel="03",
+            subpasta="03.02.24/Mapa",
+            tracker_name="Rotina 030224 Mapa Liga Entrega",
+            nome_arquivo=f"03.02.24_Mapa_nomeUnidade030224_{mes_atual}-{ano_atual}",
+        )
+
+    def tarefa_030224_setor_liga(unidades_alvo=None):
+        return _gerar_030224_liga(
+            unidades_alvo=unidades_alvo,
+            opcao_rel="02",
+            subpasta="03.02.24/SETOR",
+            tracker_name="Rotina 030224 Setor Liga Entrega",
+            nome_arquivo=f"03.02.24_SETOR_nomeUnidade030224_{mes_atual}-{ano_atual}",
+        )
+
+
+    def tarefa_031129_liga(unidades_alvo=None):
+        janela = menu_page.acessar_rotina("031129")
+        page = Relatorio031129Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "03.11.29"
+        page.tracker_name = "Rotina 031129 Liga Entrega"
+        resultado = page.gerar_relatorio(
+            unidade=unidades_alvo,
+            opcao_rel="3",
+            data_inicial=report_start_text or primeiro_dia_mes_atual,
+            data_final=report_end_text or data_hoje_formatada,
+            nome_arquivo=f"03.11.29_nomeUnidade031129_{mes_atual}-{ano_atual}",
+        )
+        page.fechar_e_voltar()
+        return resultado
+
     def tarefa_031120_bot(unidades_alvo=None):
         janela = menu_page.acessar_rotina("031120")
         page = Relatorio031120Page(janela.driver, janela.handle_menu)
-        page.subpasta_download = "031120 bot"
-        page.tracker_name = "Rotina 031120 Bot"
+        page.subpasta_download = "03.11.20" if is_liga_entrega else "031120 bot"
+        page.tracker_name = "Rotina 031120 Liga Entrega" if is_liga_entrega else "Rotina 031120 Bot"
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             opcao_rel="1",
-            data_inicial=report_start_text or data_duas_semanas_atras_formatada,
+            data_inicial=report_start_text or (primeiro_dia_mes_atual if is_liga_entrega else data_duas_semanas_atras_formatada),
             data_final=report_end_text or data_hoje_formatada,
             cod_armazem="01",
-            nome_arquivo="031120 bot - nomeUnidade031120",
+            nome_arquivo=(
+                f"03.11.20_nomeUnidade031120_{mes_atual}-{ano_atual}"
+                if is_liga_entrega
+                else "031120 bot - nomeUnidade031120"
+            ),
         )
         page.fechar_e_voltar()
         return resultado
@@ -593,8 +740,8 @@ def main(
         unidade_base = unidades_alvo[0] if isinstance(unidades_alvo, list) and unidades_alvo else unidades_alvo
         janela = menu_page.acessar_rotina("03114902")
         page = Relatorio03114902Page(janela.driver, janela.handle_menu)
-        page.subpasta_download = "03114902 bot"
-        page.tracker_name = "Rotina 03114902 Geo Bot"
+        page.subpasta_download = "03.11.49.02" if is_liga_entrega else "03114902 bot"
+        page.tracker_name = "Rotina 03114902 Liga Entrega" if is_liga_entrega else "Rotina 03114902 Geo Bot"
         resultado = page.gerar_relatorio(
             unidade=unidade_base,
             classificacao="Mapa",
@@ -608,9 +755,13 @@ def main(
             roadshow_final="99",
             transportadora_inicial="0",
             transportadora_final="999999",
-            armazem="Todos",
+            armazem="01 - ARMAZEM CENTRAL" if is_liga_entrega else "Todos",
             csv_geo=True,
-            nome_arquivo="03114902 bot - geo.csv",
+            nome_arquivo=(
+                f"03.11.49.02_{mes_atual}-{ano_atual}.csv"
+                if is_liga_entrega
+                else "03114902 bot - geo.csv"
+            ),
         )
         page.fechar_e_voltar()
         return resultado
@@ -640,6 +791,13 @@ def main(
         "030111_BOT": tarefa_030111_bot,
         "031702_BOT": tarefa_031702_bot,
         "020304_BOT": tarefa_020304_bot,
+        "030805_LIGA": tarefa_030805_liga,
+        "030224_RESUMO_LIGA": tarefa_030224_resumo_liga,
+        "030224_MOTORISTA_LIGA": tarefa_030224_motorista_liga,
+        "030224_AJUDANTE_LIGA": tarefa_030224_ajudante_liga,
+        "030224_MAPA_LIGA": tarefa_030224_mapa_liga,
+        "030224_SETOR_LIGA": tarefa_030224_setor_liga,
+        "031129_LIGA": tarefa_031129_liga,
         "031120_BOT": tarefa_031120_bot,
         "03114902_BOT": tarefa_03114902_bot,
     }
@@ -685,6 +843,8 @@ def main(
     }
     nome_mes_atual = meses_pt[mes_atual]
 
+    liga_entrega_relatorios_dir = fr"\\dc01n\publico_patos\REVENDA\SDPO {ano_atual}\DPO\PILAR ENTREGA\RELATORIOS"
+
     publication_mapping = {
             os.path.join(str(pasta_intermediaria), "0513"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Inadimplência\05.13",
             os.path.join(str(pasta_intermediaria), "120616"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Inadimplência\12.06.16",
@@ -728,6 +888,19 @@ def main(
             os.path.join(str(pasta_intermediaria), "03114902 bot"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\Bot Zap\03114902",
 
 
+        }
+    if is_liga_entrega:
+        publication_mapping = {
+            os.path.join(str(pasta_intermediaria), "03.08.05"): os.path.join(liga_entrega_relatorios_dir, "03.08.05"),
+            os.path.join(str(pasta_intermediaria), "03.02.24", "Resumo"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Resumo"),
+            os.path.join(str(pasta_intermediaria), "03.02.24", "Motorista"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Motorista"),
+            os.path.join(str(pasta_intermediaria), "03.02.24", "Ajudante"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Ajudante"),
+            os.path.join(str(pasta_intermediaria), "03.02.24", "Mapa"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Mapa"),
+            os.path.join(str(pasta_intermediaria), "03.02.24", "SETOR"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "SETOR"),
+            os.path.join(str(pasta_intermediaria), "03.11.20"): os.path.join(liga_entrega_relatorios_dir, "03.11.20"),
+            os.path.join(str(pasta_intermediaria), "03.11.29"): os.path.join(liga_entrega_relatorios_dir, "03.11.29"),
+            os.path.join(str(pasta_intermediaria), "03.11.49.02"): os.path.join(liga_entrega_relatorios_dir, "03.11.49.02"),
+            os.path.join(str(pasta_intermediaria), "03.02.37 - Entregas"): os.path.join(liga_entrega_relatorios_dir, "03.02.37 - Entregas"),
         }
     selected_output_folders = tuple(
         folder

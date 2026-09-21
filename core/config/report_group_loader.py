@@ -10,6 +10,7 @@ from core.config.project_paths import REPORT_GROUPS_DIR
 
 
 GROUP_FIELDS = {"key", "name", "description", "routines"}
+OPTIONAL_GROUP_FIELDS = {"section"}
 ROUTINE_FIELDS = {"id", "name", "output_folders"}
 GROUP_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 ROUTINE_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_]*$")
@@ -39,6 +40,7 @@ class ReportGroup:
     name: str
     description: str
     routines: tuple[ReportRoutine, ...]
+    section: str = ""
 
     @property
     def routine_ids(self) -> tuple[str, ...]:
@@ -57,6 +59,7 @@ class ReportGroup:
             "key": self.key,
             "name": self.name,
             "description": self.description,
+            "section": self.section,
             "routines": [routine.to_dict() for routine in self.routines],
         }
 
@@ -197,10 +200,11 @@ def load_report_group_manifest(path: str | Path) -> ReportGroup:
     raw_group = _literal_report_group(path)
     if not isinstance(raw_group, dict):
         raise _manifest_error(path, "REPORT_GROUP deve ser um dicionario")
-    if set(raw_group) != GROUP_FIELDS:
+    allowed_fields = GROUP_FIELDS | OPTIONAL_GROUP_FIELDS
+    if not GROUP_FIELDS.issubset(raw_group) or not set(raw_group).issubset(allowed_fields):
         raise _manifest_error(
             path,
-            f"REPORT_GROUP deve conter exatamente {sorted(GROUP_FIELDS)}",
+            f"REPORT_GROUP deve conter {sorted(GROUP_FIELDS)} e opcionalmente {sorted(OPTIONAL_GROUP_FIELDS)}",
         )
 
     key = _require_non_empty_string(raw_group["key"], path=path, field="key")
@@ -218,6 +222,7 @@ def load_report_group_manifest(path: str | Path) -> ReportGroup:
             field="description",
         ),
         routines=_validate_routines(raw_group["routines"], path=path),
+        section=str(raw_group.get("section") or "").strip(),
     )
 
 
