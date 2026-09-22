@@ -605,9 +605,25 @@ def main(
         page.tracker_name = "Rotina 030805 Liga Entrega"
         inicio = requested_start or _ultimo_dia_util(hoje.date())
         fim = requested_end or inicio
+        dias = list(_dias_uteis_periodo(inicio, fim))
+        if not dias:
+            dias = [_ultimo_dia_util(inicio)]
+            logger.info("030805: periodo %s a %s sem dia util; usando ultimo dia util anterior: %s", inicio, fim, dias[0])
         resultados = []
-        unidades = _normalize_list(unidades_alvo)
-        for data_ref in _dias_uteis_periodo(inicio, fim):
+        unidades_solicitadas = _normalize_list(unidades_alvo)
+        unidades_disponiveis = [str(item.get("valor") or "").strip() for item in page.listar_unidades()]
+        unidades_disponiveis = [item for item in unidades_disponiveis if item]
+        if unidades_solicitadas and unidades_disponiveis:
+            unidades = [unit for unit in unidades_solicitadas if unit in unidades_disponiveis]
+            ignoradas = [unit for unit in unidades_solicitadas if unit not in unidades_disponiveis]
+            if ignoradas:
+                logger.info("030805: ignorando unidade(s) ausente(s) no combo da rotina: %s", ignoradas)
+            if not unidades:
+                unidades = unidades_disponiveis
+                logger.info("030805: nenhuma unidade solicitada existe no combo; usando unidade(s) disponivel(is): %s", unidades)
+        else:
+            unidades = unidades_disponiveis or unidades_solicitadas
+        for data_ref in dias:
             data_texto = data_ref.strftime("%d/%m/%Y")
             alvos = unidades or [None]
             for unidade_alvo in alvos:
@@ -616,12 +632,12 @@ def main(
                     opcao_rel="1",
                     data_inicial=data_texto,
                     data_final=data_texto,
-                    transportadora="0",
+                    transportadora="000",
                 )
                 resultados.append(resultado)
         page.fechar_e_voltar()
         if not resultados:
-            return False, f"Nenhum dia util no periodo 030805: {inicio} a {fim}"
+            return False, f"Nenhuma unidade disponivel para a 030805 no periodo {inicio} a {fim}"
         falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
         if falhas:
             return False, f"Falha em uma ou mais datas da 030805: {falhas}"
@@ -892,11 +908,8 @@ def main(
     if is_liga_entrega:
         publication_mapping = {
             os.path.join(str(pasta_intermediaria), "03.08.05"): os.path.join(liga_entrega_relatorios_dir, "03.08.05"),
-            os.path.join(str(pasta_intermediaria), "03.02.24", "Resumo"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Resumo"),
             os.path.join(str(pasta_intermediaria), "03.02.24", "Motorista"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Motorista"),
             os.path.join(str(pasta_intermediaria), "03.02.24", "Ajudante"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Ajudante"),
-            os.path.join(str(pasta_intermediaria), "03.02.24", "Mapa"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Mapa"),
-            os.path.join(str(pasta_intermediaria), "03.02.24", "SETOR"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "SETOR"),
             os.path.join(str(pasta_intermediaria), "03.11.20"): os.path.join(liga_entrega_relatorios_dir, "03.11.20"),
             os.path.join(str(pasta_intermediaria), "03.11.29"): os.path.join(liga_entrega_relatorios_dir, "03.11.29"),
             os.path.join(str(pasta_intermediaria), "03.11.49.02"): os.path.join(liga_entrega_relatorios_dir, "03.11.49.02"),

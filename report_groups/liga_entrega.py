@@ -10,11 +10,6 @@ REPORT_GROUP = {
             "output_folders": ["03.08.05"],
         },
         {
-            "id": "030224_RESUMO_LIGA",
-            "name": "Rotina 030224 Resumo Liga Entrega",
-            "output_folders": ["03.02.24/Resumo"],
-        },
-        {
             "id": "030224_MOTORISTA_LIGA",
             "name": "Rotina 030224 Motorista Liga Entrega",
             "output_folders": ["03.02.24/Motorista"],
@@ -23,16 +18,6 @@ REPORT_GROUP = {
             "id": "030224_AJUDANTE_LIGA",
             "name": "Rotina 030224 Ajudante Liga Entrega",
             "output_folders": ["03.02.24/Ajudante"],
-        },
-        {
-            "id": "030224_MAPA_LIGA",
-            "name": "Rotina 030224 Mapa Liga Entrega",
-            "output_folders": ["03.02.24/Mapa"],
-        },
-        {
-            "id": "030224_SETOR_LIGA",
-            "name": "Rotina 030224 Setor Liga Entrega",
-            "output_folders": ["03.02.24/SETOR"],
         },
         {
             "id": "031120_BOT",

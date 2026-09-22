@@ -56,11 +56,8 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
     )
     assert groups["liga_entrega"].routine_ids == (
         "030805_LIGA",
-        "030224_RESUMO_LIGA",
         "030224_MOTORISTA_LIGA",
         "030224_AJUDANTE_LIGA",
-        "030224_MAPA_LIGA",
-        "030224_SETOR_LIGA",
         "031120_BOT",
         "031129_LIGA",
         "03114902_BOT",
@@ -68,11 +65,8 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
     )
     assert groups["liga_entrega"].output_folders == (
         "03.08.05",
-        "03.02.24/Resumo",
         "03.02.24/Motorista",
         "03.02.24/Ajudante",
-        "03.02.24/Mapa",
-        "03.02.24/SETOR",
         "03.11.20",
         "03.11.29",
         "03.11.49.02",

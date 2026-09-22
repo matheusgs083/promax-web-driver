@@ -136,9 +136,44 @@ class Relatorio030805Page(RotinaPage):
                         ultimo_erro = str(exc)
 
                 ultimo_erro = f"HTTP {resp.status_code} em {url}"
+
+            try:
+                if self._capturar_arquivo_dvs_pelo_navegador(file_url, caminho_final):
+                    return True, f"Arquivo 030805 capturado pelo navegador: {caminho_final}"
+            except Exception as exc:  # pragma: no cover - depende do navegador Promax
+                ultimo_erro = f"fallback navegador: {exc}"
             time.sleep(3)
 
         return False, f"Arquivo {nome_servidor} nao encontrado em {browse_url}: {ultimo_erro}"
+
+    def _capturar_arquivo_dvs_pelo_navegador(self, file_url: str, caminho_final: Path) -> bool:
+        handle_original = self.driver.current_window_handle
+        handles_antes = set(self.driver.window_handles)
+        self.driver.execute_script("window.open(arguments[0], '_blank');", file_url)
+        WebDriverWait(self.driver, 10).until(lambda drv: len(set(drv.window_handles) - handles_antes) >= 1)
+        novo_handle = next(iter(set(self.driver.window_handles) - handles_antes))
+        try:
+            self.driver.switch_to.window(novo_handle)
+            WebDriverWait(self.driver, 15).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+            body_text = self.driver.find_element(By.TAG_NAME, "body").text or ""
+            page_source = self.driver.page_source or ""
+            if not body_text.strip():
+                return False
+            lower_source = page_source[:500].lower()
+            lower_text = body_text[:500].lower()
+            if "<html" in lower_source and any(token in lower_text for token in ("404", "not found", "não encontrado", "nao encontrado", "sessão", "sessao")):
+                return False
+            data = body_text.encode("cp1252", errors="replace")
+            if not _parece_txt_dvs(data):
+                return False
+            caminho_final.write_bytes(data)
+            return True
+        finally:
+            try:
+                self.driver.close()
+            finally:
+                self.driver.switch_to.window(handle_original)
+                self.switch_to_default_content()
 
 
 def _parse_data_br(value: str) -> date:
