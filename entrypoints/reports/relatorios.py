@@ -80,12 +80,17 @@ primeiro_dia_mes_retrasado = ultimo_dia_mes_retrasado_dt.replace(day=1).strftime
 
 
 
-def _dias_uteis_periodo(inicio: date, fim: date):
+def _datas_periodo(inicio: date, fim: date):
     atual = inicio
     while atual <= fim:
+        yield atual
+        atual += timedelta(days=1)
+
+
+def _dias_uteis_periodo(inicio: date, fim: date):
+    for atual in _datas_periodo(inicio, fim):
         if atual.weekday() < 5:
             yield atual
-        atual += timedelta(days=1)
 
 
 def _ultimo_dia_util(ref: date) -> date:
@@ -93,6 +98,13 @@ def _ultimo_dia_util(ref: date) -> date:
     while atual.weekday() >= 5:
         atual -= timedelta(days=1)
     return atual
+
+
+def _data_entrega_anterior_liga(ref: date) -> date:
+    # A Liga consulta a entrega anterior: segunda busca sabado;
+    # nos demais dias, busca o dia imediatamente anterior.
+    dias_voltar = 2 if ref.weekday() == 0 else 1
+    return ref - timedelta(days=dias_voltar)
 
 def iniciar_sessao():
     global driver, menu_page
@@ -199,6 +211,20 @@ def main(
         report_group.key,
     )
     is_liga_entrega = report_group.key == "liga_entrega"
+    liga_030805_base_start = requested_start or hoje.date()
+    liga_030805_base_end = requested_end or liga_030805_base_start
+    liga_030805_datas_entrega = []
+    if is_liga_entrega:
+        for data_base in _datas_periodo(liga_030805_base_start, liga_030805_base_end):
+            data_entrega = _data_entrega_anterior_liga(data_base)
+            if data_entrega not in liga_030805_datas_entrega:
+                liga_030805_datas_entrega.append(data_entrega)
+        logger.info(
+            "Liga Entrega 030805: periodo base %s a %s convertido para data(s) anterior(es) de entrega: %s",
+            liga_030805_base_start,
+            liga_030805_base_end,
+            liga_030805_datas_entrega,
+        )
     if requested_start or requested_end:
         logger.info(
             "Periodo recebido pelo job: %s a %s. "
@@ -603,12 +629,10 @@ def main(
         page = Relatorio030805Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "03.08.05"
         page.tracker_name = "Rotina 030805 Liga Entrega"
-        inicio = requested_start or _ultimo_dia_util(hoje.date())
-        fim = requested_end or inicio
-        dias = list(_dias_uteis_periodo(inicio, fim))
-        if not dias:
-            dias = [_ultimo_dia_util(inicio)]
-            logger.info("030805: periodo %s a %s sem dia util; usando ultimo dia util anterior: %s", inicio, fim, dias[0])
+        inicio = liga_030805_base_start
+        fim = liga_030805_base_end
+        dias = list(liga_030805_datas_entrega)
+        logger.info("030805: periodo base %s a %s; usando data(s) anterior(es) de entrega: %s", inicio, fim, dias)
         resultados = []
         unidades_solicitadas = _normalize_list(unidades_alvo)
         unidades_disponiveis = [str(item.get("valor") or "").strip() for item in page.listar_unidades()]
@@ -632,7 +656,7 @@ def main(
                     opcao_rel="1",
                     data_inicial=data_texto,
                     data_final=data_texto,
-                    transportadora="000",
+                    transportadora="1",
                 )
                 resultados.append(resultado)
         page.fechar_e_voltar()
@@ -641,7 +665,7 @@ def main(
         falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
         if falhas:
             return False, f"Falha em uma ou mais datas da 030805: {falhas}"
-        return True, f"030805 gerada para {len(resultados)} dia(s) util(eis)."
+        return True, f"030805 gerada para {len(resultados)} execucao(oes) na(s) data(s) anterior(es) de entrega."
 
     def _gerar_030224_liga(
         *,

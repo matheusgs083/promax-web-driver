@@ -34,7 +34,7 @@ class Relatorio030805Page(RotinaPage):
         opcao_rel="1",
         data_inicial=None,
         data_final=None,
-        transportadora="0",
+        transportadora="1",
         timeout_arquivo=90,
         nome_arquivo=None,
     ):
@@ -76,11 +76,18 @@ class Relatorio030805Page(RotinaPage):
             self.js_click_ie(botao)
             time.sleep(2)
         except UnexpectedAlertPresentException:
-            self.logger.warning("Alerta durante preenchimento da rotina 030805.")
-            self.lidar_com_alertas()
-            raise
+            alertas = self.lidar_com_alertas(tentativas=1, timeout=1, max_alertas=3)
+            mensagem = "; ".join(str(item).strip() for item in alertas if str(item).strip()) or "alerta sem texto"
+            self.logger.warning("Alerta durante Visualizar da rotina 030805: %s", mensagem)
+            return False, f"030805 rejeitada pelo Promax: {mensagem}"
         finally:
-            self.switch_to_default_content()
+            try:
+                self.switch_to_default_content()
+            except UnexpectedAlertPresentException:
+                alertas = self.lidar_com_alertas(tentativas=1, timeout=1, max_alertas=3)
+                mensagem = "; ".join(str(item).strip() for item in alertas if str(item).strip()) or "alerta sem texto"
+                self.logger.warning("Alerta pendente apos Visualizar da rotina 030805: %s", mensagem)
+                return False, f"030805 rejeitada pelo Promax: {mensagem}"
 
         data_ref = _parse_data_br(data_inicial)
         filial = _sufixo_filial(unidade)
