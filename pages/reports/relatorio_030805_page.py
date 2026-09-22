@@ -21,12 +21,16 @@ class Relatorio030805Page(RotinaPage):
     Rotina 03.08.05 (PW02201R) - gera arquivo DVS no servidor.
 
     A rotina nao dispara download no navegador. Depois de gerar, o arquivo fica
-    disponivel no Promax em /arquivos/browse/dvs/ com o padrao:
-    2artdDD_XXXX.txt, onde DD e o dia e XXXX e o sufixo da filial.
+    disponivel no Promax abaixo da base de rede \\paubrasil.promaxcloud.com.br\\integ,
+    com o padrao 2artdDD_XXXX.txt, onde DD e o dia e XXXX e o sufixo da filial.
     """
 
     FRAME_ROTINA = 1
-    DVS_BROWSE_PATH = "/arquivos/browse/dvs/"
+    NETWORK_BASE_PATH = Path(r"\\paubrasil.promaxcloud.com.br\integ")
+    NETWORK_DVS_PATH = Path("dvs")
+    FILES_BASE_PATH = "/arquivos/"
+    DVS_BROWSE_PATH = "browse/dvs/"
+    DVS_DIRECT_PATH = "dvs/"
 
     def gerar_relatorio(
         self,
@@ -66,6 +70,7 @@ class Relatorio030805Page(RotinaPage):
         except TimeoutException:
             self.logger.warning("Formulario 030805 demorou a renderizar.")
 
+        alerta_visualizar = None
         try:
             self.js_set_select_by_name("opcaoRel", str(opcao_rel))
             self.js_set_input_by_name("dataInicial", str(data_inicial))
@@ -76,18 +81,16 @@ class Relatorio030805Page(RotinaPage):
             self.js_click_ie(botao)
             time.sleep(2)
         except UnexpectedAlertPresentException:
-            alertas = self.lidar_com_alertas(tentativas=1, timeout=1, max_alertas=3)
-            mensagem = "; ".join(str(item).strip() for item in alertas if str(item).strip()) or "alerta sem texto"
-            self.logger.warning("Alerta durante Visualizar da rotina 030805: %s", mensagem)
-            return False, f"030805 rejeitada pelo Promax: {mensagem}"
+            alerta_visualizar = self._drenar_alerta_visualizar()
         finally:
             try:
                 self.switch_to_default_content()
             except UnexpectedAlertPresentException:
-                alertas = self.lidar_com_alertas(tentativas=1, timeout=1, max_alertas=3)
-                mensagem = "; ".join(str(item).strip() for item in alertas if str(item).strip()) or "alerta sem texto"
-                self.logger.warning("Alerta pendente apos Visualizar da rotina 030805: %s", mensagem)
-                return False, f"030805 rejeitada pelo Promax: {mensagem}"
+                alerta_visualizar = self._drenar_alerta_visualizar()
+                self.switch_to_default_content()
+
+        if alerta_visualizar:
+            return False, f"030805 rejeitada pelo Promax: {alerta_visualizar}"
 
         data_ref = _parse_data_br(data_inicial)
         filial = _sufixo_filial(unidade)
@@ -95,15 +98,25 @@ class Relatorio030805Page(RotinaPage):
         nome_final = nome_arquivo or nome_servidor
         return self._capturar_arquivo_dvs(nome_servidor, nome_final, timeout_arquivo)
 
+    def _drenar_alerta_visualizar(self) -> str | None:
+        alertas = self.lidar_com_alertas(tentativas=1, timeout=1, max_alertas=3)
+        mensagens = [str(item).strip() for item in alertas if str(item).strip()]
+        mensagem = "; ".join(mensagens)
+        if not mensagem:
+            self.logger.info("Alerta sem texto apos Visualizar da 030805 ignorado; seguindo para capturar arquivo DVS.")
+            return None
+        self.logger.warning("Alerta durante Visualizar da rotina 030805: %s", mensagem)
+        return mensagem
+
     def _capturar_arquivo_dvs(self, nome_servidor: str, nome_final: str, timeout_arquivo: int):
         destino = _diretorio_destino(getattr(self, "subpasta_download", None))
         destino.mkdir(parents=True, exist_ok=True)
         caminho_final = destino / nome_final
-        if caminho_final.suffix.lower() != ".txt":
+        if not caminho_final.suffix:
             caminho_final = caminho_final.with_suffix(".txt")
 
         sessao = requests.Session()
-        for cookie in self.driver.get_cookies():
+        for cookie in self._cookies_driver():
             nome = cookie.get("name")
             valor = cookie.get("value")
             dominio = cookie.get("domain")
@@ -115,27 +128,44 @@ class Relatorio030805Page(RotinaPage):
                 sessao.cookies.set(nome, valor)
 
         base_url = _base_url(self.driver.current_url)
-        browse_url = urljoin(base_url, self.DVS_BROWSE_PATH)
-        file_url = urljoin(browse_url, nome_servidor)
+        arquivos_url = urljoin(base_url, self.FILES_BASE_PATH)
+        browse_url = urljoin(arquivos_url, self.DVS_BROWSE_PATH)
+        direct_dvs_url = urljoin(arquivos_url, self.DVS_DIRECT_PATH)
+        file_urls = _dedupe_urls(
+            urljoin(browse_url, nome_servidor),
+            urljoin(direct_dvs_url, nome_servidor),
+        )
+        browse_urls = _dedupe_urls(browse_url, direct_dvs_url, arquivos_url)
         prazo = time.time() + timeout_arquivo
         ultimo_erro = "arquivo ainda nao encontrado"
 
         while time.time() < prazo:
-            for url in (file_url, browse_url):
+            if self._capturar_arquivo_dvs_rede(nome_servidor, caminho_final):
+                return True, f"Arquivo 030805 capturado na rede Promax: {caminho_final}"
+
+            for url in file_urls:
                 try:
                     resp = sessao.get(url, timeout=15, allow_redirects=True)
                 except Exception as exc:  # pragma: no cover - depende de rede Promax
                     ultimo_erro = str(exc)
                     continue
 
-                if resp.status_code == 200 and url == file_url and _parece_txt_dvs(resp.content):
+                if resp.status_code == 200 and _parece_txt_dvs(resp.content):
                     caminho_final.write_bytes(resp.content)
                     return True, f"Arquivo 030805 capturado: {caminho_final}"
+                ultimo_erro = f"HTTP {resp.status_code} em {url}"
+
+            for url in browse_urls:
+                try:
+                    resp = sessao.get(url, timeout=15, allow_redirects=True)
+                except Exception as exc:  # pragma: no cover - depende de rede Promax
+                    ultimo_erro = str(exc)
+                    continue
 
                 if resp.status_code == 200 and nome_servidor.lower() in resp.text.lower():
                     href = _extrair_href(resp.text, nome_servidor) or nome_servidor
                     try:
-                        arq = sessao.get(urljoin(browse_url, href), timeout=15, allow_redirects=True)
+                        arq = sessao.get(urljoin(url, href), timeout=15, allow_redirects=True)
                         if arq.status_code == 200 and _parece_txt_dvs(arq.content):
                             caminho_final.write_bytes(arq.content)
                             return True, f"Arquivo 030805 capturado: {caminho_final}"
@@ -144,14 +174,54 @@ class Relatorio030805Page(RotinaPage):
 
                 ultimo_erro = f"HTTP {resp.status_code} em {url}"
 
-            try:
-                if self._capturar_arquivo_dvs_pelo_navegador(file_url, caminho_final):
-                    return True, f"Arquivo 030805 capturado pelo navegador: {caminho_final}"
-            except Exception as exc:  # pragma: no cover - depende do navegador Promax
-                ultimo_erro = f"fallback navegador: {exc}"
+            for file_url in file_urls:
+                try:
+                    if self._capturar_arquivo_dvs_pelo_navegador(file_url, caminho_final):
+                        return True, f"Arquivo 030805 capturado pelo navegador: {caminho_final}"
+                except Exception as exc:  # pragma: no cover - depende do navegador Promax
+                    ultimo_erro = f"fallback navegador: {exc}"
             time.sleep(3)
 
-        return False, f"Arquivo {nome_servidor} nao encontrado em {browse_url}: {ultimo_erro}"
+        return False, f"Arquivo {nome_servidor} nao encontrado a partir de {arquivos_url}: {ultimo_erro}"
+
+    def _capturar_arquivo_dvs_rede(self, nome_servidor: str, caminho_final: Path) -> bool:
+        origem = self.NETWORK_BASE_PATH / self.NETWORK_DVS_PATH / nome_servidor
+        try:
+            if not origem.exists() or not origem.is_file():
+                return False
+            content = origem.read_bytes()
+        except OSError as exc:
+            self.logger.debug("Nao foi possivel ler arquivo 030805 na rede Promax %s: %s", origem, exc)
+            return False
+
+        if not _parece_txt_dvs(content):
+            self.logger.debug("Arquivo 030805 encontrado na rede, mas conteudo nao parece TXT DVS: %s", origem)
+            return False
+
+        caminho_final.write_bytes(content)
+        self.logger.info("Arquivo 030805 capturado da rede Promax: %s -> %s", origem, caminho_final)
+        return True
+
+    def _cookies_driver(self):
+        try:
+            cookies = self.driver.get_cookies()
+        except Exception as exc:  # pragma: no cover - depende do driver IE
+            self.logger.warning("Nao foi possivel ler cookies do navegador Promax: %s", exc)
+            return []
+
+        cookies_normalizados = []
+        for cookie in cookies or []:
+            if isinstance(cookie, dict):
+                cookies_normalizados.append(cookie)
+                continue
+            if isinstance(cookie, str) and "=" in cookie:
+                nome, valor = cookie.split("=", 1)
+                nome = nome.strip()
+                if nome:
+                    cookies_normalizados.append({"name": nome, "value": valor.strip()})
+                continue
+            self.logger.debug("Cookie Promax ignorado por formato inesperado: %r", cookie)
+        return cookies_normalizados
 
     def _capturar_arquivo_dvs_pelo_navegador(self, file_url: str, caminho_final: Path) -> bool:
         handle_original = self.driver.current_window_handle
@@ -202,6 +272,16 @@ def _base_url(current_url: str) -> str:
 def _diretorio_destino(subpasta: str | None) -> Path:
     base = get_settings().download_dir
     return base / subpasta if subpasta else base
+
+
+def _dedupe_urls(*urls: str) -> list[str]:
+    vistos = set()
+    unicos = []
+    for url in urls:
+        if url and url not in vistos:
+            vistos.add(url)
+            unicos.append(url)
+    return unicos
 
 
 def _parece_txt_dvs(content: bytes) -> bool:

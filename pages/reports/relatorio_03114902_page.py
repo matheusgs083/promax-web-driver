@@ -236,11 +236,21 @@ class Relatorio03114902Page(RotinaPage):
 
     def _trocar_unidade_modelo_novo(self, unidade, timeout):
         unidade = str(unidade).strip()
+        unidade_atual = self.driver.execute_script(
+            "return (document.getElementById('unidadeMenu') || {}).value || '';"
+        )
+        if str(unidade_atual or '').strip() == unidade:
+            self.logger.info("Unidade %s ja selecionada na 03114902.", unidade)
+            return
+
         resultado = self.driver.execute_script(
             """
             try {
                 if (document.getElementById('unidadeMenu')) {
                     document.getElementById('unidadeMenu').value = arguments[0];
+                }
+                if (document.getElementById('unidadeMenuAnt')) {
+                    document.getElementById('unidadeMenuAnt').value = arguments[0];
                 }
                 if (typeof trocaEmpresa === 'function') {
                     trocaEmpresa(arguments[0]);
@@ -256,11 +266,20 @@ class Relatorio03114902Page(RotinaPage):
         if not resultado or not resultado.get("ok"):
             raise RuntimeError(f"Falha ao trocar unidade na 03114902: {resultado}")
 
+        self.wait_until(
+            lambda drv: drv.execute_script(
+                "return (document.getElementById('unidadeMenu') || {}).value == arguments[0];",
+                unidade,
+            ),
+            timeout=min(timeout, 10),
+            message=f"Timeout aguardando unidadeMenu atualizado para {unidade}",
+        )
         self.wait_for_js_condition(
             "return !window.jQuery || jQuery.active === 0;",
             timeout=timeout,
             description=f"troca de unidade {unidade} concluida",
         )
+        self._aguardar_modelo_novo(timeout=timeout)
         time.sleep(1)
 
     def _aplicar_filtros(self, **filtros):

@@ -155,6 +155,45 @@ def _normalize_list(values):
     return normalized
 
 
+LIGA_UNIDADE_NOMES = {
+    "2210003": "PATOS",
+    "2210004": "SUME",
+}
+
+LIGA_MESES_ABREV = {
+    1: "JAN",
+    2: "FEV",
+    3: "MAR",
+    4: "ABR",
+    5: "MAI",
+    6: "JUN",
+    7: "JUL",
+    8: "AGO",
+    9: "SET",
+    10: "OUT",
+    11: "NOV",
+    12: "DEZ",
+}
+
+
+def _liga_nome_unidade(codigo_unidade) -> str:
+    codigo = str(codigo_unidade or "").strip()
+    return LIGA_UNIDADE_NOMES.get(codigo, codigo or "UNIDADE")
+
+
+def _liga_mes_abrev(ref: date | None = None) -> str:
+    data_ref = ref or hoje.date()
+    return LIGA_MESES_ABREV[data_ref.month]
+
+
+def _liga_nome_mensal(rotina: str, codigo_unidade, ref: date | None = None) -> str:
+    return f"{rotina}_{_liga_nome_unidade(codigo_unidade)}_{_liga_mes_abrev(ref)}.csv"
+
+
+def _liga_nome_diario(codigo_unidade, data_ref: date) -> str:
+    return f"{_liga_nome_unidade(codigo_unidade)}_{data_ref.strftime('%d_%m')}.csv"
+
+
 def _primeira_unidade_geo(unidades_alvo):
     unidades = _normalize_list(unidades_alvo)
     return unidades[0] if unidades else "0640001"
@@ -239,6 +278,33 @@ def main(
     if job_id:
         logger.info("Job Promax controlado pelo bot_api: %s", job_id)
 
+    liga_mes_referencia = requested_end or requested_start or hoje.date()
+
+    def _unidades_liga_relatorio(page, unidades_alvo=None, *, bloqueadas=None, rotina="Liga"):
+        unidades_solicitadas = _normalize_list(unidades_alvo)
+        unidades_disponiveis = [str(item.get("valor") or "").strip() for item in page.listar_unidades()]
+        unidades_disponiveis = [item for item in unidades_disponiveis if item]
+        if unidades_solicitadas and unidades_disponiveis:
+            unidades = [unit for unit in unidades_solicitadas if unit in unidades_disponiveis]
+            ignoradas = [unit for unit in unidades_solicitadas if unit not in unidades_disponiveis]
+            if ignoradas:
+                logger.info("%s: ignorando unidade(s) ausente(s) no combo da rotina: %s", rotina, ignoradas)
+            if not unidades:
+                unidades = unidades_disponiveis
+                logger.info("%s: nenhuma unidade solicitada existe no combo; usando unidade(s) disponivel(is): %s", rotina, unidades)
+        else:
+            unidades = unidades_disponiveis or unidades_solicitadas
+        if not unidades:
+            unidades = list(LIGA_UNIDADE_NOMES)
+            logger.info("%s: usando unidades padrao da Liga Entrega: %s", rotina, unidades)
+
+        bloqueadas = {str(unit) for unit in (bloqueadas or [])}
+        bloqueadas_presentes = [unit for unit in unidades if str(unit) in bloqueadas]
+        if bloqueadas_presentes:
+            logger.info("%s: ignorando unidade(s) sem permissao no Promax: %s", rotina, bloqueadas_presentes)
+            unidades = [unit for unit in unidades if str(unit) not in bloqueadas]
+        return unidades
+
     def tarefa_0513(unidades_alvo=None):
         janela = menu_page.acessar_rotina("0513")
         page = Relatorio0513Page(janela.driver, janela.handle_menu)
@@ -315,18 +381,33 @@ def main(
         janela = menu_page.acessar_rotina("030237")
         page = Relatorio030237Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "03.02.37 - Entregas" if is_liga_entrega else "030237"
+        if is_liga_entrega:
+            resultados = []
+            unidades = _unidades_liga_relatorio(page, unidades_alvo, rotina="030237 Liga Entrega")
+            for unidade_alvo in unidades or [None]:
+                resultados.append(page.gerar_relatorio(
+                    unidade=unidade_alvo,
+                    quebra1="25",
+                    quebra2="36",
+                    quebra3="37",
+                    data_inicial=report_start_text or primeiro_dia_mes_atual,
+                    data_final=report_end_text or data_ontem_formatada,
+                    nome_arquivo=_liga_nome_mensal("03.02.37", unidade_alvo, liga_mes_referencia),
+                ))
+            page.fechar_e_voltar()
+            falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
+            if falhas:
+                return False, f"Falha em uma ou mais unidades da 030237 Liga Entrega: {falhas}"
+            return True, f"030237 Liga Entrega gerada para {len(resultados)} unidade(s)."
+
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
-            quebra1="25" if is_liga_entrega else "14",
-            quebra2="36" if is_liga_entrega else "12",
-            quebra3="37" if is_liga_entrega else "16",
+            quebra1="14",
+            quebra2="12",
+            quebra3="16",
             data_inicial=report_start_text or primeiro_dia_mes_atual,
             data_final=report_end_text or data_ontem_formatada,
-            nome_arquivo=(
-                f"03.02.37_nomeUnidade030237_{mes_atual}-{ano_atual}"
-                if is_liga_entrega
-                else f"{mes_atual}-{ano_atual} nomeUnidade030237"
-            ),
+            nome_arquivo=f"{mes_atual}-{ano_atual} nomeUnidade030237",
         )
         page.fechar_e_voltar()
         return resultado
@@ -634,19 +715,12 @@ def main(
         dias = list(liga_030805_datas_entrega)
         logger.info("030805: periodo base %s a %s; usando data(s) anterior(es) de entrega: %s", inicio, fim, dias)
         resultados = []
-        unidades_solicitadas = _normalize_list(unidades_alvo)
-        unidades_disponiveis = [str(item.get("valor") or "").strip() for item in page.listar_unidades()]
-        unidades_disponiveis = [item for item in unidades_disponiveis if item]
-        if unidades_solicitadas and unidades_disponiveis:
-            unidades = [unit for unit in unidades_solicitadas if unit in unidades_disponiveis]
-            ignoradas = [unit for unit in unidades_solicitadas if unit not in unidades_disponiveis]
-            if ignoradas:
-                logger.info("030805: ignorando unidade(s) ausente(s) no combo da rotina: %s", ignoradas)
-            if not unidades:
-                unidades = unidades_disponiveis
-                logger.info("030805: nenhuma unidade solicitada existe no combo; usando unidade(s) disponivel(is): %s", unidades)
-        else:
-            unidades = unidades_disponiveis or unidades_solicitadas
+        unidades = _unidades_liga_relatorio(
+            page,
+            unidades_alvo,
+            bloqueadas={"3610006", "3610008"},
+            rotina="030805",
+        )
         for data_ref in dias:
             data_texto = data_ref.strftime("%d/%m/%Y")
             alvos = unidades or [None]
@@ -657,6 +731,7 @@ def main(
                     data_inicial=data_texto,
                     data_final=data_texto,
                     transportadora="1",
+                    nome_arquivo=_liga_nome_diario(unidade_alvo, data_ref),
                 )
                 resultados.append(resultado)
         page.fechar_e_voltar()
@@ -673,25 +748,38 @@ def main(
         opcao_rel,
         subpasta,
         tracker_name,
-        nome_arquivo,
+        nome_arquivo=None,
         somente_resumo=False,
         resumo_visao=None,
     ):
-        janela = menu_page.acessar_rotina("030224")
-        page = Relatorio030224Page(janela.driver, janela.handle_menu)
-        page.subpasta_download = subpasta
-        page.tracker_name = tracker_name
-        resultado = page.gerar_relatorio(
-            unidade=unidades_alvo,
-            opcao_rel=opcao_rel,
-            data_inicial=report_start_text or primeiro_dia_mes_atual,
-            data_final=report_end_text or data_hoje_formatada,
-            somente_resumo=somente_resumo,
-            resumo_visao=resumo_visao,
-            nome_arquivo=nome_arquivo,
-        )
-        page.fechar_e_voltar()
-        return resultado
+        resultados = []
+        unidades = list(unidades_alvo or []) or None
+        if unidades is None:
+            janela_base = menu_page.acessar_rotina("030224")
+            page_base = Relatorio030224Page(janela_base.driver, janela_base.handle_menu)
+            unidades = _unidades_liga_relatorio(page_base, unidades_alvo, rotina=tracker_name) or [None]
+            page_base.fechar_e_voltar()
+        for unidade_alvo in unidades:
+            janela = menu_page.acessar_rotina("030224")
+            page = Relatorio030224Page(janela.driver, janela.handle_menu)
+            page.subpasta_download = subpasta
+            page.tracker_name = tracker_name
+            try:
+                resultados.append(page.gerar_relatorio(
+                    unidade=unidade_alvo,
+                    opcao_rel=opcao_rel,
+                    data_inicial=report_start_text or primeiro_dia_mes_atual,
+                    data_final=report_end_text or data_hoje_formatada,
+                    somente_resumo=somente_resumo,
+                    resumo_visao=resumo_visao,
+                    nome_arquivo=_liga_nome_mensal("03.02.24", unidade_alvo, liga_mes_referencia),
+                ))
+            finally:
+                page.fechar_e_voltar()
+        falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
+        if falhas:
+            return False, f"Falha em uma ou mais unidades da {tracker_name}: {falhas}"
+        return True, f"{tracker_name} gerada para {len(resultados)} unidade(s)."
 
     def tarefa_030224_resumo_liga(unidades_alvo=None):
         return _gerar_030224_liga(
@@ -699,7 +787,6 @@ def main(
             opcao_rel="03",
             subpasta="03.02.24/Resumo",
             tracker_name="Rotina 030224 Resumo Liga Entrega",
-            nome_arquivo=f"03.02.24_Resumo_nomeUnidade030224_{mes_atual}-{ano_atual}",
             somente_resumo=True,
             resumo_visao="P",
         )
@@ -710,7 +797,6 @@ def main(
             opcao_rel="08",
             subpasta="03.02.24/Motorista",
             tracker_name="Rotina 030224 Motorista Liga Entrega",
-            nome_arquivo=f"03.02.24_Motorista_nomeUnidade030224_{mes_atual}-{ano_atual}",
         )
 
     def tarefa_030224_ajudante_liga(unidades_alvo=None):
@@ -719,7 +805,6 @@ def main(
             opcao_rel="10",
             subpasta="03.02.24/Ajudante",
             tracker_name="Rotina 030224 Ajudante Liga Entrega",
-            nome_arquivo=f"03.02.24_Ajudante_nomeUnidade030224_{mes_atual}-{ano_atual}",
         )
 
     def tarefa_030224_mapa_liga(unidades_alvo=None):
@@ -728,7 +813,6 @@ def main(
             opcao_rel="03",
             subpasta="03.02.24/Mapa",
             tracker_name="Rotina 030224 Mapa Liga Entrega",
-            nome_arquivo=f"03.02.24_Mapa_nomeUnidade030224_{mes_atual}-{ano_atual}",
         )
 
     def tarefa_030224_setor_liga(unidades_alvo=None):
@@ -737,7 +821,6 @@ def main(
             opcao_rel="02",
             subpasta="03.02.24/SETOR",
             tracker_name="Rotina 030224 Setor Liga Entrega",
-            nome_arquivo=f"03.02.24_SETOR_nomeUnidade030224_{mes_atual}-{ano_atual}",
         )
 
 
@@ -746,42 +829,89 @@ def main(
         page = Relatorio031129Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "03.11.29"
         page.tracker_name = "Rotina 031129 Liga Entrega"
-        resultado = page.gerar_relatorio(
-            unidade=unidades_alvo,
-            opcao_rel="3",
-            data_inicial=report_start_text or primeiro_dia_mes_atual,
-            data_final=report_end_text or data_hoje_formatada,
-            nome_arquivo=f"03.11.29_nomeUnidade031129_{mes_atual}-{ano_atual}",
-        )
+        resultados = []
+        unidades = _unidades_liga_relatorio(page, unidades_alvo, rotina="031129 Liga Entrega")
+        for unidade_alvo in unidades or [None]:
+            resultados.append(page.gerar_relatorio(
+                unidade=unidade_alvo,
+                opcao_rel="3",
+                data_inicial=report_start_text or primeiro_dia_mes_atual,
+                data_final=report_end_text or data_hoje_formatada,
+                nome_arquivo=_liga_nome_mensal("03.11.29", unidade_alvo, liga_mes_referencia),
+            ))
         page.fechar_e_voltar()
-        return resultado
+        falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
+        if falhas:
+            return False, f"Falha em uma ou mais unidades da 031129 Liga Entrega: {falhas}"
+        return True, f"031129 Liga Entrega gerada para {len(resultados)} unidade(s)."
 
     def tarefa_031120_bot(unidades_alvo=None):
         janela = menu_page.acessar_rotina("031120")
         page = Relatorio031120Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "03.11.20" if is_liga_entrega else "031120 bot"
         page.tracker_name = "Rotina 031120 Liga Entrega" if is_liga_entrega else "Rotina 031120 Bot"
+        if is_liga_entrega:
+            resultados = []
+            unidades = _unidades_liga_relatorio(page, unidades_alvo, rotina="031120 Liga Entrega")
+            for unidade_alvo in unidades or [None]:
+                resultados.append(page.gerar_relatorio(
+                    unidade=unidade_alvo,
+                    opcao_rel="1",
+                    data_inicial=report_start_text or primeiro_dia_mes_atual,
+                    data_final=report_end_text or data_hoje_formatada,
+                    cod_armazem="01",
+                    nome_arquivo=_liga_nome_mensal("03.11.20", unidade_alvo, liga_mes_referencia),
+                ))
+            page.fechar_e_voltar()
+            falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
+            if falhas:
+                return False, f"Falha em uma ou mais unidades da 031120 Liga Entrega: {falhas}"
+            return True, f"031120 Liga Entrega gerada para {len(resultados)} unidade(s)."
+
         resultado = page.gerar_relatorio(
             unidade=unidades_alvo,
             opcao_rel="1",
-            data_inicial=report_start_text or (primeiro_dia_mes_atual if is_liga_entrega else data_duas_semanas_atras_formatada),
+            data_inicial=report_start_text or data_duas_semanas_atras_formatada,
             data_final=report_end_text or data_hoje_formatada,
             cod_armazem="01",
-            nome_arquivo=(
-                f"03.11.20_nomeUnidade031120_{mes_atual}-{ano_atual}"
-                if is_liga_entrega
-                else "031120 bot - nomeUnidade031120"
-            ),
+            nome_arquivo="031120 bot - nomeUnidade031120",
         )
         page.fechar_e_voltar()
         return resultado
 
     def tarefa_03114902_bot(unidades_alvo=None):
-        unidade_base = unidades_alvo[0] if isinstance(unidades_alvo, list) and unidades_alvo else unidades_alvo
         janela = menu_page.acessar_rotina("03114902")
         page = Relatorio03114902Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "03.11.49.02" if is_liga_entrega else "03114902 bot"
         page.tracker_name = "Rotina 03114902 Liga Entrega" if is_liga_entrega else "Rotina 03114902 Geo Bot"
+        if is_liga_entrega:
+            resultados = []
+            unidades = _normalize_list(unidades_alvo) or list(LIGA_UNIDADE_NOMES)
+            for unidade_alvo in unidades:
+                resultados.append(page.gerar_relatorio(
+                    unidade=unidade_alvo,
+                    classificacao="Mapa",
+                    tipo_mapa_rota=True,
+                    tipo_mapa_as=True,
+                    todas_operacoes=True,
+                    mapas_roteirizados=True,
+                    data_inicial=report_start_text or data_duas_semanas_atras_formatada,
+                    data_final=report_end_text or data_hoje_formatada,
+                    roadshow_inicial="0",
+                    roadshow_final="99",
+                    transportadora_inicial="0",
+                    transportadora_final="999999",
+                    armazem="01 - ARMAZEM CENTRAL",
+                    csv_geo=False,
+                    nome_arquivo=_liga_nome_mensal("03.11.49.02", unidade_alvo, liga_mes_referencia),
+                ))
+            page.fechar_e_voltar()
+            falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
+            if falhas:
+                return False, f"Falha em uma ou mais unidades da 03114902 Liga Entrega: {falhas}"
+            return True, f"03114902 Liga Entrega gerada para {len(resultados)} unidade(s)."
+
+        unidade_base = unidades_alvo[0] if isinstance(unidades_alvo, list) and unidades_alvo else unidades_alvo
         resultado = page.gerar_relatorio(
             unidade=unidade_base,
             classificacao="Mapa",
@@ -795,13 +925,9 @@ def main(
             roadshow_final="99",
             transportadora_inicial="0",
             transportadora_final="999999",
-            armazem="01 - ARMAZEM CENTRAL" if is_liga_entrega else "Todos",
+            armazem="Todos",
             csv_geo=True,
-            nome_arquivo=(
-                f"03.11.49.02_{mes_atual}-{ano_atual}.csv"
-                if is_liga_entrega
-                else "03114902 bot - geo.csv"
-            ),
+            nome_arquivo="03114902 bot - geo.csv",
         )
         page.fechar_e_voltar()
         return resultado
