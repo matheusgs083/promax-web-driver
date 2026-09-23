@@ -1062,7 +1062,10 @@ def main(
             os.path.join(str(pasta_intermediaria), "03.02.24", "Ajudante"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Ajudante"),
             os.path.join(str(pasta_intermediaria), "03.11.20"): os.path.join(liga_entrega_relatorios_dir, "03.11.20"),
             os.path.join(str(pasta_intermediaria), "03.11.29"): os.path.join(liga_entrega_relatorios_dir, "03.11.29"),
-            os.path.join(str(pasta_intermediaria), "03.11.49.02"): os.path.join(liga_entrega_relatorios_dir, "03.11.49.02"),
+            # O renomeador normaliza o prefixo 03.11.49.02 para a pasta 031149.
+            # Mantemos o destino com o nome homologado da rotina, mas usamos a
+            # pasta efetivamente criada no download como origem da publicação.
+            os.path.join(str(pasta_intermediaria), "031149"): os.path.join(liga_entrega_relatorios_dir, "03.11.49.02"),
             os.path.join(str(pasta_intermediaria), "03.02.37 - Entregas"): os.path.join(liga_entrega_relatorios_dir, "03.02.37 - Entregas"),
         }
     selected_output_folders = tuple(
@@ -1071,14 +1074,23 @@ def main(
         for folder in routine.output_folders
     )
 
+    def selected_output_aliases(folder):
+        """Return names that can represent a post-processed output folder."""
+        normalized = str(folder).replace("\\", "/").strip("/")
+        aliases = [normalized]
+        if normalized.casefold() == "03.11.49.02":
+            aliases.append("031149")
+        return tuple(aliases)
+
     def belongs_to_selected_output(source):
         try:
             relative_source = Path(source).relative_to(pasta_intermediaria)
         except ValueError:
             return False
         return any(
-            relative_source == Path(folder) or Path(folder) in relative_source.parents
+            relative_source == Path(alias) or Path(alias) in relative_source.parents
             for folder in selected_output_folders
+            for alias in selected_output_aliases(folder)
         )
 
     publication_mapping = {
