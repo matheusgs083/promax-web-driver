@@ -20,6 +20,16 @@ REPORT_GROUP = {
             "output_folders": ["03.02.24/Ajudante"],
         },
         {
+            "id": "030224_MOTORISTA_LIGA_PDF",
+            "name": "PDF 030224 Motorista Liga Entrega",
+            "output_folders": ["03.02.24/Motorista/PDF"],
+        },
+        {
+            "id": "030224_AJUDANTE_LIGA_PDF",
+            "name": "PDF 030224 Ajudante Liga Entrega",
+            "output_folders": ["03.02.24/Ajudante/PDF"],
+        },
+        {
             "id": "031120_BOT",
             "name": "Rotina 031120 Bot",
             "output_folders": ["03.11.20"],

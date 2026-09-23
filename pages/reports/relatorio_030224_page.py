@@ -5,6 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+from core.config.settings import get_settings
 from pages.common.rotina_page import RotinaPage
 
 
@@ -51,7 +52,9 @@ class Relatorio030224Page(RotinaPage):
         tp_consolidacao=None,
         acao="BotVisualizar",
         clicar_csv_apos_visualizar=True,
+        formato_saida="csv",
         timeout_csv=360,
+        timeout_pdf=550,
         nome_arquivo="030224.csv",
     ):
         if unidade is None or isinstance(unidade, list):
@@ -87,7 +90,9 @@ class Relatorio030224Page(RotinaPage):
                     tp_consolidacao=tp_consolidacao,
                     acao=acao,
                     clicar_csv_apos_visualizar=clicar_csv_apos_visualizar,
+                    formato_saida=formato_saida,
                     timeout_csv=timeout_csv,
+                    timeout_pdf=timeout_pdf,
                     nome_arquivo=arq,
                 ),
             )
@@ -169,6 +174,12 @@ class Relatorio030224Page(RotinaPage):
         finally:
             self.switch_to_default_content()
 
+        if str(formato_saida or "csv").strip().lower() == "pdf":
+            return self._fluxo_exportar_pdf(
+                timeout_pdf=timeout_pdf,
+                nome_arquivo=nome_arquivo,
+            )
+
         if not clicar_csv_apos_visualizar:
             return True
 
@@ -183,3 +194,68 @@ class Relatorio030224Page(RotinaPage):
             timeout_botao=timeout_csv,
             locators_export=locators_export,
         )
+
+    def _fluxo_exportar_pdf(self, *, timeout_pdf=550, nome_arquivo="030224.pdf"):
+        """Exporta o resultado visualizado pelo botao GerPDF da 03.02.24."""
+
+        self.logger.info("Aguardando tela pos-Visualizar e botao PDF da rotina 030224...")
+        self.switch_to_default_content()
+        try:
+            WebDriverWait(self.driver, timeout_pdf).until(
+                EC.frame_to_be_available_and_switch_to_it(self.FRAME_ROTINA)
+            )
+        except UnexpectedAlertPresentException:
+            mensagens = self.lidar_com_alertas(tentativas=2, timeout=2, timeout_entre_alertas=1, max_alertas=10)
+            detalhe = " | ".join(mensagens) if mensagens else "Alerta sem texto capturado"
+            self.switch_to_default_content()
+            return False, f"Alerta antes da exportacao PDF: {detalhe}"
+        except TimeoutException:
+            self.driver.switch_to.frame(self.FRAME_ROTINA)
+
+        try:
+            botao_pdf = WebDriverWait(self.driver, timeout_pdf).until(
+                lambda driver: driver.find_element(By.NAME, "GerPDF")
+            )
+            diretorio_base = get_settings().download_dir
+            subpasta = getattr(self, "subpasta_download", None)
+            diretorio = diretorio_base / subpasta if subpasta else diretorio_base
+            nome_pdf = str(nome_arquivo or "030224.pdf")
+            if not nome_pdf.lower().endswith(".pdf"):
+                nome_pdf = f"{nome_pdf}.pdf"
+
+            from core.services.report_download_service import (
+                capturar_download_por_formulario,
+                capturar_download_relatorio,
+            )
+
+            resultado_http = capturar_download_por_formulario(
+                self.driver,
+                botao_pdf,
+                nome_pdf,
+                diretorio_intermediario=diretorio,
+                extensao_final=".pdf",
+            )
+            if resultado_http[0]:
+                self.logger.info("PDF 030224 capturado diretamente por HTTP: %s", resultado_http[1])
+                return resultado_http
+
+            self.logger.info("PDF HTTP indisponivel na 030224 (%s); mantendo fluxo visual.", resultado_http[1])
+            self.js_click_ie(botao_pdf)
+            pdf_path = diretorio / nome_pdf
+            resultado_visual = capturar_download_relatorio(
+                nome_arquivo_final=nome_pdf,
+                diretorio_intermediario=str(diretorio),
+                extensao_final=".pdf",
+                driver=self.driver,
+            )
+            if resultado_visual[0]:
+                return True, str(pdf_path)
+            return resultado_visual
+        except UnexpectedAlertPresentException:
+            mensagens = self.lidar_com_alertas(tentativas=2, timeout=2, timeout_entre_alertas=1, max_alertas=10)
+            detalhe = " | ".join(mensagens) if mensagens else "Alerta sem texto capturado"
+            return False, f"Alerta ao clicar no botao PDF: {detalhe}"
+        except TimeoutException:
+            return False, "Botao PDF da rotina 030224 nao apareceu apos visualizar."
+        finally:
+            self.switch_to_default_content()

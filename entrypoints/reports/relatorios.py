@@ -190,6 +190,10 @@ def _liga_nome_mensal(rotina: str, codigo_unidade, ref: date | None = None) -> s
     return f"{rotina}_{_liga_nome_unidade(codigo_unidade)}_{_liga_mes_abrev(ref)}.csv"
 
 
+def _liga_nome_mensal_pdf(rotina: str, codigo_unidade, ref: date | None = None) -> str:
+    return _liga_nome_mensal(rotina, codigo_unidade, ref).replace(".csv", ".pdf")
+
+
 def _liga_nome_diario(codigo_unidade, data_ref: date) -> str:
     return f"{_liga_nome_unidade(codigo_unidade)}_{data_ref.strftime('%d_%m')}.csv"
 
@@ -751,6 +755,7 @@ def main(
         nome_arquivo=None,
         somente_resumo=False,
         resumo_visao=None,
+        formato_saida="csv",
     ):
         resultados = []
         unidades = list(unidades_alvo or []) or None
@@ -765,6 +770,11 @@ def main(
             page.subpasta_download = subpasta
             page.tracker_name = tracker_name
             try:
+                nome_saida = (
+                    _liga_nome_mensal_pdf("03.02.24", unidade_alvo, liga_mes_referencia)
+                    if str(formato_saida).lower() == "pdf"
+                    else _liga_nome_mensal("03.02.24", unidade_alvo, liga_mes_referencia)
+                )
                 resultados.append(page.gerar_relatorio(
                     unidade=unidade_alvo,
                     opcao_rel=opcao_rel,
@@ -772,7 +782,8 @@ def main(
                     data_final=report_end_text or data_hoje_formatada,
                     somente_resumo=somente_resumo,
                     resumo_visao=resumo_visao,
-                    nome_arquivo=_liga_nome_mensal("03.02.24", unidade_alvo, liga_mes_referencia),
+                    formato_saida=formato_saida,
+                    nome_arquivo=nome_saida,
                 ))
             finally:
                 page.fechar_e_voltar()
@@ -805,6 +816,24 @@ def main(
             opcao_rel="10",
             subpasta="03.02.24/Ajudante",
             tracker_name="Rotina 030224 Ajudante Liga Entrega",
+        )
+
+    def tarefa_030224_motorista_liga_pdf(unidades_alvo=None):
+        return _gerar_030224_liga(
+            unidades_alvo=unidades_alvo,
+            opcao_rel="08",
+            subpasta="03.02.24/Motorista/PDF",
+            tracker_name="Rotina 030224 PDF Motorista Liga Entrega",
+            formato_saida="pdf",
+        )
+
+    def tarefa_030224_ajudante_liga_pdf(unidades_alvo=None):
+        return _gerar_030224_liga(
+            unidades_alvo=unidades_alvo,
+            opcao_rel="10",
+            subpasta="03.02.24/Ajudante/PDF",
+            tracker_name="Rotina 030224 PDF Ajudante Liga Entrega",
+            formato_saida="pdf",
         )
 
     def tarefa_030224_mapa_liga(unidades_alvo=None):
@@ -961,6 +990,8 @@ def main(
         "030224_RESUMO_LIGA": tarefa_030224_resumo_liga,
         "030224_MOTORISTA_LIGA": tarefa_030224_motorista_liga,
         "030224_AJUDANTE_LIGA": tarefa_030224_ajudante_liga,
+        "030224_MOTORISTA_LIGA_PDF": tarefa_030224_motorista_liga_pdf,
+        "030224_AJUDANTE_LIGA_PDF": tarefa_030224_ajudante_liga_pdf,
         "030224_MAPA_LIGA": tarefa_030224_mapa_liga,
         "030224_SETOR_LIGA": tarefa_030224_setor_liga,
         "031129_LIGA": tarefa_031129_liga,
@@ -1059,7 +1090,9 @@ def main(
         publication_mapping = {
             os.path.join(str(pasta_intermediaria), "03.08.05"): os.path.join(liga_entrega_relatorios_dir, "03.08.05"),
             os.path.join(str(pasta_intermediaria), "03.02.24", "Motorista"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Motorista"),
+            os.path.join(str(pasta_intermediaria), "03.02.24", "Motorista", "PDF"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Motorista", "PDF"),
             os.path.join(str(pasta_intermediaria), "03.02.24", "Ajudante"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Ajudante"),
+            os.path.join(str(pasta_intermediaria), "03.02.24", "Ajudante", "PDF"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Ajudante", "PDF"),
             os.path.join(str(pasta_intermediaria), "03.11.20"): os.path.join(liga_entrega_relatorios_dir, "03.11.20"),
             os.path.join(str(pasta_intermediaria), "03.11.29"): os.path.join(liga_entrega_relatorios_dir, "03.11.29"),
             # O renomeador normaliza o prefixo 03.11.49.02 para a pasta 031149.
