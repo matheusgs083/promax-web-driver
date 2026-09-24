@@ -250,6 +250,9 @@ def main(
         report_group.key,
     )
     is_liga_entrega = report_group.key == "liga_entrega"
+    liga_data_anterior = _data_entrega_anterior_liga(hoje.date())
+    liga_data_inicio_text = report_start_text or liga_data_anterior.strftime("%d/%m/%Y")
+    liga_data_fim_text = report_end_text or liga_data_anterior.strftime("%d/%m/%Y")
     liga_030805_base_start = requested_start or hoje.date()
     liga_030805_base_end = requested_end or liga_030805_base_start
     liga_030805_datas_entrega = []
@@ -278,7 +281,7 @@ def main(
     if job_id:
         logger.info("Job Promax controlado pelo bot_api: %s", job_id)
 
-    liga_mes_referencia = requested_end or requested_start or hoje.date()
+    liga_mes_referencia = requested_end or requested_start or liga_data_anterior
 
     def _unidades_liga_relatorio(page, unidades_alvo=None, *, bloqueadas=None, rotina="Liga"):
         unidades_solicitadas = _normalize_list(unidades_alvo)
@@ -390,8 +393,8 @@ def main(
                     quebra1="25",
                     quebra2="36",
                     quebra3="37",
-                    data_inicial=report_start_text or primeiro_dia_mes_atual,
-                    data_final=report_end_text or data_ontem_formatada,
+                    data_inicial=liga_data_inicio_text,
+                    data_final=liga_data_fim_text,
                     nome_arquivo=_liga_nome_mensal("03.02.37", unidade_alvo, liga_mes_referencia),
                 ))
             page.fechar_e_voltar()
@@ -768,8 +771,8 @@ def main(
                 resultados.append(page.gerar_relatorio(
                     unidade=unidade_alvo,
                     opcao_rel=opcao_rel,
-                    data_inicial=report_start_text or primeiro_dia_mes_atual,
-                    data_final=report_end_text or data_hoje_formatada,
+                    data_inicial=liga_data_inicio_text,
+                    data_final=liga_data_fim_text,
                     somente_resumo=somente_resumo,
                     resumo_visao=resumo_visao,
                     nome_arquivo=_liga_nome_mensal("03.02.24", unidade_alvo, liga_mes_referencia),
@@ -835,8 +838,8 @@ def main(
             resultados.append(page.gerar_relatorio(
                 unidade=unidade_alvo,
                 opcao_rel="3",
-                data_inicial=report_start_text or primeiro_dia_mes_atual,
-                data_final=report_end_text or data_hoje_formatada,
+                data_inicial=liga_data_inicio_text,
+                data_final=liga_data_fim_text,
                 nome_arquivo=_liga_nome_mensal("03.11.29", unidade_alvo, liga_mes_referencia),
             ))
         page.fechar_e_voltar()
@@ -857,8 +860,8 @@ def main(
                 resultados.append(page.gerar_relatorio(
                     unidade=unidade_alvo,
                     opcao_rel="1",
-                    data_inicial=report_start_text or primeiro_dia_mes_atual,
-                    data_final=report_end_text or data_hoje_formatada,
+                    data_inicial=liga_data_inicio_text,
+                    data_final=liga_data_fim_text,
                     cod_armazem="01",
                     nome_arquivo=_liga_nome_mensal("03.11.20", unidade_alvo, liga_mes_referencia),
                 ))
@@ -895,8 +898,8 @@ def main(
                     tipo_mapa_as=True,
                     todas_operacoes=True,
                     mapas_roteirizados=True,
-                    data_inicial=report_start_text or data_duas_semanas_atras_formatada,
-                    data_final=report_end_text or data_hoje_formatada,
+                    data_inicial=report_start_text or primeiro_dia_mes_atual,
+                    data_final=report_end_text or data_ontem_formatada,
                     roadshow_inicial="0",
                     roadshow_final="99",
                     transportadora_inicial="0",
