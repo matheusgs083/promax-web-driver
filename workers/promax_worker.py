@@ -1519,7 +1519,22 @@ class PromaxWorker:
             ("03114902_BOT", "03.11.49.02"),
             ("030237", "03.02.37 - Entregas"),
         )
-        selected_specs = _selected_liga_entrega_specs(payload, specs)
+        # Some older jobs persist the category/routines on the job envelope
+        # instead of inside payload.  Merge those fields before resolving the
+        # upload set so a successful report run cannot be silently skipped.
+        selection_payload = dict(payload)
+        for key in ("profile", "perfil", "category", "groups", "routines"):
+            if key not in selection_payload and job.get(key) is not None:
+                selection_payload[key] = job.get(key)
+        selected_specs = _selected_liga_entrega_specs(selection_payload, specs)
+        if not selected_specs:
+            # The publication map is authoritative for what this run actually
+            # produced.  Use it as a final fallback for legacy payloads.
+            selected_specs = [
+                spec
+                for spec in specs
+                if _promax_publication_dir_by_relative(result.details, spec[1]) is not None
+            ]
         if not selected_specs:
             self._send_log(
                 job_id,
