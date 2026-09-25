@@ -1519,7 +1519,7 @@ class PromaxWorker:
             ("03114902_BOT", "03.11.49.02"),
             ("030237", "03.02.37 - Entregas"),
         )
-        selected_specs = [spec for spec in specs if _routine_selected(payload, spec[0])]
+        selected_specs = _selected_liga_entrega_specs(payload, specs)
         if not selected_specs:
             self._send_log(
                 job_id,
@@ -1674,6 +1674,45 @@ def _routine_selected(payload: Mapping[str, Any], routine_id: str) -> bool:
         accepted.add(f"{target_base}_BOT")
 
     return any(_normalize_routine_id(routine) in accepted for routine in routines)
+
+
+def _selected_liga_entrega_specs(
+    payload: Mapping[str, Any],
+    specs: Sequence[tuple[str, str]],
+) -> list[tuple[str, str]]:
+    """Resolve Liga uploads without losing jobs that rely on profile defaults.
+
+    The report runner expands an empty routine list to every routine in the
+    selected report group.  The worker receives the original payload, though,
+    so an otherwise valid Liga job could look like it had no selected routine
+    and skip the panel upload.  Keep explicit routine selections restrictive;
+    only use the profile/group default when no routine was supplied at all.
+    """
+    payload_routines = _payload_routines(payload)
+    selected = [spec for spec in specs if _routine_selected(payload, spec[0])]
+    if selected or payload_routines:
+        return selected
+
+    def normalize(value: Any) -> str:
+        return str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+
+    profile_values = (
+        payload.get("profile"),
+        payload.get("perfil"),
+        payload.get("category"),
+    )
+    if any(normalize(value) == "liga_entrega" for value in profile_values):
+        return list(specs)
+
+    groups = payload.get("groups")
+    if isinstance(groups, Sequence) and not isinstance(groups, (str, bytes, bytearray)):
+        for group in groups:
+            if not isinstance(group, Mapping):
+                continue
+            group_category = group.get("category") or group.get("profile") or group.get("perfil")
+            if normalize(group_category) == "liga_entrega":
+                return list(specs)
+    return []
 
 
 def _payload_routines(payload: Mapping[str, Any]) -> list[str]:
