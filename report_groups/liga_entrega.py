@@ -5,6 +5,11 @@ REPORT_GROUP = {
     "description": "Relatorios ja mapeados para apoiar a Liga Entrega.",
     "routines": [
         {
+            "id": "030224_RESUMO_LIGA",
+            "name": "Rotina 030224 Resumo Liga Entrega",
+            "output_folders": ["03.02.24/Resumo"],
+        },
+        {
             "id": "030805_LIGA",
             "name": "Rotina 030805 Liga Entrega",
             "output_folders": ["03.08.05"],

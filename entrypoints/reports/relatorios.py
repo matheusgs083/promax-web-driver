@@ -1060,6 +1060,7 @@ def main(
             os.path.join(str(pasta_intermediaria), "03.08.05"): os.path.join(liga_entrega_relatorios_dir, "03.08.05"),
             os.path.join(str(pasta_intermediaria), "03.02.24", "Motorista"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Motorista"),
             os.path.join(str(pasta_intermediaria), "03.02.24", "Ajudante"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Ajudante"),
+            os.path.join(str(pasta_intermediaria), "03.02.24", "Resumo"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Resumo"),
             os.path.join(str(pasta_intermediaria), "03.11.20"): os.path.join(liga_entrega_relatorios_dir, "03.11.20"),
             os.path.join(str(pasta_intermediaria), "03.11.29"): os.path.join(liga_entrega_relatorios_dir, "03.11.29"),
             # O renomeador normaliza o prefixo 03.11.49.02 para a pasta 031149.
