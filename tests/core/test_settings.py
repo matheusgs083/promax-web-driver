@@ -26,3 +26,15 @@ def test_get_settings_accepta_false_no_env(monkeypatch):
     settings = get_settings()
 
     assert settings.require_window_focus is False
+
+
+def test_get_settings_prioriza_credenciais_injetadas_pelo_worker(monkeypatch):
+    monkeypatch.setenv("PROMAX_USER", "usuario_legado")
+    monkeypatch.setenv("PROMAX_PASS", "senha_legada")
+    monkeypatch.setenv("PROMAX_RUNTIME_USER", "usuario_painel")
+    monkeypatch.setenv("PROMAX_RUNTIME_PASS", "senha_painel")
+
+    settings = get_settings()
+
+    assert settings.promax_user == "usuario_painel"
+    assert settings.promax_pass == "senha_painel"

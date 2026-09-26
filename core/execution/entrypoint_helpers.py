@@ -30,7 +30,7 @@ SESSION_ERROR_TOKENS = (
 
 def iniciar_sessao_padrao(logger, settings, nome_unidade):
     if not settings.promax_user or not settings.promax_pass:
-        raise ValueError("PROMAX_USER e/ou PROMAX_PASS não definidos no .env")
+        raise ValueError("Credenciais Promax nao configuradas pelo painel/worker nem no .env")
 
     driver = DriverFactory.get_driver()
     driver.maximize_window()
@@ -136,4 +136,3 @@ def executar_tarefa_com_retry(
 
             logger.error(f"Erro irrecuperável na {nome_tarefa} após {tentativas} tentativas.")
             raise
-

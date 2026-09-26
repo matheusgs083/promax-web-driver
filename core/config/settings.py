@@ -6,7 +6,10 @@ from pathlib import Path
 import dotenv
 
 
-dotenv.load_dotenv()
+# Never overwrite credentials inherited from the bot_api worker process.  This
+# lets the central panel provide a short-lived runtime login even when this PC
+# still has legacy PROMAX_USER/PROMAX_PASS values in its .env file.
+dotenv.load_dotenv(override=False)
 
 
 @dataclass(frozen=True)
@@ -44,12 +47,17 @@ def _env_bool(name: str, default: bool) -> bool:
     return default
 
 
+def _promax_credential(runtime_name: str, legacy_name: str) -> str:
+    """Use credentials injected for this execution before the legacy .env."""
+    return os.getenv(runtime_name, "").strip() or os.getenv(legacy_name, "").strip()
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings(
         promax_url=os.getenv("PROMAX_URL", "").strip(),
-        promax_user=os.getenv("PROMAX_USER", "").strip(),
-        promax_pass=os.getenv("PROMAX_PASS", "").strip(),
+        promax_user=_promax_credential("PROMAX_RUNTIME_USER", "PROMAX_USER"),
+        promax_pass=_promax_credential("PROMAX_RUNTIME_PASS", "PROMAX_PASS"),
         download_dir=_env_path("DOWNLOAD_DIR", r"C:\Users\caixa.patos\Documents\Relatorios"),
         driver_path=os.getenv("DRIVER_PATH"),
         edge_path=os.getenv("EDGE_PATH"),
