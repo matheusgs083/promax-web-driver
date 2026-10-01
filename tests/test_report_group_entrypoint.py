@@ -1,11 +1,45 @@
 from pathlib import Path
 from types import SimpleNamespace
+from datetime import datetime
 
 import pytest
 
 from core.execution.execution_result import ExecutionResult, ExecutionStatus
 from core.services.report_orchestration_service import ReportOrchestrationService
 from entrypoints.reports import relatorios
+
+
+def test_03114902_monthly_defaults_to_previous_closed_month_on_first_day(monkeypatch, tmp_path):
+    captured, run_kwargs = {}, {}
+
+    class FakePage:
+        def __init__(self, _driver, _handle_menu):
+            self.subpasta_download = ""
+            self.tracker_name = ""
+
+        def gerar_relatorio(self, **kwargs):
+            captured.update(kwargs)
+            return True
+
+        def fechar_e_voltar(self):
+            return None
+
+    class FakeMenu:
+        @staticmethod
+        def acessar_rotina(_routine_id):
+            return SimpleNamespace(driver=object(), handle_menu=object())
+
+    monkeypatch.setattr(relatorios, "hoje", datetime(2026, 10, 1))
+    monkeypatch.setattr(relatorios, "menu_page", FakeMenu())
+    monkeypatch.setattr(relatorios, "Relatorio03114902Page", FakePage)
+    monkeypatch.setattr(relatorios, "settings", SimpleNamespace(download_dir=tmp_path))
+    monkeypatch.setattr(ReportOrchestrationService, "run", lambda _self, **kwargs: run_kwargs.update(kwargs) or ExecutionResult(ExecutionStatus.SUCCESS, "ok"))
+
+    relatorios.main(profile="liga_entrega", routines=["03114902_MENSAL_LIGA"], publish=False)
+    run_kwargs["tasks"]["03114902_MENSAL_LIGA"].runner()
+
+    assert captured["data_inicial"] == "01/09/2026"
+    assert captured["data_final"] == "30/09/2026"
 
 
 def test_entrypoint_selects_routine_and_output_from_group_without_browser(

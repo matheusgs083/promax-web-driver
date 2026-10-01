@@ -281,6 +281,16 @@ def main(
 
     liga_mes_referencia = requested_end or requested_start or hoje.date()
 
+    def periodo_mensal_03114902():
+        """Evita cruzar mês quando o job roda no primeiro dia útil."""
+        if requested_start and requested_end:
+            return report_start_text, report_end_text
+        referencia = requested_end or requested_start or (hoje.date() - timedelta(days=1))
+        return (
+            referencia.replace(day=1).strftime("%d/%m/%Y"),
+            referencia.strftime("%d/%m/%Y"),
+        )
+
     def _unidades_liga_relatorio(page, unidades_alvo=None, *, bloqueadas=None, rotina="Liga"):
         unidades_solicitadas = _normalize_list(unidades_alvo)
         unidades_disponiveis = [str(item.get("valor") or "").strip() for item in page.listar_unidades()]
@@ -919,6 +929,7 @@ def main(
         page.subpasta_download = "03.11.49.02" if is_liga_entrega else "03114902 bot"
         page.tracker_name = "Rotina 03114902 Liga Entrega" if is_liga_entrega else "Rotina 03114902 Geo Bot"
         if is_liga_entrega:
+            inicio_mensal, fim_mensal = periodo_mensal_03114902()
             resultados = []
             unidades = _normalize_list(unidades_alvo) or list(LIGA_UNIDADE_NOMES)
             for unidade_alvo in unidades:
@@ -929,8 +940,8 @@ def main(
                     tipo_mapa_as=True,
                     todas_operacoes=True,
                     mapas_roteirizados=True,
-                    data_inicial=report_start_text or primeiro_dia_mes_atual,
-                    data_final=report_end_text or data_ontem_formatada,
+                    data_inicial=inicio_mensal,
+                    data_final=fim_mensal,
                     roadshow_inicial="0",
                     roadshow_final="99",
                     transportadora_inicial="0",
@@ -971,6 +982,7 @@ def main(
         page = Relatorio03114902Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "03.11.49.02 Mensal"
         page.tracker_name = "Rotina 03114902 Mensal Liga Entrega"
+        inicio_mensal, fim_mensal = periodo_mensal_03114902()
         resultados = []
         try:
             unidades = _normalize_list(unidades_alvo) or list(LIGA_UNIDADE_NOMES)
@@ -982,8 +994,8 @@ def main(
                     tipo_mapa_as=True,
                     todas_operacoes=True,
                     mapas_roteirizados=True,
-                    data_inicial=report_start_text or primeiro_dia_mes_atual,
-                    data_final=report_end_text or data_ontem_formatada,
+                    data_inicial=inicio_mensal,
+                    data_final=fim_mensal,
                     roadshow_inicial="0",
                     roadshow_final="99",
                     transportadora_inicial="0",
