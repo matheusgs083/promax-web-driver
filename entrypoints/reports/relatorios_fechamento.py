@@ -27,7 +27,6 @@ from pages.reports.relatorio_020220_page import Relatorio020220Page
 from pages.reports.relatorio_020502_page import Relatorio020502Page
 from pages.reports.relatorio_120606_page import Relatorio120606Page
 from pages.reports.relatorio_140506_page import Relatorio140506Page
-from pages.reports.relatorio_03114902_page import Relatorio03114902Page
 
 dotenv.load_dotenv()
 logger = get_logger("MAIN_PROMAX_FECHAMENTO")
@@ -92,12 +91,6 @@ def encerrar_sessao():
 
 def _normalizar_lista_identificadores(valores):
     return [str(valor).strip() for valor in (valores or []) if str(valor).strip()]
-
-
-LIGA_UNIDADE_NOMES = {
-    "2210003": "PATOS",
-    "2210004": "SUME",
-}
 
 
 def main(
@@ -217,45 +210,6 @@ def main(
         page.fechar_e_voltar()
         return resultado
 
-    def tarefa_03114902_mensal_liga(unidades_alvo=None):
-        """Baixa o mês fechado para a importação mensal de cidades por mapa."""
-        referencia = hoje.date().replace(day=1) - timedelta(days=1)
-        inicio_mensal = referencia.replace(day=1).strftime("%d/%m/%Y")
-        fim_mensal = referencia.strftime("%d/%m/%Y")
-        sufixo_mes = referencia.strftime("%m-%Y")
-        janela = menu_page.acessar_rotina("03114902")
-        page = Relatorio03114902Page(janela.driver, janela.handle_menu)
-        page.subpasta_download = "03.11.49.02 Mensal"
-        page.tracker_name = "Rotina 03114902 Mensal Fechamento"
-        resultados = []
-        try:
-            unidades = _normalizar_lista_identificadores(unidades_alvo) or list(LIGA_UNIDADE_NOMES)
-            for unidade_alvo in unidades:
-                nome_unidade = LIGA_UNIDADE_NOMES.get(str(unidade_alvo), str(unidade_alvo))
-                resultados.append(page.gerar_relatorio(
-                    unidade=unidade_alvo,
-                    classificacao="Mapa",
-                    tipo_mapa_rota=True,
-                    tipo_mapa_as=True,
-                    todas_operacoes=True,
-                    mapas_roteirizados=True,
-                    data_inicial=inicio_mensal,
-                    data_final=fim_mensal,
-                    roadshow_inicial="0",
-                    roadshow_final="99",
-                    transportadora_inicial="0",
-                    transportadora_final="999999",
-                    armazem="01 - ARMAZEM CENTRAL",
-                    csv_geo=False,
-                    nome_arquivo=f"03.11.49.02_{nome_unidade}_{sufixo_mes}.csv",
-                ))
-        finally:
-            page.fechar_e_voltar()
-        falhas = [item for item in resultados if not (item is True or (isinstance(item, tuple) and item[0]))]
-        if falhas:
-            return False, f"Falha em uma ou mais unidades da 03114902 mensal: {falhas}"
-        return True, f"03114902 mensal gerada para {len(resultados)} unidade(s)."
-
     def tarefa_020220(unidades_alvo=None):
         janela = menu_page.acessar_rotina("020220")
         page = Relatorio020220Page(janela.driver, janela.handle_menu)
@@ -348,7 +302,6 @@ def main(
         "120606": RoutineTask(key="120606", name="Rotina 120606", runner=tarefa_120606),
         "020502_FLUXO_DE_CAIXA": RoutineTask(key="020502_FLUXO_DE_CAIXA", name="Rotina 020502 Fluxo de Caixa", runner=tarefa_020502_fluxodecaixa),
         "150501_FLUXO_DE_CAIXA": RoutineTask(key="150501_FLUXO_DE_CAIXA", name="Rotina 150501 Fluxo de Caixa", runner=tarefa_150501_fluxodecaixa),
-        "03114902_MENSAL_LIGA": RoutineTask(key="03114902_MENSAL_LIGA", name="Rotina 03114902 Mensal Liga Entrega", runner=tarefa_03114902_mensal_liga),
     }
 
     selected_routines = _normalizar_lista_identificadores(routines)
@@ -409,7 +362,6 @@ def main(
             os.path.join(str(pasta_intermediaria), "120606"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_mes_passado}\{mes_passado}. {nome_mes_passado}",
             os.path.join(str(pasta_intermediaria), "020502 fluxo de caixa"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_mes_passado}\{mes_passado}. {nome_mes_passado}",
             os.path.join(str(pasta_intermediaria), "150501 fluxo de caixa"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_mes_passado}\{mes_passado}. {nome_mes_passado}",
-            os.path.join(str(pasta_intermediaria), "03.11.49.02 Mensal"): fr"\\dc01n\PUBLICO\REVENDA\SDPO {ano_atual}\DPO\PILAR ENTREGA\RELATORIOS\03.11.49.02 Mensal",
         },
         success_message="Movimentação concluída com sucesso.",
         partial_prefix="Movimentação concluída com pendências de publicação.",

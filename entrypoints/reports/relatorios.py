@@ -250,7 +250,8 @@ def main(
         report_group.name,
         report_group.key,
     )
-    is_liga_entrega = report_group.key == "liga_entrega"
+    is_liga_fechamento = report_group.key == "liga_entrega_fechamento"
+    is_liga_entrega = report_group.key in {"liga_entrega", "liga_entrega_fechamento"}
     liga_030805_base_start = requested_start or hoje.date()
     liga_030805_base_end = requested_end or liga_030805_base_start
     liga_030805_datas_entrega = []
@@ -279,13 +280,17 @@ def main(
     if job_id:
         logger.info("Job Promax controlado pelo bot_api: %s", job_id)
 
-    liga_mes_referencia = requested_end or requested_start or hoje.date()
+    liga_mes_referencia = requested_end or requested_start or (
+        hoje.date().replace(day=1) - timedelta(days=1)
+        if is_liga_fechamento
+        else hoje.date()
+    )
 
     def periodo_mensal_liga():
         """Usa o mês em andamento sem criar um intervalo invertido no dia 1."""
         if requested_start and requested_end:
             return report_start_text, report_end_text
-        referencia = requested_end or requested_start or hoje.date()
+        referencia = requested_end or requested_start or liga_mes_referencia
         inicio = requested_start or referencia.replace(day=1)
         fim = requested_end or referencia
         return inicio.strftime("%d/%m/%Y"), fim.strftime("%d/%m/%Y")
@@ -294,7 +299,7 @@ def main(
         """Mantém a rotina operacional no mês que está em andamento."""
         if requested_start and requested_end:
             return report_start_text, report_end_text
-        referencia = requested_end or requested_start or hoje.date()
+        referencia = requested_end or requested_start or liga_mes_referencia
         return (
             referencia.replace(day=1).strftime("%d/%m/%Y"),
             referencia.strftime("%d/%m/%Y"),
@@ -990,6 +995,34 @@ def main(
         page.fechar_e_voltar()
         return resultado
 
+    def tarefa_03114902_mensal_liga(unidades_alvo=None):
+        if not is_liga_fechamento:
+            return False, "A 03114902 mensal deve ser executada pelo Fechamento da Liga."
+        janela = menu_page.acessar_rotina("03114902")
+        page = Relatorio03114902Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "03.11.49.02 Mensal"
+        page.tracker_name = "Rotina 03114902 Mensal Fechamento Liga"
+        inicio_mensal, fim_mensal = periodo_mensal_liga()
+        resultados = []
+        try:
+            for unidade_alvo in _normalize_list(unidades_alvo) or list(LIGA_UNIDADE_NOMES):
+                resultados.append(page.gerar_relatorio(
+                    unidade=unidade_alvo,
+                    classificacao="Mapa", tipo_mapa_rota=True, tipo_mapa_as=True,
+                    todas_operacoes=True, mapas_roteirizados=True,
+                    data_inicial=inicio_mensal, data_final=fim_mensal,
+                    roadshow_inicial="0", roadshow_final="99",
+                    transportadora_inicial="0", transportadora_final="999999",
+                    armazem="01 - ARMAZEM CENTRAL", csv_geo=False,
+                    nome_arquivo=_liga_nome_mensal("03.11.49.02", unidade_alvo, liga_mes_referencia),
+                ))
+        finally:
+            page.fechar_e_voltar()
+        falhas = [item for item in resultados if not (item is True or (isinstance(item, tuple) and item[0]))]
+        if falhas:
+            return False, f"Falha em uma ou mais unidades da 03114902 mensal: {falhas}"
+        return True, f"03114902 mensal gerada para {len(resultados)} unidade(s)."
+
     routine_runners = {
         "0513": tarefa_0513,
         "120616": tarefa_120616,
@@ -1025,6 +1058,7 @@ def main(
         "031129_LIGA": tarefa_031129_liga,
         "031120_BOT": tarefa_031120_bot,
         "03114902_BOT": tarefa_03114902_bot,
+        "03114902_MENSAL_LIGA": tarefa_03114902_mensal_liga,
     }
     missing_runners = [
         routine.id
@@ -1126,6 +1160,7 @@ def main(
             # Mantemos o destino com o nome homologado da rotina, mas usamos a
             # pasta efetivamente criada no download como origem da publicação.
             os.path.join(str(pasta_intermediaria), "031149"): os.path.join(liga_entrega_relatorios_dir, "03.11.49.02"),
+            os.path.join(str(pasta_intermediaria), "03.11.49.02 Mensal"): os.path.join(liga_entrega_relatorios_dir, "03.11.49.02 Mensal"),
             os.path.join(str(pasta_intermediaria), "03.02.37 - Entregas"): os.path.join(liga_entrega_relatorios_dir, "03.02.37 - Entregas"),
         }
     selected_output_folders = tuple(

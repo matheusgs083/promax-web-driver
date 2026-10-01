@@ -22,6 +22,7 @@ EXPECTED_GROUPS = {
     "giro",
     "inadimplencia",
     "liga_entrega",
+    "liga_entrega_fechamento",
     "nfs_incentivo",
     "obz",
     "outros",
@@ -76,6 +77,17 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
         "03.11.49.02",
         "03.02.37 - Entregas",
     )
+    assert groups["liga_entrega_fechamento"].routine_ids == (
+        "030224_RESUMO_LIGA",
+        "030224_MOTORISTA_LIGA",
+        "030224_AJUDANTE_LIGA",
+        "1706_BI_INDICADORES",
+        "031120_BOT",
+        "031129_LIGA",
+        "03114902_BOT",
+        "03114902_MENSAL_LIGA",
+        "030237",
+    )
     assert groups["botzapfechamento"].routine_ids == (
         "0513",
         "120616",
@@ -89,7 +101,6 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
         "120606",
         "020502_FLUXO_DE_CAIXA",
         "150501_FLUXO_DE_CAIXA",
-        "03114902_MENSAL_LIGA",
     )
     assert groups["botzapfechamento"].output_folders == (
         "0513",
@@ -104,7 +115,6 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
         "120606",
         "020502 fluxo de caixa",
         "150501 fluxo de caixa",
-        "03.11.49.02 Mensal",
     )
     assert groups["relatorios"].routine_ids == (
         "0513",
