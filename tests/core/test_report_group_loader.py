@@ -63,6 +63,7 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
         "031120_BOT",
         "031129_LIGA",
         "03114902_BOT",
+        "03114902_MENSAL_LIGA",
         "030237",
     )
     assert groups["liga_entrega"].output_folders == (
@@ -74,6 +75,7 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
         "03.11.20",
         "03.11.29",
         "03.11.49.02",
+        "03.11.49.02 Mensal",
         "03.02.37 - Entregas",
     )
     assert groups["botzapfechamento"].routine_ids == (

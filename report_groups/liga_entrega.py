@@ -45,6 +45,11 @@ REPORT_GROUP = {
             "output_folders": ["03.11.49.02"],
         },
         {
+            "id": "03114902_MENSAL_LIGA",
+            "name": "03.11.49.02 - Cidades por mapa (mensal)",
+            "output_folders": ["03.11.49.02 Mensal"],
+        },
+        {
             "id": "030237",
             "name": "Rotina 030237",
             "output_folders": ["03.02.37 - Entregas"],
