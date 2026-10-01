@@ -7,9 +7,10 @@ import pytest
 from core.execution.execution_result import ExecutionResult, ExecutionStatus
 from core.services.report_orchestration_service import ReportOrchestrationService
 from entrypoints.reports import relatorios
+from entrypoints.reports import relatorios_fechamento
 
 
-def test_03114902_monthly_defaults_to_previous_closed_month_on_first_day(monkeypatch, tmp_path):
+def test_03114902_liga_uses_current_month_on_first_day(monkeypatch, tmp_path):
     captured, run_kwargs = {}, {}
 
     class FakePage:
@@ -35,11 +36,52 @@ def test_03114902_monthly_defaults_to_previous_closed_month_on_first_day(monkeyp
     monkeypatch.setattr(relatorios, "settings", SimpleNamespace(download_dir=tmp_path))
     monkeypatch.setattr(ReportOrchestrationService, "run", lambda _self, **kwargs: run_kwargs.update(kwargs) or ExecutionResult(ExecutionStatus.SUCCESS, "ok"))
 
-    relatorios.main(profile="liga_entrega", routines=["03114902_MENSAL_LIGA"], publish=False)
+    relatorios.main(profile="liga_entrega", routines=["03114902_BOT"], publish=False)
+    run_kwargs["tasks"]["03114902_BOT"].runner()
+
+    assert captured["data_inicial"] == "01/10/2026"
+    assert captured["data_final"] == "01/10/2026"
+
+
+def test_03114902_fechamento_uses_previous_closed_month(monkeypatch, tmp_path):
+    captured, run_kwargs = {}, {}
+    nomes_arquivo = []
+
+    class FakePage:
+        def __init__(self, _driver, _handle_menu):
+            self.subpasta_download = ""
+            self.tracker_name = ""
+
+        def gerar_relatorio(self, **kwargs):
+            nomes_arquivo.append(kwargs["nome_arquivo"])
+            captured.update(kwargs)
+            return True
+
+        def fechar_e_voltar(self):
+            return None
+
+    class FakeMenu:
+        @staticmethod
+        def acessar_rotina(routine_id):
+            assert routine_id == "03114902"
+            return SimpleNamespace(driver=object(), handle_menu=object())
+
+    monkeypatch.setattr(relatorios_fechamento, "hoje", datetime(2026, 10, 1))
+    monkeypatch.setattr(relatorios_fechamento, "menu_page", FakeMenu())
+    monkeypatch.setattr(relatorios_fechamento, "Relatorio03114902Page", FakePage)
+    monkeypatch.setattr(relatorios_fechamento, "settings", SimpleNamespace(download_dir=tmp_path))
+    monkeypatch.setattr(relatorios_fechamento, "encontrar_primeira_planilha_excel", lambda _path: None)
+    monkeypatch.setattr(ReportOrchestrationService, "run", lambda _self, **kwargs: run_kwargs.update(kwargs) or ExecutionResult(ExecutionStatus.SUCCESS, "ok"))
+
+    relatorios_fechamento.main(routines=["03114902_MENSAL_LIGA"], publish=False)
     run_kwargs["tasks"]["03114902_MENSAL_LIGA"].runner()
 
     assert captured["data_inicial"] == "01/09/2026"
     assert captured["data_final"] == "30/09/2026"
+    assert nomes_arquivo == [
+        "03.11.49.02_PATOS_09-2026.csv",
+        "03.11.49.02_SUME_09-2026.csv",
+    ]
 
 
 def test_entrypoint_selects_routine_and_output_from_group_without_browser(

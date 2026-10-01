@@ -63,5 +63,10 @@ REPORT_GROUP = {
             "name": "Rotina 150501 Fluxo de Caixa",
             "output_folders": ["150501 fluxo de caixa"],
         },
+        {
+            "id": "03114902_MENSAL_LIGA",
+            "name": "03.11.49.02 - Cidades por mapa (fechamento)",
+            "output_folders": ["03.11.49.02 Mensal"],
+        },
     ],
 }

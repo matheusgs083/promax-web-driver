@@ -63,19 +63,17 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
         "031120_BOT",
         "031129_LIGA",
         "03114902_BOT",
-        "03114902_MENSAL_LIGA",
         "030237",
     )
     assert groups["liga_entrega"].output_folders == (
         "03.02.24/Resumo",
         "03.08.05",
-            "17.06",
+        "17.06",
         "03.02.24/Motorista",
         "03.02.24/Ajudante",
         "03.11.20",
         "03.11.29",
         "03.11.49.02",
-        "03.11.49.02 Mensal",
         "03.02.37 - Entregas",
     )
     assert groups["botzapfechamento"].routine_ids == (
@@ -91,6 +89,7 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
         "120606",
         "020502_FLUXO_DE_CAIXA",
         "150501_FLUXO_DE_CAIXA",
+        "03114902_MENSAL_LIGA",
     )
     assert groups["botzapfechamento"].output_folders == (
         "0513",
@@ -105,6 +104,7 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
         "120606",
         "020502 fluxo de caixa",
         "150501 fluxo de caixa",
+        "03.11.49.02 Mensal",
     )
     assert groups["relatorios"].routine_ids == (
         "0513",
