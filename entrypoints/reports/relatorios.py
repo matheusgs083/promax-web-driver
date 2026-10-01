@@ -42,6 +42,7 @@ from pages.reports.relatorio_020304_page import Relatorio020304Page
 from pages.reports.relatorio_031120_page import Relatorio031120Page
 from pages.reports.relatorio_031129_page import Relatorio031129Page
 from pages.reports.relatorio_03114902_page import Relatorio03114902Page
+from pages.reports.relatorio_1706_page import Relatorio1706Page
 
 dotenv.load_dotenv()
 logger = get_logger("MAIN_PROMAX")
@@ -742,6 +743,39 @@ def main(
             return False, f"Falha em uma ou mais datas da 030805: {falhas}"
         return True, f"030805 gerada para {len(resultados)} execucao(oes) na(s) data(s) anterior(es) de entrega."
 
+    def tarefa_1706_bi_indicadores(unidades_alvo=None):
+        janela = menu_page.acessar_rotina("1706")
+        page = Relatorio1706Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "17.06"
+        page.tracker_name = "Rotina 17.06 Indicadores BI"
+        unidades = _unidades_liga_relatorio(page, unidades_alvo, rotina="17.06 Indicadores BI")
+        unidades_nao_mapeadas = [unit for unit in unidades if unit not in Relatorio1706Page.DVS_INF_BY_UNIT]
+        if unidades_nao_mapeadas:
+            logger.info("17.06 Indicadores BI: ignorando unidades sem arquivo DVS mapeado: %s", unidades_nao_mapeadas)
+        unidades = [unit for unit in unidades if unit in Relatorio1706Page.DVS_INF_BY_UNIT]
+        if not unidades:
+            return False, "17.06 não encontrou Patos ou Sumé entre as unidades disponíveis da rotina."
+        if report_start_text and report_end_text:
+            inicio_1706, fim_1706 = report_start_text, report_end_text
+        else:
+            referencia_1706 = requested_end or requested_start or (hoje.date() - timedelta(days=1))
+            inicio_1706 = referencia_1706.replace(day=1).strftime("%d/%m/%Y")
+            fim_1706 = referencia_1706.strftime("%d/%m/%Y")
+        resultados = []
+        try:
+            for unidade_alvo in unidades or []:
+                resultados.append(page.gerar_relatorio(
+                    unidade=unidade_alvo,
+                    data_inicial=inicio_1706,
+                    data_final=fim_1706,
+                ))
+        finally:
+            page.fechar_e_voltar()
+        falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
+        if falhas:
+            return False, f"Falha em uma ou mais unidades da 17.06: {falhas}"
+        return True, f"17.06 gerada para {len(resultados)} unidade(s)."
+
     def _gerar_030224_liga(
         *,
         unidades_alvo=None,
@@ -958,6 +992,7 @@ def main(
         "031702_BOT": tarefa_031702_bot,
         "020304_BOT": tarefa_020304_bot,
         "030805_LIGA": tarefa_030805_liga,
+        "1706_BI_INDICADORES": tarefa_1706_bi_indicadores,
         "030224_RESUMO_LIGA": tarefa_030224_resumo_liga,
         "030224_MOTORISTA_LIGA": tarefa_030224_motorista_liga,
         "030224_AJUDANTE_LIGA": tarefa_030224_ajudante_liga,

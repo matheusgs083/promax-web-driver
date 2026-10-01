@@ -15,6 +15,11 @@ REPORT_GROUP = {
             "output_folders": ["03.08.05"],
         },
         {
+            "id": "1706_BI_INDICADORES",
+            "name": "17.06 - Indicadores BI",
+            "output_folders": ["17.06"],
+        },
+        {
             "id": "030224_MOTORISTA_LIGA",
             "name": "Rotina 030224 Motorista Liga Entrega",
             "output_folders": ["03.02.24/Motorista"],
