@@ -281,6 +281,15 @@ def main(
 
     liga_mes_referencia = requested_end or requested_start or hoje.date()
 
+    def periodo_mensal_liga():
+        """Usa o mês em andamento sem criar um intervalo invertido no dia 1."""
+        if requested_start and requested_end:
+            return report_start_text, report_end_text
+        referencia = requested_end or requested_start or hoje.date()
+        inicio = requested_start or referencia.replace(day=1)
+        fim = requested_end or referencia
+        return inicio.strftime("%d/%m/%Y"), fim.strftime("%d/%m/%Y")
+
     def periodo_atual_03114902():
         """Mantém a rotina operacional no mês que está em andamento."""
         if requested_start and requested_end:
@@ -393,6 +402,7 @@ def main(
         page = Relatorio030237Page(janela.driver, janela.handle_menu)
         page.subpasta_download = "03.02.37 - Entregas" if is_liga_entrega else "030237"
         if is_liga_entrega:
+            inicio_liga, fim_liga = periodo_mensal_liga()
             resultados = []
             unidades = _unidades_liga_relatorio(page, unidades_alvo, rotina="030237 Liga Entrega")
             for unidade_alvo in unidades or [None]:
@@ -401,8 +411,8 @@ def main(
                     quebra1="25",
                     quebra2="36",
                     quebra3="37",
-                    data_inicial=report_start_text or primeiro_dia_mes_atual,
-                    data_final=report_end_text or data_ontem_formatada,
+                    data_inicial=inicio_liga,
+                    data_final=fim_liga,
                     nome_arquivo=_liga_nome_mensal("03.02.37", unidade_alvo, liga_mes_referencia),
                 ))
             page.fechar_e_voltar()
@@ -796,6 +806,7 @@ def main(
         somente_resumo=False,
         resumo_visao=None,
     ):
+        inicio_liga, fim_liga = periodo_mensal_liga()
         resultados = []
         unidades = list(unidades_alvo or []) or None
         if unidades is None:
@@ -812,8 +823,8 @@ def main(
                 resultados.append(page.gerar_relatorio(
                     unidade=unidade_alvo,
                     opcao_rel=opcao_rel,
-                    data_inicial=report_start_text or primeiro_dia_mes_atual,
-                    data_final=report_end_text or data_ontem_formatada,
+                    data_inicial=inicio_liga,
+                    data_final=fim_liga,
                     somente_resumo=somente_resumo,
                     resumo_visao=resumo_visao,
                     nome_arquivo=_liga_nome_mensal("03.02.24", unidade_alvo, liga_mes_referencia),
@@ -874,13 +885,14 @@ def main(
         page.subpasta_download = "03.11.29"
         page.tracker_name = "Rotina 031129 Liga Entrega"
         resultados = []
+        inicio_liga, fim_liga = periodo_mensal_liga()
         unidades = _unidades_liga_relatorio(page, unidades_alvo, rotina="031129 Liga Entrega")
         for unidade_alvo in unidades or [None]:
             resultados.append(page.gerar_relatorio(
                 unidade=unidade_alvo,
                 opcao_rel="3",
-                data_inicial=report_start_text or primeiro_dia_mes_atual,
-                data_final=report_end_text or data_ontem_formatada,
+                data_inicial=inicio_liga,
+                data_final=fim_liga,
                 nome_arquivo=_liga_nome_mensal("03.11.29", unidade_alvo, liga_mes_referencia),
             ))
         page.fechar_e_voltar()
@@ -896,13 +908,14 @@ def main(
         page.tracker_name = "Rotina 031120 Liga Entrega" if is_liga_entrega else "Rotina 031120 Bot"
         if is_liga_entrega:
             resultados = []
+            inicio_liga, fim_liga = periodo_mensal_liga()
             unidades = _unidades_liga_relatorio(page, unidades_alvo, rotina="031120 Liga Entrega")
             for unidade_alvo in unidades or [None]:
                 resultados.append(page.gerar_relatorio(
                     unidade=unidade_alvo,
                     opcao_rel="1",
-                    data_inicial=report_start_text or primeiro_dia_mes_atual,
-                    data_final=report_end_text or data_ontem_formatada,
+                    data_inicial=inicio_liga,
+                    data_final=fim_liga,
                     cod_armazem="01",
                     nome_arquivo=_liga_nome_mensal("03.11.20", unidade_alvo, liga_mes_referencia),
                 ))

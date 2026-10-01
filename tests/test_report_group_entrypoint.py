@@ -43,6 +43,39 @@ def test_03114902_liga_uses_current_month_on_first_day(monkeypatch, tmp_path):
     assert captured["data_final"] == "01/10/2026"
 
 
+def test_030224_liga_uses_current_month_on_first_day(monkeypatch, tmp_path):
+    captured, run_kwargs = {}, {}
+
+    class FakePage:
+        def __init__(self, _driver, _handle_menu):
+            self.subpasta_download = ""
+            self.tracker_name = ""
+
+        def gerar_relatorio(self, **kwargs):
+            captured.update(kwargs)
+            return True
+
+        def fechar_e_voltar(self):
+            return None
+
+    class FakeMenu:
+        @staticmethod
+        def acessar_rotina(_routine_id):
+            return SimpleNamespace(driver=object(), handle_menu=object())
+
+    monkeypatch.setattr(relatorios, "hoje", datetime(2026, 10, 1))
+    monkeypatch.setattr(relatorios, "menu_page", FakeMenu())
+    monkeypatch.setattr(relatorios, "Relatorio030224Page", FakePage)
+    monkeypatch.setattr(relatorios, "settings", SimpleNamespace(download_dir=tmp_path))
+    monkeypatch.setattr(ReportOrchestrationService, "run", lambda _self, **kwargs: run_kwargs.update(kwargs) or ExecutionResult(ExecutionStatus.SUCCESS, "ok"))
+
+    relatorios.main(profile="liga_entrega", routines=["030224_RESUMO_LIGA"], units=["2210003"], publish=False)
+    run_kwargs["tasks"]["030224_RESUMO_LIGA"].runner()
+
+    assert captured["data_inicial"] == "01/10/2026"
+    assert captured["data_final"] == "01/10/2026"
+
+
 def test_03114902_fechamento_uses_previous_closed_month(monkeypatch, tmp_path):
     captured, run_kwargs = {}, {}
     nomes_arquivo = []
