@@ -32,7 +32,7 @@ def test_liga_import_period_is_closed_for_closing_profile():
 
 def test_closing_selection_includes_monthly_map_card():
     assert _selected_liga_entrega_specs(
-        {"profile": "liga_entrega_fechamento"}, SPECS
+        {"profile": "liga_entrega_fechamento", "routines": [item[0] for item in SPECS]}, SPECS
     ) == list(SPECS)
 
 
