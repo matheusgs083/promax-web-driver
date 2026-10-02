@@ -947,7 +947,11 @@ def main(
         page.subpasta_download = "03.11.49.02" if is_liga_entrega else "03114902 bot"
         page.tracker_name = "Rotina 03114902 Liga Entrega" if is_liga_entrega else "Rotina 03114902 Geo Bot"
         if is_liga_entrega:
-            inicio_mensal, fim_mensal = periodo_atual_03114902()
+            inicio_mensal, fim_mensal = (
+                periodo_mensal_liga()
+                if is_liga_fechamento
+                else periodo_atual_03114902()
+            )
             resultados = []
             unidades = _normalize_list(unidades_alvo) or list(LIGA_UNIDADE_NOMES)
             for unidade_alvo in unidades:

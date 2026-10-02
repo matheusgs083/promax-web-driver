@@ -389,6 +389,7 @@ class PromaxClient:
         routine: str,
         files: Mapping[str, bytes],
         reference_date: str | None = None,
+        period: str = "atual",
     ) -> dict[str, Any]:
         if not files:
             raise ValueError("Liga Entrega files must not be empty.")
@@ -408,6 +409,7 @@ class PromaxClient:
             "lease_token": _path_identifier(lease_token),
             "routine": str(routine or "").strip(),
             "files": payload_files,
+            "period": "fechado" if str(period or "").strip().lower() == "fechado" else "atual",
         }
         if reference_date:
             payload["reference_date"] = str(reference_date)

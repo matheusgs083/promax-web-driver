@@ -1,4 +1,7 @@
-from workers.promax_worker import _selected_liga_entrega_specs
+from workers.promax_worker import (
+    _liga_entrega_import_period,
+    _selected_liga_entrega_specs,
+)
 
 
 SPECS = (
@@ -20,3 +23,15 @@ def test_explicit_routine_selection_stays_restricted():
 
 def test_unrelated_profile_without_routines_does_not_upload():
     assert _selected_liga_entrega_specs({"profile": "financeiro"}, SPECS) == []
+
+
+def test_liga_import_period_is_closed_for_closing_profile():
+    assert _liga_entrega_import_period({"profile": "liga_entrega_fechamento"}, "03114902_BOT") == "fechado"
+
+
+def test_monthly_map_routine_is_always_closed():
+    assert _liga_entrega_import_period({"profile": "liga_entrega"}, "03114902_MENSAL_LIGA") == "fechado"
+
+
+def test_liga_import_period_defaults_to_current():
+    assert _liga_entrega_import_period({"profile": "liga_entrega"}, "03114902_BOT") == "atual"

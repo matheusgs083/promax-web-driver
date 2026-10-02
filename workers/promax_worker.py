@@ -1610,6 +1610,7 @@ class PromaxWorker:
                     routine=routine_id,
                     files={path.name: path.read_bytes() for path in files},
                     reference_date=_current_reference_date(),
+                    period=_liga_entrega_import_period(selection_payload, routine_id),
                 )
                 self._heartbeat_active_job(job_id, lease_token)
                 result_payload = response.get("result") if isinstance(response, Mapping) else None
@@ -1674,6 +1675,34 @@ def _string_list(value: Any) -> list[str]:
 
 def _current_reference_date() -> str:
     return datetime.now(PROMAX_LOCAL_TIMEZONE).date().isoformat()
+
+
+def _liga_entrega_import_period(payload: Mapping[str, Any], routine_id: str) -> str:
+    """Keep Liga imports separated between current and closed cards."""
+    if _normalize_routine_id(routine_id) == "03114902_MENSAL_LIGA":
+        return "fechado"
+    direct_values = (
+        payload.get("category"),
+        payload.get("profile"),
+        payload.get("perfil"),
+    )
+    if any(
+        str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+        in {"botzapfechamento", "liga_entrega_fechamento"}
+        for value in direct_values
+    ):
+        return "fechado"
+    groups = payload.get("groups")
+    if isinstance(groups, Sequence) and not isinstance(groups, (str, bytes, bytearray)):
+        for group in groups:
+            if not isinstance(group, Mapping):
+                continue
+            category = str(
+                group.get("category") or group.get("profile") or group.get("perfil") or ""
+            ).strip().lower().replace("-", "_").replace(" ", "_")
+            if category in {"botzapfechamento", "liga_entrega_fechamento"}:
+                return "fechado"
+    return "atual"
 
 
 def _routine_selected(payload: Mapping[str, Any], routine_id: str) -> bool:
