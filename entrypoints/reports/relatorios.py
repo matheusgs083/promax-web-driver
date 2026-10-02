@@ -1165,6 +1165,7 @@ def main(
             # pasta efetivamente criada no download como origem da publicação.
             os.path.join(str(pasta_intermediaria), "031149"): os.path.join(liga_entrega_relatorios_dir, "03.11.49.02"),
             os.path.join(str(pasta_intermediaria), "03.11.49.02 Mensal"): os.path.join(liga_entrega_relatorios_dir, "03.11.49.02 Mensal"),
+            os.path.join(str(pasta_intermediaria), "17.06"): os.path.join(liga_entrega_relatorios_dir, "17.06"),
             os.path.join(str(pasta_intermediaria), "03.02.37 - Entregas"): os.path.join(liga_entrega_relatorios_dir, "03.02.37 - Entregas"),
         }
     selected_output_folders = tuple(

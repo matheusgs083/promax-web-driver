@@ -7,6 +7,7 @@ from workers.promax_worker import (
 SPECS = (
     ("030805_LIGA", "03.08.05"),
     ("030224_RESUMO_LIGA", "03.02.24/Resumo"),
+    ("03114902_MENSAL_LIGA", "03.11.49.02 Mensal"),
 )
 
 
@@ -27,6 +28,12 @@ def test_unrelated_profile_without_routines_does_not_upload():
 
 def test_liga_import_period_is_closed_for_closing_profile():
     assert _liga_entrega_import_period({"profile": "liga_entrega_fechamento"}, "03114902_BOT") == "fechado"
+
+
+def test_closing_selection_includes_monthly_map_card():
+    assert _selected_liga_entrega_specs(
+        {"profile": "liga_entrega_fechamento"}, SPECS
+    ) == list(SPECS)
 
 
 def test_monthly_map_routine_is_always_closed():

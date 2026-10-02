@@ -1517,6 +1517,8 @@ class PromaxWorker:
             ("031120_BOT", "03.11.20"),
             ("031129_LIGA", "03.11.29"),
             ("03114902_BOT", "03.11.49.02"),
+            ("03114902_MENSAL_LIGA", "03.11.49.02 Mensal"),
+            ("1706_BI_INDICADORES", "17.06"),
             ("030237", "03.02.37 - Entregas"),
         )
         # Some older jobs persist the category/routines on the job envelope
