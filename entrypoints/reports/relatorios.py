@@ -252,12 +252,16 @@ def main(
     )
     is_liga_fechamento = report_group.key == "liga_entrega_fechamento"
     is_liga_entrega = report_group.key in {"liga_entrega", "liga_entrega_fechamento"}
-    liga_030805_base_start = requested_start or hoje.date()
-    liga_030805_base_end = requested_end or liga_030805_base_start
+    if is_liga_fechamento and not requested_start and not requested_end:
+        liga_030805_base_start = ultimo_dia_mes_passado_dt.replace(day=1).date()
+        liga_030805_base_end = ultimo_dia_mes_passado_dt.date()
+    else:
+        liga_030805_base_start = requested_start or hoje.date()
+        liga_030805_base_end = requested_end or liga_030805_base_start
     liga_030805_datas_entrega = []
     if is_liga_entrega:
         for data_base in _datas_periodo(liga_030805_base_start, liga_030805_base_end):
-            data_entrega = _data_entrega_anterior_liga(data_base)
+            data_entrega = data_base if is_liga_fechamento else _data_entrega_anterior_liga(data_base)
             if data_entrega not in liga_030805_datas_entrega:
                 liga_030805_datas_entrega.append(data_entrega)
         logger.info(

@@ -1611,7 +1611,7 @@ class PromaxWorker:
                     lease_token=lease_token,
                     routine=routine_id,
                     files={path.name: path.read_bytes() for path in files},
-                    reference_date=_current_reference_date(),
+                    reference_date=_liga_entrega_reference_date(selection_payload, routine_id),
                     period=_liga_entrega_import_period(selection_payload, routine_id),
                 )
                 self._heartbeat_active_job(job_id, lease_token)
@@ -1677,6 +1677,15 @@ def _string_list(value: Any) -> list[str]:
 
 def _current_reference_date() -> str:
     return datetime.now(PROMAX_LOCAL_TIMEZONE).date().isoformat()
+
+
+def _liga_entrega_reference_date(payload: Mapping[str, Any], routine_id: str) -> str:
+    if _liga_entrega_import_period(payload, routine_id) != "fechado":
+        return _current_reference_date()
+    if payload.get("send_dates") is True and payload.get("end_date"):
+        return str(payload["end_date"])
+    today = datetime.now(PROMAX_LOCAL_TIMEZONE).date()
+    return (today.replace(day=1) - timedelta(days=1)).isoformat()
 
 
 def _liga_entrega_import_period(payload: Mapping[str, Any], routine_id: str) -> str:

@@ -1,4 +1,5 @@
 from workers.promax_worker import (
+    _liga_entrega_reference_date,
     _liga_entrega_import_period,
     _selected_liga_entrega_specs,
 )
@@ -42,3 +43,10 @@ def test_monthly_map_routine_is_always_closed():
 
 def test_liga_import_period_defaults_to_current():
     assert _liga_entrega_import_period({"profile": "liga_entrega"}, "03114902_BOT") == "atual"
+
+
+def test_closed_liga_import_uses_requested_competence_end_date():
+    assert _liga_entrega_reference_date(
+        {"profile": "liga_entrega_fechamento", "send_dates": True, "end_date": "2026-09-30"},
+        "030805_LIGA",
+    ) == "2026-09-30"
