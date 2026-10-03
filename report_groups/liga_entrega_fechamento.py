@@ -4,7 +4,6 @@ REPORT_GROUP = {
     "section": "Entrega",
     "description": "Relatorios mensais da Liga para o mes ja encerrado.",
     "routines": [
-        {"id": "030805_LIGA", "name": "03.08.05 - Rotas do mês", "output_folders": ["03.08.05"]},
         {"id": "030224_RESUMO_LIGA", "name": "03.02.24 - Devolucoes resumo", "output_folders": ["03.02.24/Resumo"]},
         {"id": "030224_MOTORISTA_LIGA", "name": "03.02.24 - Devolucoes por motorista", "output_folders": ["03.02.24/Motorista"]},
         {"id": "030224_AJUDANTE_LIGA", "name": "03.02.24 - Devolucoes por ajudante", "output_folders": ["03.02.24/Ajudante"]},
