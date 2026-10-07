@@ -223,6 +223,50 @@ def test_worker_runner_uses_panel_km_fallback_as_km_atual():
     assert command[command.index("--km-prev") + 1] == "307"
 
 
+def test_worker_runner_passes_panel_credentials_only_to_child_environment():
+    class CompletedProcess:
+        def __init__(self) -> None:
+            self.pid = 9876
+            self.stdout = io.StringIO("")
+            self.stderr = io.StringIO("")
+
+        def poll(self):
+            return 0
+
+        def wait(self, timeout=None):
+            return 0
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        driver_dir = root / "driver"
+        driver_dir.mkdir()
+        (driver_dir / "cli.py").write_text("", encoding="ascii")
+        python_executable = root / "python.exe"
+        python_executable.write_bytes(b"")
+        config = PromaxRunnerConfig.from_values(
+            driver_dir=driver_dir,
+            python_executable=python_executable,
+        )
+        popen = Mock(return_value=CompletedProcess())
+        runner = PromaxRunner(config, popen_factory=popen)
+
+        result = runner.run(
+            {
+                "id": "job-panel-credentials",
+                "payload": {"category": "adf", "routines": ["030237"]},
+                "promax_credentials": {"username": "usuario-painel", "password": "senha-painel"},
+            },
+            on_line=lambda *_args: None,
+            heartbeat=lambda: None,
+            cancel_requested=lambda: False,
+        )
+
+    assert result.status == "success"
+    child_environment = popen.call_args.kwargs["env"]
+    assert child_environment["PROMAX_RUNTIME_USER"] == "usuario-painel"
+    assert child_environment["PROMAX_RUNTIME_PASS"] == "senha-painel"
+
+
 def test_partial_result_is_retained_and_retried_after_temporary_api_failure():
     client = Mock()
     client.sync_financeiro_fechamento_mapa.side_effect = PromaxApiUnavailable(
