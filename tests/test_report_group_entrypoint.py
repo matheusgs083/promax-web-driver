@@ -9,7 +9,7 @@ from core.services.report_orchestration_service import ReportOrchestrationServic
 from entrypoints.reports import relatorios
 
 
-def test_03114902_liga_uses_current_month_on_first_day(monkeypatch, tmp_path):
+def test_03114902_liga_uses_previous_day_on_first_day(monkeypatch, tmp_path):
     captured, run_kwargs = {}, {}
 
     class FakePage:
@@ -38,11 +38,11 @@ def test_03114902_liga_uses_current_month_on_first_day(monkeypatch, tmp_path):
     relatorios.main(profile="liga_entrega", routines=["03114902_BOT"], publish=False)
     run_kwargs["tasks"]["03114902_BOT"].runner()
 
-    assert captured["data_inicial"] == "01/10/2026"
-    assert captured["data_final"] == "01/10/2026"
+    assert captured["data_inicial"] == "01/09/2026"
+    assert captured["data_final"] == "30/09/2026"
 
 
-def test_030224_liga_uses_current_month_on_first_day(monkeypatch, tmp_path):
+def test_030224_liga_uses_previous_day_on_first_day(monkeypatch, tmp_path):
     captured, run_kwargs = {}, {}
 
     class FakePage:
@@ -71,8 +71,8 @@ def test_030224_liga_uses_current_month_on_first_day(monkeypatch, tmp_path):
     relatorios.main(profile="liga_entrega", routines=["030224_RESUMO_LIGA"], units=["2210003"], publish=False)
     run_kwargs["tasks"]["030224_RESUMO_LIGA"].runner()
 
-    assert captured["data_inicial"] == "01/10/2026"
-    assert captured["data_final"] == "01/10/2026"
+    assert captured["data_inicial"] == "01/09/2026"
+    assert captured["data_final"] == "30/09/2026"
 
 
 def test_03114902_liga_fechamento_uses_previous_closed_month(monkeypatch, tmp_path):

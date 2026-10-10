@@ -280,10 +280,13 @@ def main(
     if job_id:
         logger.info("Job Promax controlado pelo bot_api: %s", job_id)
 
+    # Os dados da Liga do dia corrente ainda podem estar incompletos. Sem um
+    # intervalo informado pelo job, todos os relatórios devem fechar em ontem.
+    # No fechamento, isso também mantém a referência no último mês encerrado.
     liga_mes_referencia = requested_end or requested_start or (
         hoje.date().replace(day=1) - timedelta(days=1)
         if is_liga_fechamento
-        else hoje.date()
+        else hoje.date() - timedelta(days=1)
     )
 
     def periodo_mensal_liga():
