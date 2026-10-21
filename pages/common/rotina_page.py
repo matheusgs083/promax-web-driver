@@ -800,7 +800,7 @@ class RotinaPage(BasePage):
                 writer.writeheader()
             writer.writerow(dados_linha)
 
-    def executar_gatilho_e_aguardar(self, script_gatilho, timeout=5.0):
+    def executar_gatilho_e_aguardar(self, script_gatilho, timeout=5.0, recusar_confirmacoes=False):
         """Executa JS e aguarda resposta via Alert ou sumiço de Loader."""
         try:
             self.driver.execute_script(script_gatilho)
@@ -813,6 +813,16 @@ class RotinaPage(BasePage):
             try:
                 alert = self.driver.switch_to.alert
                 msg = alert.text
+                texto_alerta = " ".join(str(msg or "").lower().split())
+                eh_confirmacao = bool(texto_alerta) and (
+                    "?" in texto_alerta
+                    or "confirma" in texto_alerta
+                    or "deseja" in texto_alerta
+                    or "marcar" in texto_alerta
+                )
+                if recusar_confirmacoes and eh_confirmacao:
+                    alert.dismiss()
+                    return False, f"Confirmação recusada (Não): {msg}"
                 alert.accept()
                 sucesso = any(w in msg.lower() for w in ["sucesso", "salvo", "confirm", "ok", "processado"])
                 return sucesso, msg

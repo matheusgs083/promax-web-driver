@@ -10,6 +10,8 @@ Este repositorio centraliza fluxos operacionais de:
 - digitacao de pedidos;
 - alteracao em lote de condicao/CEMC;
 - reprocessamento de publicacoes pendentes.
+- automacao do portal Cora, em subprojeto isolado (`cora-web-driver/`) e
+  executado pelo mesmo worker através de jobs com `site=cora`.
 
 O projeto prioriza estabilidade operacional em ambiente legado (frames, alertas assincronos, postbacks e UI nativa de download).
 
@@ -55,6 +57,7 @@ Referencias internas:
 | `python cli.py reprocessar-publicacao` | `entrypoints/maintenance/reprocessar_publicacao.py` | Reprocessa pendencias de publicacao |
 | `python cli.py pedidos`                | `entrypoints/processes/pedidos.py`                  | Digitacao de pedidos                |
 | `python cli.py lote-condicao`          | `entrypoints/processes/lote_condicao.py`            | Alteracao em lote de condicao/CEMC  |
+| `python cli.py lancamento-grade --arquivo lancamento.json` | `entrypoints/processes/lancamento_grade_020105.py` | Lancamento da grade/inventario (02.01.05) |
 
 ## Execucao Rapida
 

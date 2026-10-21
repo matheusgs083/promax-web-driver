@@ -27,6 +27,8 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "pedidos": ("entrypoints.processes.pedidos", "Executa a digitacao de pedidos."),
     "lote-condicao": ("entrypoints.processes.lote_condicao", "Executa a alteracao em lote de condicao/CEMC."),
     "mapa-030303": ("entrypoints.processes.mapa_030303", "Executa o carregamento e salvamento de mapa na rotina 030303."),
+    "lancamento-grade": ("entrypoints.processes.lancamento_grade_020105", "Lanca a grade de inventario na rotina 020105."),
+    "lancamento-grade-020304": ("entrypoints.processes.lancamento_grade_020304", "Lança a grade da 020301 para o estoque 020304."),
 }
 REPORT_CATALOG_COMMAND = "catalogo-relatorios"
 
@@ -93,6 +95,12 @@ def build_parser() -> argparse.ArgumentParser:
             command_parser.add_argument("--job-id", default="")
         elif nome == "mapa-030303":
             command_parser.add_argument("--mapa", required=True)
+            command_parser.add_argument("--unidade", default=None)
+            command_parser.add_argument("--nao-salvar", action="store_true")
+            command_parser.add_argument("--fechar-ao-falhar", action="store_true")
+            command_parser.add_argument("--job-id", default="")
+        elif nome in {"lancamento-grade", "lancamento-grade-020304"}:
+            command_parser.add_argument("--arquivo", required=True, help="JSON do lancamento da grade.")
             command_parser.add_argument("--unidade", default=None)
             command_parser.add_argument("--nao-salvar", action="store_true")
             command_parser.add_argument("--fechar-ao-falhar", action="store_true")
@@ -182,6 +190,8 @@ def main_cli() -> int:
         "fechamento",
         "fechamento-mapa",
         "reprocessar-publicacao",
+        "lancamento-grade",
+        "lancamento-grade-020304",
     }
     if args.command in {"relatorios", "fechamento"}:
         kwargs = {
@@ -222,6 +232,18 @@ def main_cli() -> int:
             "salvar": not args.nao_salvar,
             "manter_aberto_ao_falhar": not args.fechar_ao_falhar,
         }
+    elif args.command == "lancamento-grade":
+        kwargs = {
+            "arquivo": args.arquivo,
+            "unidade": args.unidade,
+            "salvar": not args.nao_salvar,
+            # A rotina de produção sempre fecha a sessão em falha; manter a
+            # janela aberta fica restrito ao entrypoint e à depuração manual.
+            "manter_aberto_ao_falhar": False,
+            "job_id": args.job_id,
+        }
+    elif args.command == "lancamento-grade-020304":
+        kwargs = {"arquivo": args.arquivo, "unidade": args.unidade, "job_id": args.job_id}
     try:
         result = normalize_execution_result(module.main(**kwargs))
     except ValueError as exc:

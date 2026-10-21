@@ -116,10 +116,37 @@ class PromaxRunner:
         payload = job.get("payload")
         if not isinstance(payload, Mapping):
             payload = job
+        site = str(payload.get("site") or job.get("site") or "promax").strip().lower()
+        if site == "cora":
+            return self._build_cora_command(job, payload)
+        if site != "promax":
+            raise ValueError(f"Unsupported worker site: {site!r}.")
         job_type = str(job.get("job_type") or "").strip()
         operation = str(payload.get("operation") or "").strip()
         job_id = str(job.get("id") or job.get("job_id") or "").strip()
         normalized_job_kind = _normalize_job_kind(operation or job_type)
+        if normalized_job_kind in {"lancamento_grade", "lancamento_grade_020304"}:
+            if job_type != normalized_job_kind or operation != normalized_job_kind:
+                raise ValueError("Invalid Promax grade launch job.")
+            lancamento = payload.get("lancamento")
+            if not isinstance(lancamento, Mapping):
+                raise ValueError("Promax grade launch requires payload.lancamento.")
+            if not job_id or not _IDENTIFIER_PATTERN.fullmatch(job_id):
+                raise ValueError("Promax grade launch requires a valid job id.")
+            input_dir = self.config.driver_dir / "data" / "job_inputs"
+            input_dir.mkdir(parents=True, exist_ok=True)
+            input_path = input_dir / f"{normalized_job_kind}_{job_id}.json"
+            input_path.write_text(json.dumps(dict(lancamento), ensure_ascii=False), encoding="utf-8")
+            command = [
+                str(self.config.python_executable),
+                str(self.config.cli_path),
+                "lancamento-grade-020304" if normalized_job_kind == "lancamento_grade_020304" else "lancamento-grade",
+                "--arquivo", str(input_path), "--job-id", job_id,
+            ]
+            unidade = str(payload.get("unidade") or payload.get("unit") or "").strip()
+            if unidade:
+                command.extend(["--unidade", unidade])
+            return command
         if job_type == "reprocess_publication" or operation == "reprocess_publication":
             if job_type != "reprocess_publication" or operation != "reprocess_publication":
                 raise ValueError("Invalid Promax publication reprocessing job.")
@@ -257,6 +284,29 @@ class PromaxRunner:
             command.extend(["--download-workers", str(normalized_workers)])
         return command
 
+    def _build_cora_command(
+        self,
+        job: Mapping[str, Any],
+        payload: Mapping[str, Any],
+    ) -> list[str]:
+        operation = str(payload.get("operation") or job.get("job_type") or "").strip()
+        if not _IDENTIFIER_PATTERN.fullmatch(operation):
+            raise ValueError("Cora job requires a valid operation identifier.")
+        cli_path = self.config.driver_dir / "cora-web-driver" / "cli.py"
+        if not cli_path.is_file():
+            raise PromaxRunnerConfigurationError(f"Cora cli.py was not found: {cli_path}")
+        command = [
+            str(self.config.python_executable),
+            str(cli_path),
+            "executar",
+            "--operacao",
+            operation,
+        ]
+        job_id = str(job.get("id") or job.get("job_id") or "").strip()
+        if job_id:
+            command.extend(["--job-id", job_id])
+        return command
+
     def run(
         self,
         job: Mapping[str, Any],
@@ -268,7 +318,9 @@ class PromaxRunner:
         stop_requested: ControlCallback | None = None,
     ) -> PromaxRunResult:
         command = self.build_command(job)
-        on_line("stdout", f"Comando Promax: {subprocess.list2cmdline(command)}")
+        payload = job.get("payload")
+        site = str((payload.get("site") if isinstance(payload, Mapping) else job.get("site")) or "promax").strip().lower()
+        on_line("stdout", f"Comando {site.capitalize()}: {subprocess.list2cmdline(command)}")
         environment = os.environ.copy()
         credentials = job.get("promax_credentials")
         if isinstance(credentials, Mapping):
@@ -279,6 +331,14 @@ class PromaxRunner:
                 # the command nor Promax execution logs contain credentials.
                 environment["PROMAX_RUNTIME_USER"] = username
                 environment["PROMAX_RUNTIME_PASS"] = password
+        if site == "cora":
+            cora_credentials = job.get("cora_credentials")
+            if isinstance(cora_credentials, Mapping):
+                username = str(cora_credentials.get("username") or "").strip()
+                password = str(cora_credentials.get("password") or "")
+                if username and password:
+                    environment["CORA_RUNTIME_USER"] = username
+                    environment["CORA_RUNTIME_PASS"] = password
         run_started_at_epoch = self._wall_time()
         process = self._popen_factory(
             command,
@@ -392,7 +452,7 @@ class PromaxRunner:
                 last_stderr = line
             result_event = _parse_job_event(line) if stream == "stdout" else None
             if result_event is not None:
-                if result_event.get("event") == "promax_partial_result":
+                if str(result_event.get("event") or "").endswith("_partial_result"):
                     if on_event is not None:
                         on_event(result_event)
                     continue
@@ -511,6 +571,8 @@ def _parse_job_event(line: str) -> dict[str, Any] | None:
     if not isinstance(payload, dict) or payload.get("event") not in {
         "promax_job_result",
         "promax_partial_result",
+        "cora_job_result",
+        "cora_partial_result",
     }:
         return None
     return payload

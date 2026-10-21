@@ -24,7 +24,7 @@ settings = get_settings()
 driver = None
 menu_page = None
 
-DEFAULT_UNITS = ["3610006", "3610007", "3610008"]
+DEFAULT_UNITS = ["0640001", "0640002", "2210003", "2210004", "3480005", "3610006", "3610007", "3610008"]
 
 
 def iniciar_sessao():
