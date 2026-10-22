@@ -24,6 +24,17 @@ ControlCallback = Callable[[], bool]
 _IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 
 
+def _is_cora_critica_job(job: Mapping[str, Any], payload: Mapping[str, Any]) -> bool:
+    """Recognize legacy scheduled Cora jobs missing the explicit site field."""
+    site = str(payload.get("site") or job.get("site") or "").strip().lower()
+    if site == "cora":
+        return True
+    return any(
+        str(payload.get(key) or job.get(key) or "").strip().lower() == "cora_critica"
+        for key in ("category", "profile", "perfil", "report_profile")
+    )
+
+
 class PromaxRunnerConfigurationError(ValueError):
     """Invalid local Promax driver configuration."""
 
@@ -117,7 +128,7 @@ class PromaxRunner:
         if not isinstance(payload, Mapping):
             payload = job
         site = str(payload.get("site") or job.get("site") or "promax").strip().lower()
-        if site == "cora":
+        if site == "cora" or _is_cora_critica_job(job, payload):
             return self._build_cora_command(job, payload)
         if site != "promax":
             raise ValueError(f"Unsupported worker site: {site!r}.")
@@ -290,6 +301,8 @@ class PromaxRunner:
         payload: Mapping[str, Any],
     ) -> list[str]:
         operation = str(payload.get("operation") or job.get("job_type") or "").strip()
+        if operation.lower() == "cora_critica":
+            operation = "critica"
         if not _IDENTIFIER_PATTERN.fullmatch(operation):
             raise ValueError("Cora job requires a valid operation identifier.")
         cli_path = self.config.driver_dir / "cora-web-driver" / "cli.py"
@@ -320,6 +333,8 @@ class PromaxRunner:
         command = self.build_command(job)
         payload = job.get("payload")
         site = str((payload.get("site") if isinstance(payload, Mapping) else job.get("site")) or "promax").strip().lower()
+        if site != "cora" and isinstance(payload, Mapping) and _is_cora_critica_job(job, payload):
+            site = "cora"
         on_line("stdout", f"Comando {site.capitalize()}: {subprocess.list2cmdline(command)}")
         environment = os.environ.copy()
         credentials = job.get("promax_credentials")

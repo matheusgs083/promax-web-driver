@@ -1394,9 +1394,14 @@ class PromaxWorker:
         payload = job.get("payload")
         if not isinstance(payload, Mapping):
             payload = {}
-        if str(payload.get("site") or job.get("site") or "").strip().lower() != "cora":
+        site = str(payload.get("site") or job.get("site") or "").strip().lower()
+        category = str(payload.get("category") or job.get("category") or "").strip().lower()
+        profile = str(payload.get("profile") or payload.get("perfil") or "").strip().lower()
+        if site != "cora" and category != "cora_critica" and profile != "cora_critica":
             return
         operation = str(payload.get("operation") or job.get("job_type") or "").strip().lower()
+        if operation == "cora_critica":
+            operation = "critica"
         if operation not in {"critica", "consulta_critica"}:
             return
         raw_files = (result.details or {}).get("downloaded_files")
