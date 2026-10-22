@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import time
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -180,6 +182,36 @@ class CoraCriticaPage:
             if self._wait_for_text("Gerar relatório", 4.0):
                 return
         raise RuntimeError("Não foi possível abrir a consulta Critica no Cora.")
+
+    def set_delivery_date(self, delivery_date: date) -> None:
+        """Set both delivery-date fields in the saved Cora query."""
+        formatted = delivery_date.strftime("%d/%m/%Y")
+        fields = [
+            element
+            for element in self.driver.find_elements(By.CSS_SELECTOR, "input")
+            if _is_delivery_date_input(element)
+        ]
+        if len(fields) < 2:
+            raise RuntimeError("Campos de data de entrega não encontrados na consulta Critica do Cora.")
+        for field in fields[:2]:
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", field)
+            field.click()
+            field.send_keys(Keys.CONTROL, "a")
+            field.send_keys(formatted)
+            field.send_keys("\ue007")
+        # React masks the input and may not emit a change event for keyboard
+        # replacement in every portal version. Dispatch both events after the
+        # visible values have been entered.
+        self.driver.execute_script(
+            """
+            for (const field of arguments[0]) {
+              field.dispatchEvent(new Event('input', {bubbles: true}));
+              field.dispatchEvent(new Event('change', {bubbles: true}));
+              field.blur();
+            }
+            """,
+            fields[:2],
+        )
 
     def _wait_for_text(self, text: str, timeout_seconds: float) -> bool:
         def present(driver: Any) -> bool:
@@ -380,3 +412,48 @@ def _xpath_literal(value: str) -> str:
         return f'"{value}"'
     parts = value.split("'")
     return "concat(" + ", \"'\", ".join(f"'{part}'" for part in parts) + ")"
+
+
+def _is_delivery_date_input(element: Any) -> bool:
+    try:
+        if not element.is_displayed() or not element.is_enabled():
+            return False
+        label = " ".join(
+            str(element.get_attribute(name) or "")
+            for name in ("aria-label", "placeholder", "name", "id")
+        ).casefold()
+        value = str(element.get_attribute("value") or "")
+        return "data de entrega" in label or bool(value and _looks_like_br_date(value))
+    except Exception:
+        return False
+
+
+def _looks_like_br_date(value: str) -> bool:
+    try:
+        date.fromisoformat("-".join(reversed(value.split("/"))))
+        return len(value) == 10 and value[2] == "/" and value[5] == "/"
+    except (TypeError, ValueError):
+        return False
+
+
+def next_delivery_date(today: date, holidays: set[date] | frozenset[date] = frozenset()) -> date:
+    """Return the next operational delivery date for the Cora query.
+
+    Friday normally advances to Monday. If Saturday is the operational day
+    immediately before a Sunday/Monday holiday, Friday pulls Saturday instead.
+    Sundays and configured holidays are always skipped.
+    """
+    tomorrow = today + timedelta(days=1)
+    if today.weekday() == 4:  # Friday
+        saturday = tomorrow
+        sunday = saturday + timedelta(days=1)
+        monday = saturday + timedelta(days=2)
+        if saturday not in holidays and (sunday in holidays or monday in holidays):
+            candidate = saturday
+        else:
+            candidate = monday
+    else:
+        candidate = tomorrow
+    while candidate.weekday() == 6 or candidate in holidays:
+        candidate += timedelta(days=1)
+    return candidate

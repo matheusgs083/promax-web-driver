@@ -4,6 +4,7 @@ import argparse
 import json
 import sys
 import time
+from datetime import date
 from pathlib import Path
 
 import dotenv
@@ -13,7 +14,7 @@ dotenv.load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 from config import CoraSettings
 from browser import CoraBrowser
 from pages.welcome_page import CoraWelcomePage
-from pages.critica_page import CoraCriticaPage
+from pages.critica_page import CoraCriticaPage, next_delivery_date
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -53,6 +54,8 @@ def main() -> int:
                 critica = CoraCriticaPage(browser.driver, settings.download_dir)
                 critica.open_consulta_pedidos()
                 critica.open_critica()
+                delivery_date = next_delivery_date(date.today(), settings.holidays)
+                critica.set_delivery_date(delivery_date)
                 # A tela da Crítica carrega as unidades/revendas de forma
                 # assíncrona. Aguarde a conclusão desse carregamento antes de
                 # solicitar o relatório, evitando gerar apenas a primeira
@@ -65,6 +68,7 @@ def main() -> int:
                 "event": "cora_job_result",
                 "status": "success",
                 "message": "Relatório Critica do Cora baixado.",
+                "delivery_date": delivery_date.isoformat(),
                 "downloaded_files": [str(path) for path in files],
             }), flush=True)
             return 0
