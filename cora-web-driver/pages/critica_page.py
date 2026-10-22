@@ -186,13 +186,22 @@ class CoraCriticaPage:
     def set_delivery_date(self, delivery_date: date) -> None:
         """Set both delivery-date fields in the saved Cora query."""
         formatted = delivery_date.strftime("%d/%m/%Y")
-        fields = [
-            element
-            for element in self.driver.find_elements(By.CSS_SELECTOR, "input")
-            if _is_delivery_date_input(element)
-        ]
-        if len(fields) < 2:
-            raise RuntimeError("Campos de data de entrega não encontrados na consulta Critica do Cora.")
+        def find_fields(driver: Any) -> list[Any]:
+            fields = [
+                element
+                for element in driver.find_elements(By.CSS_SELECTOR, "input")
+                if _is_delivery_date_input(element)
+            ]
+            # The Cora range picker renders the two inputs with these
+            # placeholders and may add them a few moments after navigation.
+            return fields if len(fields) >= 2 else False
+
+        try:
+            fields = WebDriverWait(self.driver, 45.0).until(find_fields)
+        except Exception as exc:
+            raise RuntimeError(
+                "Campos de data de entrega não encontrados na consulta Critica do Cora."
+            ) from exc
         for field in fields[:2]:
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", field)
             field.click()
@@ -212,6 +221,12 @@ class CoraCriticaPage:
             """,
             fields[:2],
         )
+        current_values = [str(field.get_attribute("value") or "") for field in fields[:2]]
+        if current_values != [formatted, formatted]:
+            raise RuntimeError(
+                "Não foi possível atualizar as duas datas de entrega do Cora: "
+                f"{current_values!r}."
+            )
 
     def _wait_for_text(self, text: str, timeout_seconds: float) -> bool:
         def present(driver: Any) -> bool:
@@ -425,7 +440,12 @@ def _is_delivery_date_input(element: Any) -> bool:
             for name in ("aria-label", "placeholder", "name", "id")
         ).casefold()
         value = str(element.get_attribute("value") or "")
-        return "data de entrega" in label or bool(value and _looks_like_br_date(value))
+        placeholder = str(element.get_attribute("placeholder") or "").casefold()
+        return (
+            "data de entrega" in label
+            or placeholder in {"data inicial", "data final"}
+            or bool(value and _looks_like_br_date(value))
+        )
     except Exception:
         return False
 
