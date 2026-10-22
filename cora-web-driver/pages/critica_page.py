@@ -396,7 +396,9 @@ class CoraCriticaPage:
             current = {
                 path.resolve()
                 for path in self.download_dir.iterdir()
-                if path.is_file() and not path.name.endswith((".crdownload", ".tmp"))
+                if path.is_file()
+                and not path.name.endswith((".crdownload", ".tmp"))
+                and path.stat().st_size > 0
             }
             created = sorted(current - before, key=lambda path: path.stat().st_mtime)
             if created:

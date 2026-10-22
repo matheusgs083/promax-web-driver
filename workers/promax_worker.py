@@ -500,7 +500,7 @@ class PromaxWorker:
                 self.logger.warning("API indisponivel ao finalizar job %s: %s", job_id, exc)
                 time.sleep(backoff)
                 backoff = min(backoff * 2, self.config.backoff_max_seconds)
-            except (PromaxClientError, ValueError) as exc:
+            except (PromaxClientError, ValueError, OSError) as exc:
                 self.logger.error("Sincronizacao/finalizacao rejeitada para job %s: %s", job_id, exc)
                 if sync_completed:
                     return final_result
