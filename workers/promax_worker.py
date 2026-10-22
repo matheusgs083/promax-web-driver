@@ -1249,6 +1249,15 @@ class PromaxWorker:
         payload = job.get("payload")
         if not isinstance(payload, Mapping):
             payload = {}
+        site = str(payload.get("site") or job.get("site") or "").strip().lower()
+        category = str(payload.get("category") or job.get("category") or "").strip().lower()
+        profile = str(
+            payload.get("profile") or payload.get("perfil") or job.get("profile") or ""
+        ).strip().lower()
+        # Cora Critica has its own CSV and endpoint. It must never be
+        # reprocessed by the legacy 030111 importer.
+        if site == "cora" or category == "cora_critica" or profile == "cora_critica":
+            return
         if payload.get("publish", True) is False:
             return
 
