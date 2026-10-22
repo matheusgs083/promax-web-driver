@@ -400,7 +400,7 @@ class PromaxWorker:
         level: str,
         data: Mapping[str, Any],
     ) -> None:
-        clean_message = redact_log_message(str(message or "").rstrip("\r\n")) or " "
+        clean_message = redact_log_message(str(message or "").rstrip("\r\n")) or "Mensagem de log vazia."
         for offset in range(0, len(clean_message), 8000):
             self._send_log_entry(
                 job_id,
@@ -785,7 +785,7 @@ class PromaxWorker:
                 {"event": "promax_030206_auto_import_missing_publication_mapping"},
             )
             return
-        if not source_dir.is_dir():
+        if not _safe_is_dir(source_dir):
             self._send_log(
                 job_id,
                 lease_token,
@@ -945,7 +945,7 @@ class PromaxWorker:
                 {"event": "promax_020304_auto_import_missing_publication_mapping"},
             )
             return
-        if not source_dir.is_dir():
+        if not _safe_is_dir(source_dir):
             self._send_log(
                 job_id,
                 lease_token,
@@ -1082,7 +1082,7 @@ class PromaxWorker:
                 {"event": "promax_120601_auto_import_missing_publication_mapping"},
             )
             return
-        if not source_dir.is_dir():
+        if not _safe_is_dir(source_dir):
             self._send_log(
                 job_id,
                 lease_token,
@@ -1269,7 +1269,7 @@ class PromaxWorker:
                 {"event": "promax_030111_auto_import_missing_publication_mapping"},
             )
             return
-        if not source_dir.is_dir():
+        if not _safe_is_dir(source_dir):
             self._send_log(
                 job_id,
                 lease_token,
@@ -1461,7 +1461,7 @@ class PromaxWorker:
                 {"event": f"{event_prefix}_missing_publication_mapping"},
             )
             return
-        if not source_dir.is_dir():
+        if not _safe_is_dir(source_dir):
             self._send_log(
                 job_id,
                 lease_token,
@@ -1608,7 +1608,7 @@ class PromaxWorker:
                     },
                 )
                 continue
-            if not source_dir.is_dir():
+            if not _safe_is_dir(source_dir):
                 self._send_log(
                     job_id,
                     lease_token,
@@ -2041,16 +2041,24 @@ def _promax_liga_entrega_publication_dir(
     relative_folder: str,
 ) -> Path | None:
     mapped_dir = _promax_publication_dir_by_relative(result_details, relative_folder)
-    if mapped_dir is not None and mapped_dir.is_dir():
+    if mapped_dir is not None and _safe_is_dir(mapped_dir):
         return mapped_dir
 
     aliases = _promax_liga_entrega_folder_aliases(relative_folder)
     for root in _promax_liga_entrega_reports_roots():
         for alias in aliases:
             candidate = root.joinpath(*alias.replace("\\", "/").split("/"))
-            if candidate.is_dir():
+            if _safe_is_dir(candidate):
                 return candidate
     return None
+
+
+def _safe_is_dir(path: Path) -> bool:
+    """Return False when a network share cannot be stat'ed with current credentials."""
+    try:
+        return path.is_dir()
+    except OSError:
+        return False
 
 
 def _promax_liga_entrega_folder_aliases(relative_folder: str) -> tuple[str, ...]:
