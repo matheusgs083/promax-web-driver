@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -196,55 +197,111 @@ class CoraCriticaPage:
             return fields if len(fields) >= 2 else False
 
         try:
-            fields = WebDriverWait(self.driver, 45.0).until(find_fields)
+            # A consulta é montada depois de carregar as revendas. Em horários
+            # de maior uso esse carregamento pode passar dos 45 segundos.
+            fields = WebDriverWait(self.driver, 90.0).until(find_fields)
         except Exception as exc:
             raise RuntimeError(
                 "Campos de data de entrega não encontrados na consulta Critica do Cora."
             ) from exc
-        # O seletor de intervalo do Cora rejeita a troca da primeira data
-        # quando ela e preenchida antes da data final. Atualize o fim primeiro
-        # e use o setter nativo para o React reconhecer a alteracao.
-        for field in reversed(fields[:2]):
+        for field in fields[:2]:
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", field)
+            field.click()
+            field.send_keys(Keys.CONTROL, "a")
+            field.send_keys(formatted)
+            field.send_keys("\ue007")
+        # React masks the input and may not emit a change event for keyboard
+        # replacement in every portal version. Dispatch both events after the
+        # visible values have been entered.
         self.driver.execute_script(
             """
-            const fields = arguments[0];
-            const value = arguments[1];
-            const setValue = Object.getOwnPropertyDescriptor(
-              window.HTMLInputElement.prototype, 'value'
-            ).set;
-            for (const field of fields) {
-              setValue.call(field, value);
-              field.dispatchEvent(new InputEvent('input', {
-                bubbles: true,
-                inputType: 'insertText',
-                data: value,
-              }));
+            for (const field of arguments[0]) {
+              field.dispatchEvent(new Event('input', {bubbles: true}));
               field.dispatchEvent(new Event('change', {bubbles: true}));
               field.blur();
             }
             """,
-            list(reversed(fields[:2])),
-            formatted,
+            fields[:2],
         )
-
-        def fields_with_expected_values(driver: Any) -> list[Any] | bool:
-            refreshed = find_fields(driver)
-            if not refreshed:
-                return False
-            values = [str(field.get_attribute("value") or "") for field in refreshed[:2]]
-            return refreshed if values == [formatted, formatted] else False
-
-        try:
-            fields = WebDriverWait(self.driver, 8.0).until(fields_with_expected_values)
-        except Exception:
-            fields = find_fields(self.driver) or fields
         current_values = [str(field.get_attribute("value") or "") for field in fields[:2]]
+        # Em algumas versões do Cora o primeiro input apenas aceita a máscara
+        # visual: ele volta para a data anterior logo após perder o foco. O
+        # clique no dia do calendário, por outro lado, atualiza o estado React
+        # que alimenta a consulta. Só usamos esse caminho quando a digitação
+        # não foi aceita, preservando o fluxo rápido das versões anteriores.
+        if current_values != [formatted, formatted]:
+            for index in range(2):
+                # A seleção de uma ponta do período pode recriar os inputs no
+                # React. Busque o elemento outra vez antes de ajustar a outra.
+                fields = WebDriverWait(self.driver, 15.0).until(find_fields)
+                field = fields[index]
+                if str(field.get_attribute("value") or "") == formatted:
+                    continue
+                self._select_delivery_date_from_calendar(field, delivery_date)
+
+            fields = WebDriverWait(self.driver, 15.0).until(find_fields)
+            current_values = [str(field.get_attribute("value") or "") for field in fields[:2]]
         if current_values != [formatted, formatted]:
             raise RuntimeError(
                 "Não foi possível atualizar as duas datas de entrega do Cora: "
                 f"{current_values!r}."
             )
+
+    def _select_delivery_date_from_calendar(self, field: Any, delivery_date: date) -> None:
+        """Select a date through the picker when its masked input rejects typing."""
+        formatted = delivery_date.strftime("%d/%m/%Y")
+        iso_date = delivery_date.isoformat()
+        day = str(delivery_date.day)
+
+        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", field)
+        field.click()
+
+        def calendar_day(driver: Any) -> Any:
+            day_candidates: list[Any] = []
+            for candidate in driver.find_elements(
+                By.CSS_SELECTOR,
+                "button, [role='button'], [role='gridcell'], td",
+            ):
+                if not candidate.is_displayed() or not candidate.is_enabled():
+                    continue
+                attributes = " ".join(
+                    str(candidate.get_attribute(name) or "")
+                    for name in ("aria-label", "data-date", "data-value", "title", "value")
+                ).lower()
+                classes = str(candidate.get_attribute("class") or "").lower()
+                if (
+                    candidate.get_attribute("aria-disabled") == "true"
+                    or "disabled" in classes
+                    or "outside-current-month" in classes
+                ):
+                    continue
+                exact_date = iso_date in attributes or formatted.lower() in attributes
+                visible_day = candidate.text.strip() == day
+                # No calendário Ant Design há dias iguais de meses adjacentes.
+                # Primeiro procure a data completa (td[title=YYYY-MM-DD]); só
+                # depois mantenha o número do dia como último recurso.
+                if exact_date:
+                    return candidate
+                if visible_day and "in-view" in classes:
+                    day_candidates.append(candidate)
+            if len(day_candidates) == 1:
+                return day_candidates[0]
+            return False
+
+        try:
+            candidate = WebDriverWait(self.driver, 10.0).until(calendar_day)
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block: 'center'});", candidate
+            )
+            candidate.click()
+            WebDriverWait(self.driver, 10.0).until(
+                lambda _driver: str(field.get_attribute("value") or "") == formatted
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                "Não foi possível selecionar a data de entrega no calendário do Cora: "
+                f"{formatted}."
+            ) from exc
 
     def _wait_for_text(self, text: str, timeout_seconds: float) -> bool:
         def present(driver: Any) -> bool:
