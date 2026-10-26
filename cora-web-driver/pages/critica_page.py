@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -202,25 +201,44 @@ class CoraCriticaPage:
             raise RuntimeError(
                 "Campos de data de entrega não encontrados na consulta Critica do Cora."
             ) from exc
-        for field in fields[:2]:
+        # O seletor de intervalo do Cora rejeita a troca da primeira data
+        # quando ela e preenchida antes da data final. Atualize o fim primeiro
+        # e use o setter nativo para o React reconhecer a alteracao.
+        for field in reversed(fields[:2]):
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", field)
-            field.click()
-            field.send_keys(Keys.CONTROL, "a")
-            field.send_keys(formatted)
-            field.send_keys("\ue007")
-        # React masks the input and may not emit a change event for keyboard
-        # replacement in every portal version. Dispatch both events after the
-        # visible values have been entered.
         self.driver.execute_script(
             """
-            for (const field of arguments[0]) {
-              field.dispatchEvent(new Event('input', {bubbles: true}));
+            const fields = arguments[0];
+            const value = arguments[1];
+            const setValue = Object.getOwnPropertyDescriptor(
+              window.HTMLInputElement.prototype, 'value'
+            ).set;
+            for (const field of fields) {
+              setValue.call(field, value);
+              field.dispatchEvent(new InputEvent('input', {
+                bubbles: true,
+                inputType: 'insertText',
+                data: value,
+              }));
               field.dispatchEvent(new Event('change', {bubbles: true}));
               field.blur();
             }
             """,
-            fields[:2],
+            list(reversed(fields[:2])),
+            formatted,
         )
+
+        def fields_with_expected_values(driver: Any) -> list[Any] | bool:
+            refreshed = find_fields(driver)
+            if not refreshed:
+                return False
+            values = [str(field.get_attribute("value") or "") for field in refreshed[:2]]
+            return refreshed if values == [formatted, formatted] else False
+
+        try:
+            fields = WebDriverWait(self.driver, 8.0).until(fields_with_expected_values)
+        except Exception:
+            fields = find_fields(self.driver) or fields
         current_values = [str(field.get_attribute("value") or "") for field in fields[:2]]
         if current_values != [formatted, formatted]:
             raise RuntimeError(
