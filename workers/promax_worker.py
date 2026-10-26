@@ -1254,9 +1254,15 @@ class PromaxWorker:
         profile = str(
             payload.get("profile") or payload.get("perfil") or job.get("profile") or ""
         ).strip().lower()
+        job_type = str(job.get("job_type") or "").strip().lower()
         # Cora Critica has its own CSV and endpoint. It must never be
         # reprocessed by the legacy 030111 importer.
-        if site == "cora" or category == "cora_critica" or profile == "cora_critica":
+        if (
+            site == "cora"
+            or category == "cora_critica"
+            or profile == "cora_critica"
+            or job_type == "cora_critica"
+        ):
             return
         if payload.get("publish", True) is False:
             return

@@ -90,6 +90,13 @@ class Relatorio030805Page(RotinaPage):
                 self.switch_to_default_content()
 
         if alerta_visualizar:
+            if _alerta_sem_movimento(alerta_visualizar):
+                self.logger.info(
+                    "030805 sem movimento para unidade %s em %s; ignorando esta execucao.",
+                    unidade,
+                    data_inicial,
+                )
+                return True, f"030805 ignorada: sem movimento para listar ({unidade}, {data_inicial})."
             return False, f"030805 rejeitada pelo Promax: {alerta_visualizar}"
 
         data_ref = _parse_data_br(data_inicial)
@@ -282,6 +289,27 @@ def _dedupe_urls(*urls: str) -> list[str]:
             vistos.add(url)
             unicos.append(url)
     return unicos
+
+
+def _alerta_sem_movimento(mensagem: str) -> bool:
+    """Identifica o aviso esperado do Promax quando a unidade/data nao tem dados."""
+    texto = (
+        str(mensagem or "")
+        .lower()
+        .replace("á", "a")
+        .replace("à", "a")
+        .replace("â", "a")
+        .replace("ã", "a")
+        .replace("é", "e")
+        .replace("ê", "e")
+        .replace("í", "i")
+        .replace("ó", "o")
+        .replace("ô", "o")
+        .replace("õ", "o")
+        .replace("ú", "u")
+        .replace("ç", "c")
+    )
+    return "nao ha movimento para listar" in texto
 
 
 def _parece_txt_dvs(content: bytes) -> bool:
