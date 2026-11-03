@@ -419,6 +419,7 @@ def main(
                     quebra1="25",
                     quebra2="36",
                     quebra3="37",
+                    itens="s",
                     data_inicial=inicio_liga,
                     data_final=fim_liga,
                     nome_arquivo=_liga_nome_mensal("03.02.37", unidade_alvo, liga_mes_referencia),

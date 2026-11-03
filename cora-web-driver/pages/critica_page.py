@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
@@ -411,8 +412,16 @@ class CoraCriticaPage:
                         const buttons = Array.from(document.querySelectorAll(
                           'button.sc-fpSqyW.cKRLCz'
                         )).filter(button => button.offsetParent !== null);
-                        if (buttons.length) {
-                          buttons[0].click();
+                        const ready = buttons.slice().reverse().find(button => {
+                          let node = button;
+                          for (let i = 0; i < 6 && node; i++, node = node.parentElement) {
+                            const text = node.innerText || node.textContent || '';
+                            if (text.includes('0 Bytes') && !text.includes('Concluído')) return false;
+                          }
+                          return true;
+                        });
+                        if (ready) {
+                          ready.click();
                           return true;
                         }
                         return false;
@@ -440,9 +449,22 @@ class CoraCriticaPage:
                             By.XPATH,
                             "ancestor::*[contains(normalize-space(.), '0 Bytes')][1]",
                         )
+                        # O portal mantém "0 Bytes" mesmo após concluir. Só
+                        # aguarde quando a linha ainda não estiver concluída.
+                        if "conclu" not in str(row.text or "").casefold():
+                            continue
+                    except StaleElementReferenceException:
+                        # O React substituiu a linha enquanto a avaliávamos;
+                        # refaça a busca no próximo ciclo.
+                        continue
                     except Exception:
                         pass
-                    self.driver.execute_script("arguments[0].click();", item)
+                    try:
+                        self.driver.execute_script("arguments[0].click();", item)
+                    except StaleElementReferenceException:
+                        # Não marque como clicado: o próximo ciclo localizará
+                        # o botão atual do drawer.
+                        continue
                     clicked = True
                     break
                 if clicked:
@@ -456,6 +478,14 @@ class CoraCriticaPage:
                         const seen = new Set();
                         const matches = [];
                         let sawZero = false;
+                        const isPending = target => {
+                          let node = target;
+                          for (let i = 0; i < 6 && node; i++, node = node.parentElement) {
+                            const text = node.innerText || node.textContent || '';
+                            if (text.includes('0 Bytes') && !text.includes('Concluído')) return true;
+                          }
+                          return false;
+                        };
                         while (roots.length) {
                           const root = roots.shift();
                           if (!root || seen.has(root)) continue;
@@ -465,7 +495,8 @@ class CoraCriticaPage:
                             const label = `${el.getAttribute?.('aria-label') || ''} ${el.getAttribute?.('title') || ''}`;
                             if ((text.includes('Baixar arquivo') || label.includes('Baix') || el.hasAttribute?.('download')) && el.offsetParent !== null) {
                               const target = el.closest?.('button,a,[role="button"]') || el;
-                              matches.push(target);
+                              if (isPending(target)) sawZero = true;
+                              else matches.push(target);
                             }
                             if (el.shadowRoot) roots.push(el.shadowRoot);
                           }
