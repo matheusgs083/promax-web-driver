@@ -1,7 +1,7 @@
 import os
 import time
 
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, UnexpectedAlertPresentException
 
 from core.config.settings import get_settings
 from core.services.report_download_service import capturar_download_relatorio
@@ -209,7 +209,21 @@ class Relatorio03114902Page(RotinaPage):
             transportadora_final=transportadora_final,
             armazem=armazem,
         )
-        self._clicar_botao_gerar(csv_geo=csv_geo)
+        try:
+            self._clicar_botao_gerar(csv_geo=csv_geo)
+            # O modelo novo pode exibir o alerta depois do retorno do clique JS.
+            # Damos uma janela curta para classificá-lo antes de aguardar download.
+            time.sleep(1)
+            resultado_sem_conteudo = self.tratar_alerta_sem_conteudo()
+            if resultado_sem_conteudo is not None:
+                return resultado_sem_conteudo
+        except UnexpectedAlertPresentException as exc:
+            resultado_sem_conteudo = self.tratar_alerta_sem_conteudo(
+                getattr(exc, "alert_text", None)
+            )
+            if resultado_sem_conteudo is not None:
+                return resultado_sem_conteudo
+            raise
 
         diretorio_base = get_settings().download_dir
         subpasta = getattr(self, "subpasta_download", None)

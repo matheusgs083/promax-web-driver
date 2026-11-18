@@ -1,5 +1,6 @@
 import os
 import dotenv
+from calendar import monthrange
 from datetime import date, datetime, timedelta
 from pathlib import Path
 import pandas as pd
@@ -13,7 +14,7 @@ from core.execution.entrypoint_helpers import (
     executar_tarefa_com_retry as executar_tarefa_com_retry_base,
     iniciar_sessao_padrao,
 )
-from core.execution.execution_result import ExecutionResult
+from core.execution.execution_result import ExecutionResult, ExecutionStatus
 from core.observability.logger import get_logger
 from core.config.project_paths import DATA_DIR, LOGS_DIR
 from core.services.publication_service import PublicationPlan
@@ -21,6 +22,8 @@ from core.observability.relatorio_execucao import tracker
 from core.services.report_orchestration_service import ReportOrchestrationService, RoutineTask
 from core.services.report_post_processing_service import encontrar_primeira_planilha_excel
 from core.config.settings import get_settings
+from promax_http.integracao import PedidoRelatorio, SessaoHttp, gerar_relatorio_http, rotinas_em_http
+from promax_http.receitas import campos_020502, campos_030237
 
 from pages.reports.relatorio_030224_page import Relatorio030224Page
 from pages.reports.relatorio_030237_page import Relatorio030237Page
@@ -33,6 +36,7 @@ from pages.reports.relatorio_150501_page import Relatorio150501Page
 from pages.reports.relatorio_020220_page import Relatorio020220Page
 from pages.reports.relatorio_020502_page import Relatorio020502Page
 from pages.reports.relatorio_140506_page import Relatorio140506Page
+from pages.reports.relatorio_140501_page import Relatorio140501Page
 from pages.reports.relatorio_120606_page import Relatorio120606Page
 from pages.reports.relatorio_030206_page import Relatorio030206Page
 from pages.reports.relatorio_0105070402_page import Relatorio0105070402Page
@@ -46,6 +50,27 @@ from pages.reports.relatorio_1706_page import Relatorio1706Page
 
 dotenv.load_dotenv()
 logger = get_logger("MAIN_PROMAX")
+
+
+def _resultado_sem_conteudo(resultado) -> bool:
+    """Indica que a rotina não tinha dados, sem confundir esse caso com erro de negócio."""
+    if not isinstance(resultado, ExecutionResult):
+        return False
+    if (resultado.metadata or {}).get("sem_conteudo"):
+        return True
+    return (
+        resultado.status is ExecutionStatus.BUSINESS_FAILURE
+        and not resultado.should_retry
+        and "relatorio sem conteudo" in str(resultado.message or "").lower()
+    )
+
+
+def _resultado_aceito(resultado) -> bool:
+    return (
+        resultado is True
+        or (isinstance(resultado, tuple) and bool(resultado[0]))
+        or _resultado_sem_conteudo(resultado)
+    )
 
 settings = get_settings()
 
@@ -290,7 +315,26 @@ def main(
     )
 
     def periodo_mensal_liga():
-        """Usa o mês em andamento sem criar um intervalo invertido no dia 1."""
+        """Resolve o período mensal dos relatórios da Liga.
+
+        Uma competência já encerrada nunca pode ser publicada parcialmente.
+        Uma agenda antiga pode carregar, por exemplo, ``01/10`` a ``20/10``
+        e ser executada somente no início de novembro; nesse caso a 03.02.24
+        precisa baixar todo outubro, não perpetuar o corte do dia 20. O mês
+        corrente permanece incremental para não antecipar dados futuros.
+        """
+        competencia_encerrada = bool(
+            requested_start
+            and requested_end
+            and requested_start.year == requested_end.year
+            and requested_start.month == requested_end.month
+            and requested_end < hoje.date().replace(day=1)
+        )
+        if is_liga_fechamento or competencia_encerrada:
+            referencia = requested_end or requested_start or liga_mes_referencia
+            inicio = referencia.replace(day=1)
+            fim = referencia.replace(day=monthrange(referencia.year, referencia.month)[1])
+            return inicio.strftime("%d/%m/%Y"), fim.strftime("%d/%m/%Y")
         if requested_start and requested_end:
             return report_start_text, report_end_text
         referencia = requested_end or requested_start or liga_mes_referencia
@@ -419,13 +463,12 @@ def main(
                     quebra1="25",
                     quebra2="36",
                     quebra3="37",
-                    itens="s",
                     data_inicial=inicio_liga,
                     data_final=fim_liga,
                     nome_arquivo=_liga_nome_mensal("03.02.37", unidade_alvo, liga_mes_referencia),
                 ))
             page.fechar_e_voltar()
-            falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
+            falhas = [resultado for resultado in resultados if not _resultado_aceito(resultado)]
             if falhas:
                 return False, f"Falha em uma ou mais unidades da 030237 Liga Entrega: {falhas}"
             return True, f"030237 Liga Entrega gerada para {len(resultados)} unidade(s)."
@@ -553,6 +596,59 @@ def main(
         return resultado
     
 
+    # --- Versoes HTTP (sem navegador), ligadas por PROMAX_HTTP_GRUPOS ---
+    sessao_http = SessaoHttp(settings=settings, logger=logger, pasta_rastro=LOGS_DIR / "promax_http")
+
+    def _gerar_http(pedido, unidades_alvo):
+        return gerar_relatorio_http(
+            sessao_http,
+            pedido,
+            unidades_alvo=unidades_alvo,
+            pasta_base=Path(settings.download_dir),
+            tracker=tracker,
+            logger=logger,
+        )
+
+    def tarefa_030237_estoque_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="030237",
+                tracker_name="Rotina 030237 Estoque",
+                subpasta="030237 Estoque",
+                nome_arquivo="03,02,37_nomeUnidade030237estoque",
+                campos=campos_030237(
+                    quebra1="14",
+                    quebra2="16",
+                    itens="S",
+                    data_inicial=report_start_text or primeiro_dia_mes_passado,
+                    data_final=report_end_text or data_hoje_formatada,
+                ),
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_020502_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="020502",
+                tracker_name="Rotina 020502",
+                subpasta="020502",
+                nome_arquivo="02,05,02_nomeUnidade020502",
+                campos=campos_020502(
+                    opcao_rel="1",
+                    listar_produtos=True,
+                    listar_vasilhames_garrafeiras=False,
+                    tipo_data="E",
+                ),
+            ),
+            unidades_alvo,
+        )
+
+    rotinas_http = {
+        "030237_ESTOQUE": tarefa_030237_estoque_http,
+        "020502": tarefa_020502_http,
+    }
+
     def tarefa_020502(unidades_alvo=None):
         janela = menu_page.acessar_rotina("020502")
         page = Relatorio020502Page(janela.driver, janela.handle_menu)
@@ -567,6 +663,22 @@ def main(
         )
         page.fechar_e_voltar()
         return resultado
+
+    def tarefa_140501(unidades_alvo=None):
+        janela = menu_page.acessar_rotina("140501")
+        page = Relatorio140501Page(janela.driver, janela.handle_menu)
+        page.subpasta_download = "140501"
+        page.tracker_name = "Rotina 140501 Fluxo de Caixa"
+        try:
+            # Faixas abertas conforme PW04210R; datas do job não restringem
+            # os títulos em aberto deste relatório.
+            return page.gerar_relatorio(
+                unidade=unidades_alvo,
+                opcao_rel="01",
+                nome_arquivo="14,05,01_nUnidade",
+            )
+        finally:
+            page.fechar_e_voltar()
 
     def tarefa_140506(unidades_alvo=None):
         janela = menu_page.acessar_rotina("140506")
@@ -767,7 +879,7 @@ def main(
         page.fechar_e_voltar()
         if not resultados:
             return False, f"Nenhuma unidade disponivel para a 030805 no periodo {inicio} a {fim}"
-        falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
+        falhas = [resultado for resultado in resultados if not _resultado_aceito(resultado)]
         if falhas:
             return False, f"Falha em uma ou mais datas da 030805: {falhas}"
         return True, f"030805 gerada para {len(resultados)} execucao(oes) na(s) data(s) anterior(es) de entrega."
@@ -800,7 +912,7 @@ def main(
                 ))
         finally:
             page.fechar_e_voltar()
-        falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
+        falhas = [resultado for resultado in resultados if not _resultado_aceito(resultado)]
         if falhas:
             return False, f"Falha em uma ou mais unidades da 17.06: {falhas}"
         return True, f"17.06 gerada para {len(resultados)} unidade(s)."
@@ -837,10 +949,11 @@ def main(
                     somente_resumo=somente_resumo,
                     resumo_visao=resumo_visao,
                     nome_arquivo=_liga_nome_mensal("03.02.24", unidade_alvo, liga_mes_referencia),
+                    subpasta_download=subpasta,
                 ))
             finally:
                 page.fechar_e_voltar()
-        falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
+        falhas = [resultado for resultado in resultados if not _resultado_aceito(resultado)]
         if falhas:
             return False, f"Falha em uma ou mais unidades da {tracker_name}: {falhas}"
         return True, f"{tracker_name} gerada para {len(resultados)} unidade(s)."
@@ -905,7 +1018,7 @@ def main(
                 nome_arquivo=_liga_nome_mensal("03.11.29", unidade_alvo, liga_mes_referencia),
             ))
         page.fechar_e_voltar()
-        falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
+        falhas = [resultado for resultado in resultados if not _resultado_aceito(resultado)]
         if falhas:
             return False, f"Falha em uma ou mais unidades da 031129 Liga Entrega: {falhas}"
         return True, f"031129 Liga Entrega gerada para {len(resultados)} unidade(s)."
@@ -929,7 +1042,7 @@ def main(
                     nome_arquivo=_liga_nome_mensal("03.11.20", unidade_alvo, liga_mes_referencia),
                 ))
             page.fechar_e_voltar()
-            falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
+            falhas = [resultado for resultado in resultados if not _resultado_aceito(resultado)]
             if falhas:
                 return False, f"Falha em uma ou mais unidades da 031120 Liga Entrega: {falhas}"
             return True, f"031120 Liga Entrega gerada para {len(resultados)} unidade(s)."
@@ -977,7 +1090,7 @@ def main(
                     nome_arquivo=_liga_nome_mensal("03.11.49.02", unidade_alvo, liga_mes_referencia),
                 ))
             page.fechar_e_voltar()
-            falhas = [resultado for resultado in resultados if not (resultado is True or (isinstance(resultado, tuple) and resultado[0]))]
+            falhas = [resultado for resultado in resultados if not _resultado_aceito(resultado)]
             if falhas:
                 return False, f"Falha em uma ou mais unidades da 03114902 Liga Entrega: {falhas}"
             return True, f"03114902 Liga Entrega gerada para {len(resultados)} unidade(s)."
@@ -1026,7 +1139,7 @@ def main(
                 ))
         finally:
             page.fechar_e_voltar()
-        falhas = [item for item in resultados if not (item is True or (isinstance(item, tuple) and item[0]))]
+        falhas = [item for item in resultados if not _resultado_aceito(item)]
         if falhas:
             return False, f"Falha em uma ou mais unidades da 03114902 mensal: {falhas}"
         return True, f"03114902 mensal gerada para {len(resultados)} unidade(s)."
@@ -1046,6 +1159,7 @@ def main(
         "030237_ENTRADA": tarefa_030237_entrada,
         "020502": tarefa_020502,
         "140506": tarefa_140506,
+        "140501": tarefa_140501,
         "120606": tarefa_120606,
         "020502_FLUXO_DE_CAIXA": tarefa_020502_fluxodecaixa,
         "150501_FLUXO_DE_CAIXA": tarefa_150501_fluxodecaixa,
@@ -1068,6 +1182,20 @@ def main(
         "03114902_BOT": tarefa_03114902_bot,
         "03114902_MENSAL_LIGA": tarefa_03114902_mensal_liga,
     }
+    rotinas_http_ativas = rotinas_em_http(
+        report_group.key,
+        [routine.id for routine in selected_routines],
+        set(rotinas_http),
+    )
+    somente_http = bool(rotinas_http_ativas) and len(rotinas_http_ativas) == len(selected_routines)
+    if rotinas_http_ativas:
+        logger.info(
+            "Rotinas em modo HTTP (sem Edge): %s%s",
+            ", ".join(sorted(rotinas_http_ativas)),
+            "" if somente_http else ". As demais seguem no Edge.",
+        )
+        routine_runners.update({rotina: rotinas_http[rotina] for rotina in rotinas_http_ativas})
+
     missing_runners = [
         routine.id
         for routine in selected_routines
@@ -1141,6 +1269,7 @@ def main(
             os.path.join(str(pasta_intermediaria), "030237 Estoque"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\GERÊNCIA\Relatorios\03.02.37\2026",
             os.path.join(str(pasta_intermediaria), "020502"): fr"\\dc01n\publico_patos\ADMINISTRATIVO\FINANCEIRO\GERÊNCIA\Relatorios\02.05.02",
             os.path.join(str(pasta_intermediaria), "140506"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_atual}\{mes_atual}. {nome_mes_atual}",
+            os.path.join(str(pasta_intermediaria), "140501"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_atual}\{mes_atual}. {nome_mes_atual}",
             os.path.join(str(pasta_intermediaria), "120606"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_atual}\{mes_atual}. {nome_mes_atual}",
             os.path.join(str(pasta_intermediaria), "020502 fluxo de caixa"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_atual}\{mes_atual}. {nome_mes_atual}",
             os.path.join(str(pasta_intermediaria), "150501 fluxo de caixa"): fr"\\dc01n\PUBLICO\REVENDA\Power BI\Fluxo de Caixa\{ano_atual}\{mes_atual}. {nome_mes_atual}",
@@ -1164,10 +1293,8 @@ def main(
             os.path.join(str(pasta_intermediaria), "03.02.24", "Resumo"): os.path.join(liga_entrega_relatorios_dir, "03.02.24", "Resumo"),
             os.path.join(str(pasta_intermediaria), "03.11.20"): os.path.join(liga_entrega_relatorios_dir, "03.11.20"),
             os.path.join(str(pasta_intermediaria), "03.11.29"): os.path.join(liga_entrega_relatorios_dir, "03.11.29"),
-            # O renomeador normaliza o prefixo 03.11.49.02 para a pasta 031149.
-            # Mantemos o destino com o nome homologado da rotina, mas usamos a
-            # pasta efetivamente criada no download como origem da publicação.
-            os.path.join(str(pasta_intermediaria), "031149"): os.path.join(liga_entrega_relatorios_dir, "03.11.49.02"),
+            # A Liga salva em subpasta explícita, preservada pelo renomeador.
+            os.path.join(str(pasta_intermediaria), "03.11.49.02"): os.path.join(liga_entrega_relatorios_dir, "03.11.49.02"),
             os.path.join(str(pasta_intermediaria), "03.11.49.02 Mensal"): os.path.join(liga_entrega_relatorios_dir, "03.11.49.02 Mensal"),
             os.path.join(str(pasta_intermediaria), "17.06"): os.path.join(liga_entrega_relatorios_dir, "17.06"),
             os.path.join(str(pasta_intermediaria), "03.02.37 - Entregas"): os.path.join(liga_entrega_relatorios_dir, "03.02.37 - Entregas"),
@@ -1210,13 +1337,28 @@ def main(
         technical_prefix="Movimentação finalizada com falha técnica de publicação.",
     )
 
+    def executar_tarefa_com_retry_http(nome_tarefa, funcao_logica, tentativas=3, espera_segundos=3):
+        return executar_tarefa_com_retry_base(
+            nome_tarefa,
+            funcao_logica,
+            logger=logger,
+            iniciar_sessao=sessao_http.iniciar,
+            tentativas=tentativas,
+            espera_segundos=espera_segundos,
+        )
+
+    def encerrar_sessoes():
+        sessao_http.encerrar()
+        encerrar_sessao()
+
     orchestrator = ReportOrchestrationService(
         logger=logger,
         tracker=tracker,
-        iniciar_sessao=iniciar_sessao,
-        executar_tarefa_com_retry=executar_tarefa_com_retry,
-        encerrar_sessao=encerrar_sessao,
+        iniciar_sessao=sessao_http.iniciar if somente_http else iniciar_sessao,
+        executar_tarefa_com_retry=executar_tarefa_com_retry_http if somente_http else executar_tarefa_com_retry,
+        encerrar_sessao=encerrar_sessoes,
     )
+
     result = orchestrator.run(
         tasks=tarefas,
         tracker_output_dir=LOGS_DIR / "relatorios_baixados",

@@ -75,6 +75,46 @@ def test_030224_liga_uses_previous_day_on_first_day(monkeypatch, tmp_path):
     assert captured["data_final"] == "30/09/2026"
 
 
+def test_030224_liga_completes_closed_month_when_schedule_has_partial_dates(monkeypatch, tmp_path):
+    captured, run_kwargs = {}, {}
+
+    class FakePage:
+        def __init__(self, _driver, _handle_menu):
+            self.subpasta_download = ""
+            self.tracker_name = ""
+
+        def gerar_relatorio(self, **kwargs):
+            captured.update(kwargs)
+            return True
+
+        def fechar_e_voltar(self):
+            return None
+
+    class FakeMenu:
+        @staticmethod
+        def acessar_rotina(_routine_id):
+            return SimpleNamespace(driver=object(), handle_menu=object())
+
+    monkeypatch.setattr(relatorios, "hoje", datetime(2026, 11, 3))
+    monkeypatch.setattr(relatorios, "menu_page", FakeMenu())
+    monkeypatch.setattr(relatorios, "Relatorio030224Page", FakePage)
+    monkeypatch.setattr(relatorios, "settings", SimpleNamespace(download_dir=tmp_path))
+    monkeypatch.setattr(ReportOrchestrationService, "run", lambda _self, **kwargs: run_kwargs.update(kwargs) or ExecutionResult(ExecutionStatus.SUCCESS, "ok"))
+
+    relatorios.main(
+        profile="liga_entrega",
+        routines=["030224_MOTORISTA_LIGA"],
+        units=["2210003"],
+        date_start="2026-10-01",
+        date_end="2026-10-20",
+        publish=False,
+    )
+    run_kwargs["tasks"]["030224_MOTORISTA_LIGA"].runner()
+
+    assert captured["data_inicial"] == "01/10/2026"
+    assert captured["data_final"] == "31/10/2026"
+
+
 def test_03114902_liga_fechamento_uses_previous_closed_month(monkeypatch, tmp_path):
     captured, run_kwargs = {}, {}
     nomes_arquivo = []
@@ -672,7 +712,7 @@ def test_03114902_bot_uses_single_geo_csv_for_all_operations(monkeypatch, tmp_pa
     } == {"03114902 bot"}
 
 
-def test_liga_03114902_publishes_from_normalized_download_folder(monkeypatch, tmp_path):
+def test_liga_03114902_publishes_from_explicit_download_folder(monkeypatch, tmp_path):
     captured_run = {}
 
     def fake_run(_self, **kwargs):
@@ -691,7 +731,7 @@ def test_liga_03114902_publishes_from_normalized_download_folder(monkeypatch, tm
 
     assert result.status == ExecutionStatus.SUCCESS
     mapping = captured_run["publication_plan"].mapping
-    assert [Path(source).relative_to(tmp_path).as_posix() for source in mapping] == ["031149"]
+    assert [Path(source).relative_to(tmp_path).as_posix() for source in mapping] == ["03.11.49.02"]
     assert list(mapping.values())[0].endswith("03.11.49.02")
     assert result.metadata["publication_mapping"] == {
         str(source): str(destination)

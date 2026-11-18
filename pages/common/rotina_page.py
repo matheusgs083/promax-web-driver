@@ -2,6 +2,7 @@
 import os
 import datetime as dt  # <-- CORRIGIDO: Usando apelido dt para evitar conflitos
 import csv
+from pathlib import Path
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -56,24 +57,109 @@ class RotinaPage(BasePage):
         "nao cadastr",
         "inconsisten",
     )
+    ALERTA_SEM_CONTEUDO_KEYWORDS = (
+        "nenhuma informacao",
+        "sem conteudo",
+        "sem dados",
+        "nao existem dados",
+        "nao ha informacoes",
+        "nao ha dados",
+        "nao ha pedidos para listar",
+        "relatorio vazio",
+        "nenhum movimento",
+        "nao houve movimento",
+    )
 
     def __init__(self, driver, handle_menu_original):
         super().__init__(driver)
         self.handle_menu = handle_menu_original
         self.subpasta_download = None
         self.tracker_name = None
+        self._resultado_sem_conteudo_pendente = None
         
         try:
             self.driver.switch_to.window(self.driver.current_window_handle)
             self.driver.maximize_window()
         except Exception as e:
             self.logger.debug(f"Não foi possível maximizar/focar a janela da rotina: {e}")
-        
+
         try:
             atual = self.obter_unidade_atual(timeout=1)
             self.logger.info(f"Janela aberta. Unidade ativa: {atual}")
         except Exception as e:
             self.logger.debug(f"Não foi possível ler a unidade ativa ao abrir a rotina: {e}")
+
+    @staticmethod
+    def _normalizar_texto_alerta(texto):
+        return (
+            str(texto or "")
+            .lower()
+            .replace("ç", "c")
+            .replace("ã", "a")
+            .replace("á", "a")
+            .replace("à", "a")
+            .replace("â", "a")
+            .replace("é", "e")
+            .replace("ê", "e")
+            .replace("í", "i")
+            .replace("ó", "o")
+            .replace("ô", "o")
+            .replace("õ", "o")
+            .replace("ú", "u")
+        )
+
+    @classmethod
+    def alerta_indica_sem_conteudo(cls, texto):
+        texto_normalizado = cls._normalizar_texto_alerta(texto)
+        return any(indicador in texto_normalizado for indicador in cls.ALERTA_SEM_CONTEUDO_KEYWORDS)
+
+    def tratar_alerta_sem_conteudo(self, texto_excecao=None):
+        """Aceita apenas alertas esperados de relatório vazio e os registra para o fluxo chamador."""
+        texto_alerta_atual = None
+        try:
+            texto_alerta_atual = self.driver.switch_to.alert.text
+        except Exception:
+            pass
+
+        mensagens = [str(texto) for texto in (texto_excecao, texto_alerta_atual) if texto]
+        detalhe = " | ".join(dict.fromkeys(mensagens)) or "Alerta sem texto capturado"
+        if not self.alerta_indica_sem_conteudo(detalhe):
+            return None
+
+        mensagens_alerta = self.lidar_com_alertas(
+            tentativas=2,
+            timeout=2,
+            timeout_entre_alertas=1,
+            max_alertas=10,
+        )
+        for mensagem in mensagens_alerta:
+            if mensagem and mensagem not in mensagens:
+                mensagens.append(mensagem)
+        detalhe = " | ".join(mensagens)
+        resultado = ExecutionResult(
+            status=ExecutionStatus.BUSINESS_FAILURE,
+            message=f"Relatorio sem conteudo apos visualizar: {detalhe}",
+            retry=False,
+            metadata={"sem_conteudo": True},
+        )
+        self._resultado_sem_conteudo_pendente = resultado
+        self.logger.warning("Relatorio sem conteudo; rotina seguira sem download: %s", detalhe)
+        return resultado
+
+    def consumir_resultado_sem_conteudo(self):
+        resultado = self._resultado_sem_conteudo_pendente
+        self._resultado_sem_conteudo_pendente = None
+        return resultado
+
+    def switch_to_default_content(self):
+        """Evita que um alerta de relatório vazio vire uma falha técnica ao sair do frame."""
+        try:
+            return super().switch_to_default_content()
+        except UnexpectedAlertPresentException as exc:
+            resultado = self.tratar_alerta_sem_conteudo(getattr(exc, "alert_text", None))
+            if resultado is None:
+                raise
+            return super().switch_to_default_content()
 
     def _entrar_frame_topo(self, timeout=None):
         self.switch_to_default_content()
@@ -518,6 +604,8 @@ class RotinaPage(BasePage):
         frame_index=None,
         locators_export=None,
         timeout_botao=30,
+        usar_download_http=True,
+        diretorio_destino=None,
     ):
         """
         Fluxo padrão pós-Visualizar:
@@ -527,7 +615,15 @@ class RotinaPage(BasePage):
         - aciona o watcher de download e RETORNA o status
         """
         self.logger.info("Aguardando tela pós-Visualizar e botão CSV/Excel...")
+        resultado_sem_conteudo = self.consumir_resultado_sem_conteudo()
+        if resultado_sem_conteudo is not None:
+            return resultado_sem_conteudo
+
         self.switch_to_default_content()
+
+        resultado_sem_conteudo = self.consumir_resultado_sem_conteudo()
+        if resultado_sem_conteudo is not None:
+            return resultado_sem_conteudo
 
         frame_index = self.FRAME_ROTINA if frame_index is None else frame_index
 
@@ -610,6 +706,7 @@ class RotinaPage(BasePage):
                     status=ExecutionStatus.BUSINESS_FAILURE,
                     message=f"Relatorio sem conteudo apos visualizar: {detalhe}",
                     retry=False,
+                    metadata={"sem_conteudo": True},
                 )
 
             self.logger.warning(
@@ -695,9 +792,12 @@ class RotinaPage(BasePage):
 
         diretorio_base = get_settings().download_dir
         subpasta = getattr(self, "subpasta_download", None)
-        diretorio = diretorio_base / subpasta if subpasta else diretorio_base
+        diretorio = Path(diretorio_destino) if diretorio_destino else (
+            diretorio_base / subpasta if subpasta else diretorio_base
+        )
+        self.logger.info("Destino efetivo da exportacao: %s", diretorio)
 
-        if capturar_download_por_formulario:
+        if usar_download_http and capturar_download_por_formulario:
             resultado_http = capturar_download_por_formulario(
                 self.driver,
                 btn_csv,

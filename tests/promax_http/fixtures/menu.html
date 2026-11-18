@@ -1,0 +1,119 @@
+
+               <script>
+                   try{
+                       document.parentWindow.parent.rotina.document.all ( 'imgWait' ).style.display = 'none';
+                   }
+                   catch( e ){}
+                   try{
+                       if( '' == 'S' ){
+                           document.parentWindow.parent.top_rotina.document.all.unidade.disabled = false;
+                       }
+                   }
+                   catch( e ){}
+               </script>
+                         <script>
+                             alert( 'Fechamento Financeiro não realizado há  11 dias' );
+                             if( '' != '' ){
+                                 try{
+                                     document.parentWindow.parent.rotina.document.all ( '' ).focus();
+                                     document.parentWindow.parent.rotina.document.all ( '' ).select();
+                                 }
+                                 catch( e ){
+                                     if( document.parentWindow.parent.rotina.document.all ( '' ).length != undefined
+                                      && document.parentWindow.parent.rotina.document.all ( '' )[0].type == 'radio' ){
+                                         document.parentWindow.parent.rotina.document.all ( '' )[0].focus();
+                                     }
+                                 }
+                             }
+                         </script>
+               <HTML>
+<title>Promax</title>
+<link rel="stylesheet" href="../scripts/menu.css" type="text/css">
+<script src="../scripts/funcoes.js" language="JavaScript"></script>
+<script src="../scripts/funcoes.vbs" language="VbScript"></script>
+<script src="../scripts/jquery-1-12-4-min.js"></script>
+<BODY leftmargin=0 rightmargin=0 topmargin=0 scroll=no style="overflow-y: hidden;" >
+       <FORM name=form1 method=post onsubmit="AtalhoMenu();return false;">
+               <script FOR="window" EVENT="onunload" Language="JavaScript">
+                       var aJanelas = document.parentWindow.iFrameMenu.aJanelas;
+                       if( aJanelas != undefined ){
+                           for( var i=0; i < aJanelas.length; i++ ){
+                               aJanelas[i].close();
+                           }
+                       }
+               </script>
+               <script language="javascript" type="text/javascript">
+                   document.onkeydown = function(){
+                       switch( event.keyCode ){
+                               case 116 :
+                                   event.returnValue = false;
+                                   event.keyCode = 0;
+                                   Logoff()
+                                   return false;
+                               case 82 :
+                                   if( event.ctrlKey ){
+                                       event.returnValue = false;
+                                       event.keyCode = 0;
+                                       Logoff()
+                                       return false;
+                                   }
+                           }
+                   }
+               </script>
+               <STYLE>
+               .historico
+               {
+                   FONT-WEIGHT: bolder;
+                   COLOR: black;
+                   BACKGROUND-COLOR: #EEEEEE;
+               }
+               </STYLE>
+               <table border=0 cellPadding=0 cellSpacing=0 width="100%" height=100%>
+               <tr>
+                  <td>
+                   <table border=0 cellPadding=0 cellSpacing=0 width="100%" background="../icons/topo2.jpg">
+                       <tr><td height=50><IMG src="../icons/logo.gif" border=0>
+                           <td width=50%>&nbsp;
+                           <td><label>Usuário
+                           <td><input type=text value="F7367" name=Usuario size=10 readonly>
+                           <td>&nbsp;<input type=button id="BtLogoff" value=LogOff class="azulMenu" onclick="Logoff();">
+                   </table>
+                   <table border=0 cellPadding=0 cellSpacing=0 width="100%" valign="TOP" id=tabelaHeader>
+                       <TR>
+                           <TD nowrap width=50% align=left bgColor=#000000>&nbsp;<font class="branco">
+                              <label style="cursor: help;" title="Histórico de Versões" onMouseMove="this.className='historico';" onMouseOut="this.className='branco';" onClick="HistoricoVrs();" class="branco">&nbsp;Promax
+                              12.22.00.03&nbsp;</label>
+                              -&nbsp;&nbsp;221-0003-R Distribuidora de Bebidas Pau Brasil LTDA</font>
+                           </TD>
+                           <TD nowrap bgColor=#000000 class="branco">
+                               <DIV id=plantaoSuporte>&nbsp;<label style="cursor: help;" onMouseMove="this.className='historico';" onMouseOut="this.className='branco';" onClick="PlantaoSuporte();" class="branco">Plantão Suporte</label></DIV>
+                           <TD nowrap align=right bgColor=#000000>&nbsp;<font class="branco">14/08/2026</font>&nbsp;</TD>
+                       </TR>
+                   </table>
+                   <input type=hidden name=Usuario   value=F7367>
+                   <input type=hidden name=SessionID value=s7Cl4E65714027>
+                   <input type=hidden name=logoff    value=1>
+                   <input type=hidden name=ppopcao   value=1>
+                   <script>
+                       function Logoff(){
+                           document.all.ppopcao.value=1;
+                           document.form1.submit();
+                       }
+                       function HistoricoVrs(){
+                           AbrirPesquisa( '../cgi-bin/PP00100.exe?ppopcao=6&SessionID=s7Cl4E65714027', 'PW99931F', 35, 40, 700, 485, [ '1' ], [], 'no', '', '', '', '', 'no', 'MULTI-FRAME' );
+                       }
+                       //document.title = 'Promax [lnk-usuario - lnk-empresa]';
+                       function PlantaoSuporte(){
+                           var strURL = "../html/Plantao_Revenda_Promax.html";
+                           var janelaPS = window.open( strURL, "PlantaoRevendaPromax", "top=0, left=0, width=580, height=540, scrollbars=no, status=no, toolbar=no, menubar=no, location=no, resizable=yes" );
+                       }
+                       if( "R" != "R"){
+                           document.all.plantaoSuporte.style.display = "none";
+                       }
+                   </script>
+               <tr>
+                  <td height=100% width=100%>
+                  <iframe id="iFrameMenu" src="../html/menuPromax.html" width=100% height=100% frameborder=0></iframe>
+                  
+               </TABLE>
+               </HTML>

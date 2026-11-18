@@ -1,0 +1,124 @@
+
+<html>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HEAD>
+<meta http-equiv="Expires" content="Mon, 01 Jan 1996 12:12:00 GMT">
+<meta http-equiv="Pragma" content="no-cache">
+<META content="text/html; charset=windows-1252" http-equiv=Content-Type>
+<HEAD> <TITLE></TITLE> </HEAD>
+<link rel="stylesheet" href="../scripts/acao.css" type="text/css"></link>
+<script src="../scripts/funcoes.js" language="JavaScript"></script>
+<script src="../scripts/funcoes.vbs" language="VbScript"></script>
+               <script FOR="document" EVENT="onhelp" Language="javaScript">
+                   MostraHelp( 'PW02481C', '../cgi-bin/PP00100.exe?SessionID=s7Cl4E65714027&ppopcao=6' )
+                   return false;
+               </script>
+               <script>
+                   var aJanelas = new Array();
+                   var relatorio = 0;
+               </script>
+               <script FOR="window" EVENT="onunload" Language="JavaScript">
+                   if( relatorio > 0 ){
+                       window.open( "../cgi-bin/PP00100.exe?SessionID=s7Cl4E65714027&SubSessionID=d2if2i11634885&ppopcao=10", "fim", "top=3000,left=0,height=40,width=200,status=no,toolbar=no,menubar=no,location=no,resizable=no,scrollbars=no,channelmode=no" );
+                   }
+                   for( var i=0; i < aJanelas.length; i++ ){
+                       aJanelas[i].close();
+                   }
+               </script>
+<BODY leftMargin=0 topMargin=0 marginheight="0" marginwidth="0">
+<FORM name=form1 method=post>
+<DIV id=divRotinaGenerico></DIV>
+<INPUT type=hidden name=SessionID    value=s7Cl4E65714027>
+<INPUT type=hidden name=SubSessionID value=d2if2i11634885>
+<input type=hidden name=opcao        value=00>
+<INPUT type=hidden name=ppopcao      value=00>
+<INPUT type=hidden name=call         value=PW02481C>
+                <table width=100% cellspacing=0 cellpadding=0 border=0>
+                   <tr>
+                      <td height=20 nowrap>
+                          <div id=imgWait><img src="../icons/Process.gif" border=0></img></div>
+                      </td>
+                   </tr>
+                </table>
+                <script>
+                    try{
+                        if( document.parentWindow.parent.document.title == '' ){
+                            document.parentWindow.parent.document.title = '';
+                        }
+                    }
+                    catch( e ){}
+                    try{
+                        document.parentWindow.parent.top_rotina.document.all.versaoprg.outerText = 'm';
+                    }
+                    catch( e ){}
+                </script>
+               <SCRIPT>
+                   var timeOutCtrl = 3600;
+                   function Confirmar(){
+                       document.all.nrMapa.disabled = false;
+                       document.all.nrMapa.className = "campo";
+                       document.all.opcao.value = 6;
+                       EnviarFormulario();
+                   }
+                   function Cancelar(){
+                       document.all.chave.value = "";
+                       document.all.chave.disabled = true;
+                       document.all.chave.className = "clsDisabled";
+                       document.all.nrMapa.value = "";
+                       document.all.nrMapa.disabled = false;
+                       document.all.nrMapa.className = "campo";
+                       document.all.BotConfirmar.disabled = false;
+                       document.all.nrMapa.focus();
+                   }
+               </SCRIPT>
+               <TABLE width=100%>
+                  <TR>
+                     <TD>
+                        <TABLE rules=none width=100% border=1 cellspacing=1 cellpadding=0 bordercolor=White bordercolordark=White bordercolorlight=DimGray class=WindowScreen>
+                           <TR>
+                              <TD colspan=2>&nbsp;
+                           <TR>
+                              <TD width=15% class=titulocampo>Mapa&nbsp;
+                              <TD><INPUT type=text name="nrMapa" class="campo" tabindex=1 maxlength=6 size=6 onkeypress="return SomenteNumeros()">
+                           <TR>
+                              <TD colspan=2>&nbsp;
+                        </TABLE>
+               </TABLE>
+               <TABLE border=0 width=100%>
+                  <TR>
+                     <TD width=100%>&nbsp;
+                     <TD> <div id=DivBtConfirmar><BUTTON name=BotConfirmar AccessKEY="O" tabIndex=500 onClick="Confirmar();"   class="botao"> <LABEL>C<U>o</U>nfirmar  </LABEL> </BUTTON> </div> </TD>
+                     <TD> <div id=DivBtCancelar><BUTTON name=BotCancelar AccessKEY="C" tabIndex=501 onClick="Cancelar();"   class="botao"> <LABEL><U>C</U>ancelar  </LABEL> </BUTTON> </div> </TD>
+                  </TR>
+               </TABLE>
+
+               <script>
+                   function ChamaBuscaErros(){
+                       document.parentWindow.parent.top_rotina.BuscaErros();
+                   }
+                   function ZeraTimeOutCtrl(){
+                       document.parentWindow.parent.top_rotina.timeOut = 0;
+                   }
+               </script>
+               <script for=imgWait event=onpropertychange>
+                   try{
+                       if( document.all.imgWait.style.display != 'none' ){
+                           ChamaBuscaErros();
+                       }
+                   }
+                   catch( e ){
+                       setTimeout( 'ChamaBuscaErros()', 1000 );
+                   }
+               </script>
+               <script> document.parentWindow.parent.bottom_rotina.document.location.href = "../cgi-bin/PP00100.exe?SessionID=s7Cl4E65714027&SubSessionID=d2if2i11634885&ppopcao=00&call=PW02481C&frame=9&opcao=1&"; </script>
+               <script>
+                   if( document.all.imgWait != null ){
+                       document.all.imgWait.style.display = 'none';
+                   }
+                   try{
+                       if( 'S' == 'S' ){
+                           document.parentWindow.parent.top_rotina.document.all.unidade.disabled = false;
+                       }
+                   }
+                   catch( e ){}
+               </script>

@@ -39,6 +39,7 @@ def test_loads_all_repository_report_groups_without_importing_manifests():
         "020220_RECOLHAS",
     )
     assert groups["fluxo_caixa"].output_folders == (
+        "140501",
         "140506",
         "120606",
         "020502 fluxo de caixa",

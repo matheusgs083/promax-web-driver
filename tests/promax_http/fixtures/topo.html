@@ -1,0 +1,123 @@
+
+                <HTML>
+                <STYLE>
+                    .comboMCD
+                    {
+                        FONT-WEIGHT: bolder;
+                        FONT-SIZE: 8pt;
+                        COLOR: white;
+                        FONT-FAMILY: Arial;
+                        BACKGROUND-COLOR: black
+                    }
+                    .comboMCD_sel
+                    {
+                        FONT-WEIGHT: bolder;
+                        FONT-SIZE: 8pt;
+                        COLOR: black;
+                        FONT-FAMILY: Arial;
+                        BACKGROUND-COLOR: White;
+                    }
+                </STYLE>
+                <SCRIPT>
+                    var strClasseSel = 'comboMCD_sel';
+                    var strClasseNrm = 'comboMCD';
+                    var strClasseAux = strClasseNrm;
+                    function TrocaEmpresa( strUnidade ){
+                        document.parentWindow.parent.formFrames.unidade.value = strUnidade;
+                        document.parentWindow.parent.formFrames.changeUNB.value = "A";
+                        if( '0' == '1' ){
+                           document.parentWindow.parent.formFrames.SessionID.value = MontaSessionID();
+                        }
+                        else{
+                           document.parentWindow.parent.formFrames.SessionID.value = 'xxxxxxxxxxxxxxxyxxxxxxxxxxxxx'.replace(/[xy]/g, function(c) {var r = Math.random()*16|0,v=c=='x'?r: r&0x3|0x8;return v.toString(16);});
+                        }
+                        document.parentWindow.parent.formFrames.submit();
+                    }
+                    function Seleciona( tipo, obj ){
+                        if( tipo == 1 ){
+                            obj.className = strClasseSel;
+                        }
+                        else{
+                            obj.className = strClasseNrm;
+                        }
+                    }
+                    function evOnClick(){
+                        strClasseNrm = strClasseSel;
+                    }
+                    function evOnBlur( obj ){
+                        strClasseNrm = strClasseAux;
+                        Seleciona( 2, obj );
+                    }
+                </SCRIPT>
+                <SCRIPT>
+                   function MontaSessionID(){
+                       var Rnd1 = Math.random();
+                       var con=["b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "q", "r", "s", "t", "v", "y", "x", "z", "w"];
+                       var num=["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+                       var vog=["a", "e", "i", "o", "u", "A", "E", "I", "O", "U", "C", "K", "I", "J", "K", "L"];
+                       var lcon = con.length;
+                       var lnum = num.length;
+                       var lvog = vog.length;
+                       var rcon1 = (Math.floor(Rnd1 * lcon));
+                       var rnum1 = (Math.floor(Rnd1 * lnum));
+                       var rvog1 = (Math.floor(Rnd1 * lvog));
+                       var Rnd2 = Math.random();
+                       var rcon2 = (Math.floor(Rnd2 * lcon));
+                       var rnum2 = (Math.floor(Rnd2 * lnum));
+                       var rvog2 = (Math.floor(Rnd2 * lvog));
+                       var senha = con[rcon1] + num[rnum1] + vog[rvog1] + con[rcon2] + num[rnum2] + vog[rvog2];
+                       var Rnd3= Math.random() + 0.2;
+                       var MyValue = parseInt("67891346" * Rnd3);
+                       return (senha + MyValue);
+                   }
+                </SCRIPT>
+                <link rel="stylesheet" href="../scripts/acao.css" type="text/css">
+                <script src="../scripts/functop.js" language="JavaScript"></script>
+                <BODY leftmargin=0 rightmargin=0 topmargin=0>
+                <form name=form1 method=post>
+                    <table border=0 cellpadding=0 cellspacing=0 width="100%" background="../icons/top-rot.jpg">
+                        <tr><td>&nbsp;<IMG src="../icons/mini-logo.gif" border=0>
+                            <td>&nbsp;
+                            <td align=right><IMG src="../icons/PromaX.gif" border=0>
+                            <td width=20>&nbsp;
+                    </table>
+                    <table border=0 cellPadding=0 cellSpacing=0 width="100%" valign="TOP" id=tabelaHeader>
+                        <TR>
+                            <TD align=left bgColor=#000000>
+                                <table border=0 cellpadding=0 cellspacing=0>
+                                    <tr>
+                                        <td nowrap>
+                                        <SELECT name=unidade class="comboMCD" style="width=250px" onChange="TrocaEmpresa( this.value );"
+                                                                                                  onmousemove="Seleciona( 1, this );"
+                                                                                                  onmouseout="Seleciona( 2, this );"
+                                                                                                  onmousedown="evOnClick();"
+                                                                                                  onblur="evOnBlur( this );" DISABLED>
+                                            <OPTION value='2210003'>221.0003 - PAU BRASIL - PATOS</OPTION><OPTION value='2210004'>221.0004 - PAU BRASIL - SUME</OPTION><OPTION value='3610006'>361.0006 - PAU BRASIL BRUMADO</OPTION><OPTION value='3610007'>361.0007 - BARRA DA ESTIVA</OPTION><OPTION value='3610008'>361.0008 - PAU BRASIL CACULE</OPTION>
+                                        </SELECT>
+                                        <td width=48% align=right>&nbsp;</td>
+                                    </tr>
+                                </table>
+                            <TD align=right bgColor=#000000>
+                                <table border=0 cellpadding=0 cellspacing=0>
+                                    <tr>
+                                        <td><label title="Módulo"  style="cursor:help"><font class="branco">03.03.07.18.00</label></font></td>
+                                        <td>&nbsp;&nbsp;&nbsp;&nbsp;
+                                        <td><label title="Rotina"  style="cursor:help" id=rotinaExec><font class="branco">PW02481C-<label title="Versão" style="cursor:help" name=versaoprg id=versaoprg>a</label></font></td>
+                                        <td>&nbsp;&nbsp;&nbsp;&nbsp;
+                                        <td><label title="Data"    style="cursor:help"><font class="branco">14/08/2026</label></font></td>
+                                    </tr>
+                                </table>
+                        </TR>
+                    </table>
+                    <!--
+                    <script for=form1 event=oncontextmenu>
+                        if( 'F7367' != 'hbsis' ){
+                            return false;
+                        }
+                    </script>
+                    -->
+                    <SCRIPT>
+                        document.all.unidade.value = "2210003";
+                    </SCRIPT>
+                </BODY>
+                </HTML>

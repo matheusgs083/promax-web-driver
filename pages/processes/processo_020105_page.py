@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import time
 from typing import Any, Iterable
 
 from selenium.common.exceptions import NoAlertPresentException
@@ -94,6 +93,176 @@ class Processo020105Page(RotinaPage):
         except Exception as exc:  # noqa: BLE001
             mensagem = f"Timeout aguardando {nome} habilitado: {exc}"
             self._log("error", "020105: etapa=%s %s", etapa, mensagem)
+            return False, mensagem
+
+    def _abrir_novo_item(self, codigo: str, timeout: float = 45.0):
+        """Abre uma linha e confirma que o campo do novo item pode receber texto."""
+        self.entrar_frame_rotina_blindado(self.FRAME_ROTINA, timeout=min(30, int(timeout)))
+        self.driver.execute_script("NovoItem();")
+        return self._aguardar_campo_habilitado("cdItem", f"novo item {codigo}", timeout=timeout)
+
+    def _preencher_codigo_item(self, codigo: str, timeout: float = 45.0):
+        """Preenche o código por JavaScript e confirma que a tela o reteve.
+
+        ``NovoItem`` reconstrói os controles no IE Mode. Assim, o script
+        localiza o elemento novamente no DOM corrente e atribui o valor.
+        Não dispara ``onchange``: esse evento já chama ``CarregarItem`` e o
+        fluxo abaixo o chama uma única vez, de forma controlada.
+        """
+        codigo_normalizado = str(codigo or "").lstrip("0") or "0"
+        try:
+            resultado = self.driver.execute_script(
+                "var valor=String(arguments[0]);"
+                "var campos=document.getElementsByName('cdItem');"
+                "var el=(campos && campos.length) ? campos[0] : null;"
+                "if(!el) return {ok:false,error:'campo cdItem nao encontrado'};"
+                "if(el.disabled) return {ok:false,error:'campo cdItem bloqueado'};"
+                "try{el.focus();}catch(e){}"
+                "try{el.select();}catch(e){}"
+                "el.value=valor;"
+                "return {ok:true,value:String(el.value || '')};",
+                str(codigo),
+            )
+            if not isinstance(resultado, dict) or not resultado.get("ok"):
+                raise RuntimeError((resultado or {}).get("error") if isinstance(resultado, dict) else resultado)
+            self.wait_for_js_condition(
+                f"var el=document.getElementsByName('cdItem')[0];"
+                f"var valor=String((el && el.value) || '').replace(/^0+/, '') || '0';"
+                f"return !!el && valor === {codigo_normalizado!r};",
+                timeout=timeout,
+                description=f"020105 codigo do item {codigo} digitado",
+            )
+            self._log("info", "020105: codigo do item=%s digitado", codigo)
+            return True, "OK"
+        except Exception as exc:  # noqa: BLE001
+            mensagem = f"Falha ao digitar codigo do item {codigo}: {exc}"
+            self._log("error", "020105: %s", mensagem)
+            return False, mensagem
+
+    def _aguardar_item_carregado(self, codigo: str, timeout: float = 45.0):
+        """Espera o retorno do servidor com os campos aplicáveis ao item.
+
+        Nem todo produto usa todos os quatro campos da tela. Por exemplo, um
+        item de SKU pode manter Pallet, Lastro e Un./Avulsa bloqueados. O
+        sinal confiável de carregamento é a descrição devolvida pelo Promax,
+        o código/descrição devolvidos e pelo menos um campo de quantidade
+        habilitado. Em algumas versões da rotina o código permanece editável
+        mesmo depois do postback; portanto ele não pode ser pré-requisito.
+        """
+        try:
+            self.wait_for_js_condition(
+                "var codigo=document.getElementsByName('cdItem')[0];"
+                "var descricao=document.getElementsByName('dsItem')[0];"
+                "var campos=['qtPallet','qtLastro','qtCaixa','qtUnidade']"
+                ".map(function(nome){ return document.getElementsByName(nome)[0]; });"
+                "var carregando=document.getElementsByName('idCarregando')[0];"
+                "return (!carregando || String(carregando.value) !== '1')"
+                " && !!codigo && !!descricao"
+                " && String(descricao.value || '').replace(/^\\s+|\\s+$/g,'') !== ''"
+                " && campos.some(function(el){ return !!el && !el.disabled; });",
+                timeout=timeout,
+                description=f"020105 item {codigo} carregado",
+            )
+            self._log("info", "020105: item=%s e quantidades prontos", codigo)
+            return True, "OK"
+        except Exception as exc:  # noqa: BLE001
+            try:
+                estado = self.driver.execute_script(
+                    "var nomes=['cdItem','dsItem','qtPallet','qtLastro','qtCaixa','qtUnidade',"
+                    "'idDesabPallet','idDesabLastro','idDesabCx','idHabilitaSku','idCarregando'];"
+                    "var resultado={};"
+                    "for(var i=0;i<nomes.length;i++){var el=document.getElementsByName(nomes[i])[0];"
+                    "resultado[nomes[i]]=el?{value:String(el.value||''),disabled:!!el.disabled}:null;}"
+                    "return resultado;"
+                )
+                self._log("error", "020105: estado apos carregar item=%s", estado)
+            except Exception:  # noqa: BLE001
+                pass
+            mensagem = f"Timeout aguardando item {codigo} e campos de quantidade: {exc}"
+            self._log("error", "020105: %s", mensagem)
+            return False, mensagem
+
+    def _preencher_quantidades_item(self, item: ItemGrade):
+        """Preenche as quantidades no DOM atual após ``CarregarItem``.
+
+        CarregarItem reconstrói esses inputs. Não usamos WebElements retidos
+        antes do gatilho: o script busca cada campo novamente e devolve os
+        valores efetivamente gravados. Os eventos ``change`` não podem ser
+        disparados aqui: em ``qtLastro`` eles chamam VerificaLastro(), que
+        envia o formulário e interrompe o preenchimento dos demais campos.
+        """
+        valores = {
+            "qtPallet": item.pallet,
+            "qtLastro": item.lastro,
+            "qtCaixa": item.caixa,
+            "qtUnidade": item.unidade,
+        }
+        try:
+            resultado = self.driver.execute_script(
+                "var valores=arguments[0], resultado={ok:true,valores:{},erros:[]};"
+                "for(var nome in valores){"
+                " var campos=document.getElementsByName(nome); var el=(campos&&campos.length)?campos[0]:null;"
+                " if(!el){resultado.ok=false;resultado.erros.push(nome+' ausente');continue;}"
+                " if(el.disabled){"
+                "  if(Number(valores[nome]) !== 0){resultado.ok=false;resultado.erros.push(nome+' bloqueado para valor '+valores[nome]);}"
+                "  continue;"
+                " }"
+                " var valor=String(valores[nome]); try{el.focus();}catch(e){} el.value=valor;"
+                " resultado.valores[nome]=String(el.value||'');"
+                "}"
+                "try{if(typeof VerificaDigPalletLastroCx==='function')VerificaDigPalletLastroCx();}catch(e){}"
+                "return resultado;",
+                valores,
+            )
+            if not isinstance(resultado, dict) or not resultado.get("ok"):
+                raise RuntimeError((resultado or {}).get("erros") if isinstance(resultado, dict) else resultado)
+            for nome, valor in valores.items():
+                # Os campos que o produto não utiliza ficam corretamente
+                # bloqueados; nesses casos o valor precisa ser zero e não há
+                # nada para preencher ou validar no DOM.
+                if nome not in (resultado.get("valores") or {}):
+                    continue
+                recebido = str((resultado.get("valores") or {}).get(nome) or "").strip()
+                if recebido != str(valor):
+                    raise RuntimeError(f"{nome} ficou com '{recebido}', esperado '{valor}'")
+            self._log("info", "020105: quantidades do item=%s preenchidas=%s", item.codigo, valores)
+            return True, "OK"
+        except Exception as exc:  # noqa: BLE001
+            mensagem = f"Falha ao preencher quantidades do item {item.codigo}: {exc}"
+            self._log("error", "020105: %s", mensagem)
+            return False, mensagem
+
+    def _tamanho_lista_temporaria(self) -> int:
+        """Obtém a quantidade de linhas ainda não gravadas na rotina."""
+        try:
+            valor = self.driver.execute_script(
+                "var lista=document.getElementsByName('listagem')[0];"
+                "return lista ? Number(lista.options.length || 0) : -1;"
+            )
+            return int(valor)
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError(f"Não foi possível ler a lista temporária: {exc}") from exc
+
+    def _aguardar_item_na_lista(self, codigo: str, tamanho_anterior: int, timeout: float = 45.0):
+        """Confirma que SalvarItem incluiu o produto antes de seguir adiante."""
+        try:
+            tamanho_esperado = int(tamanho_anterior)
+            codigo_esperado = str(codigo).lstrip("0") or "0"
+            self.wait_for_js_condition(
+                "var lista=document.getElementsByName('listagem')[0];"
+                f"if(!lista || lista.options.length <= {tamanho_esperado}) return false;"
+                "for(var i=0;i<lista.options.length;i++){"
+                f" if(String(lista.options[i].cdItem || '').replace(/^0+/, '') === {codigo_esperado!r}) return true;"
+                "}"
+                "return false;",
+                timeout=timeout,
+                description=f"020105 item {codigo} na lista temporaria",
+            )
+            self._log("info", "020105: item=%s confirmado na lista temporaria", codigo)
+            return True, "OK"
+        except Exception as exc:  # noqa: BLE001
+            mensagem = f"Timeout aguardando item {codigo} na lista temporária: {exc}"
+            self._log("error", "020105: %s", mensagem)
             return False, mensagem
 
     @staticmethod
@@ -210,30 +379,41 @@ class Processo020105Page(RotinaPage):
                 if not ok:
                     return self._falha(f"item {item.codigo}", mensagem)
             self._log("info", "020105 auditoria: item=%s linha=%s iniciando", item.codigo, item.source_row or "?")
-            ok, mensagem = self._aguardar_campo("cdItem", f"novo item {item.codigo}")
-            if not ok:
-                return self._falha(f"item {item.codigo}", mensagem)
-            ok, mensagem = self._aguardar_campo_habilitado("cdItem", f"novo item {item.codigo}")
-            if not ok:
-                return self._falha(f"item {item.codigo}", mensagem)
-            self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
             # Apos carregar a grade os campos de item ficam bloqueados. O
             # operador do video usa o icone "Novo item" antes de informar o
             # proximo codigo; reproduzimos esse estado explicitamente.
-            self.driver.execute_script("NovoItem();")
-            self.js_set_input_by_name("cdItem", item.codigo)
+            ok, mensagem = self._abrir_novo_item(item.codigo)
+            if not ok:
+                return self._falha(f"item {item.codigo}", mensagem)
+            self.entrar_frame_rotina_blindado(self.FRAME_ROTINA)
+            ok, mensagem = self._preencher_codigo_item(item.codigo)
+            if not ok:
+                return self._falha(f"item {item.codigo}", mensagem)
             ok, mensagem = self._gatilho("CarregarItem();", f"item {item.codigo}")
             if not ok:
                 return self._falha(f"item {item.codigo}", mensagem)
-            ok, mensagem = self._aguardar_campo("qtCaixa", f"quantidades item {item.codigo}")
+            ok, mensagem = self._aguardar_item_carregado(item.codigo)
             if not ok:
                 return self._falha(f"quantidades item {item.codigo}", mensagem)
-            for campo, valor in (("qtPallet", item.pallet), ("qtLastro", item.lastro), ("qtCaixa", item.caixa), ("qtUnidade", item.unidade)):
-                self.js_set_input_by_name(campo, valor)
+            ok, mensagem = self._preencher_quantidades_item(item)
+            if not ok:
+                return self._falha(f"quantidades item {item.codigo}", mensagem)
+            # Apenas lastro exige a validação de servidor. Diferente dos
+            # demais campos, VerificaLastro faz postback; por isso ele é
+            # chamado uma vez, depois que todas as quantidades já foram
+            # preenchidas, e nunca como efeito colateral do onchange.
+            if item.lastro:
+                ok, mensagem = self._gatilho("VerificaLastro();", f"validar lastro item {item.codigo}")
+                if not ok:
+                    return self._falha(f"lastro item {item.codigo}", mensagem)
+                ok, mensagem = self._aguardar_item_carregado(item.codigo)
+                if not ok:
+                    return self._falha(f"lastro item {item.codigo}", mensagem)
             if item.garrafa:
                 self.js_set_select_by_name("cdGarrafa", item.garrafa)
             # SalvarItem apenas adiciona a linha na lista temporaria; o commit
             # definitivo ocorre uma unica vez em salvar_lancamento().
+            tamanho_lista_antes = self._tamanho_lista_temporaria()
             ok, mensagem = self._gatilho("SalvarItem();", f"adicionar item {item.codigo}")
             if not ok:
                 if str(mensagem).startswith("Confirmação recusada (Não):"):
@@ -249,6 +429,9 @@ class Processo020105Page(RotinaPage):
                         metadata={"skipped": True, "reason": mensagem},
                     )
                 return self._falha(f"item {item.codigo}", mensagem)
+            ok, mensagem = self._aguardar_item_na_lista(item.codigo, tamanho_lista_antes)
+            if not ok:
+                return self._falha(f"inclusao do item {item.codigo}", mensagem)
             self._log("info", "020105 auditoria: item=%s linha=%s lancado", item.codigo, item.source_row or "?")
             return ExecutionResult(status=ExecutionStatus.SUCCESS, message=f"Item {item.codigo} adicionado a grade.")
         except ValueError as exc:

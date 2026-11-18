@@ -138,9 +138,15 @@ def capturar_download_relatorio(
     if not salvar_arquivo_visual:
         return False, "Modulos visuais ausentes"
 
-    # A captura sempre acontece na área intermediária. O destino final pertence
-    # à etapa de publicação, depois que o arquivo foi completamente validado.
-    pasta_intermediaria = diretorio_intermediario or get_settings().download_dir
+    # Quando a rotina informa um destino explícito, ele precisa ser respeitado.
+    # A 030224 da Liga monitora pastas distintas (Resumo/Motorista/Ajudante):
+    # salvar na raiz faz o renomeador mover o CSV para 030224/ e a publicação
+    # encontra as três origens vazias.
+    pasta_intermediaria = (
+        diretorio_destino
+        or diretorio_intermediario
+        or get_settings().download_dir
+    )
     kwargs = {
         "diretorio_destino": str(pasta_intermediaria),
         "nome_arquivo_final": nome_arquivo_final,

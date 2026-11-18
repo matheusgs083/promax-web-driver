@@ -64,3 +64,6 @@ maps/*
 
 # Exceto o arquivo .gitkeep (para a pasta subir pro Git)
 !maps/.gitkeep
+
+# Telas capturadas do Promax (promax_http.capturar_telas): trazem usuario e filiais
+data/promax_telas/

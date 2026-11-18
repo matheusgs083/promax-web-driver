@@ -6,6 +6,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from pages.common.rotina_page import RotinaPage
+from core.config.settings import get_settings
 
 
 class Relatorio030224Page(RotinaPage):
@@ -31,8 +32,8 @@ class Relatorio030224Page(RotinaPage):
         campo_final="999999",
         nr_road_inicial="0",
         nr_road_final="99",
-        classe_inicial="0",
-        classe_final="Z",
+        classe_inicial=None,
+        classe_final=None,
         quebra_pagina=None,
         lista_itens=None,
         somente_resumo=None,
@@ -53,6 +54,7 @@ class Relatorio030224Page(RotinaPage):
         clicar_csv_apos_visualizar=True,
         timeout_csv=360,
         nome_arquivo="030224.csv",
+        subpasta_download=None,
     ):
         if unidade is None or isinstance(unidade, list):
             return self.loop_unidades(
@@ -115,13 +117,43 @@ class Relatorio030224Page(RotinaPage):
                 ("campoFinal", campo_final),
                 ("nrRoadInicial", nr_road_inicial),
                 ("nrRoadFinal", nr_road_final),
-                ("classeInicial", classe_inicial),
-                ("classeFinal", classe_final),
+                # A faixa de Classe Road fica intencionalmente sem alteracao:
+                # o Promax aplica o padrao da tela e qualquer preenchimento
+                # artificial pode restringir o relatorio indevidamente.
                 ("cdVisao", cd_visao),
             ]
             for name, value in campos_input:
                 if value is not None:
                     self.js_set_input_by_name(name, str(value))
+
+            if data_inicial is not None or data_final is not None:
+                filtros_data = self.driver.execute_script(
+                    """
+                    var campos = document.getElementsByTagName('*');
+                    var dados = [];
+                    for (var i = 0; i < campos.length; i++) {
+                        var campo = campos[i];
+                        var nome = String(campo.name || '');
+                        if (/data|dt/i.test(nome)) dados.push([nome, String(campo.value || '')]);
+                    }
+                    return dados;
+                    """
+                ) or []
+                self.logger.info(
+                    "030224 filtros de data antes de visualizar: solicitado=%s a %s; formulario=%s",
+                    data_inicial,
+                    data_final,
+                    filtros_data,
+                )
+                valores = {str(nome): str(valor) for nome, valor in filtros_data}
+                if (
+                    (data_inicial is not None and valores.get("dataInicial") != str(data_inicial))
+                    or (data_final is not None and valores.get("dataFinal") != str(data_final))
+                ):
+                    raise RuntimeError(
+                        "A rotina 030224 não manteve o período solicitado no formulário: "
+                        f"{valores}"
+                    )
 
             checkboxes = [
                 ("quebraPagina", quebra_pagina),
@@ -177,9 +209,33 @@ class Relatorio030224Page(RotinaPage):
             (By.XPATH, "//*[@name='GeraExcel' and @type!='hidden']"),
             (By.XPATH, "//*[@name='GerExcel' and @type!='hidden']"),
         ]
+        # A 03.02.24 da Liga tem uma pasta de publicação específica para cada
+        # visão. Reaplicamos o destino imediatamente antes da exportação: a
+        # rotina abre/fecha janelas a cada unidade e o atributo herdado pode
+        # voltar a ``None`` nesse fluxo, fazendo o arquivo cair na raiz de
+        # Relatorios e ser ignorado pela importação automática da Liga.
+        if subpasta_download is not None:
+            self.subpasta_download = subpasta_download
+        self.logger.info(
+            "030224 destino de exportação: %s",
+            getattr(self, "subpasta_download", None) or "<raiz>",
+        )
+
         return self._fluxo_exportar_csv(
             timeout_csv=timeout_csv,
             nome_arquivo=nome_arquivo,
             timeout_botao=timeout_csv,
             locators_export=locators_export,
+            # A exportação HTTP direta da 03.02.24 perde o contexto da
+            # consulta visualizada e pode reutilizar um período anterior.
+            # Pelo clique visual, o Promax mantém os filtros aplicados.
+            usar_download_http=False,
+            # A publicacao automatica da Liga monitora estas subpastas. O
+            # destino explicito evita que a captura HTTP use a raiz de
+            # Relatorios e o renomeador descarte a visao correspondente.
+            diretorio_destino=(
+                get_settings().download_dir / subpasta_download
+                if subpasta_download
+                else None
+            ),
         )

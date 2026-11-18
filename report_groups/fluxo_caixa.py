@@ -4,6 +4,11 @@ REPORT_GROUP = {
     "description": "Relatorios usados na consolidacao do fluxo de caixa.",
     "routines": [
         {
+            "id": "140501",
+            "name": "Rotina 140501",
+            "output_folders": ["140501"],
+        },
+        {
             "id": "140506",
             "name": "Rotina 140506",
             "output_folders": ["140506"],

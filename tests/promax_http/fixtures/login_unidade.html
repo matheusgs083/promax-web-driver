@@ -1,0 +1,188 @@
+
+            <HTML>
+            <HEAD><TITLE>Promax</TITLE>
+            <META http-equiv=Content-Type content="text/html; charset=windows-1252">
+            <SCRIPT language=javascript>
+               function AlterarSenha(){
+                   var strURL = 'PP00100.exe?ppopcao=7&call=PW99940F&ssprx=12&parMultiFrame=idUsuario=F7367';
+                   var wNovaSenha = window.open( strURL, 'NovaSenha', "top=0, left=0, width=790, height=542, scrollbars=no, status=no, toolbar=no, menubar=no, location=no, resizable=yes" );
+                   wNovaSenha.focus();
+               }
+               function ManutencaoAcessos(){
+                   var strURL = 'PP00100.exe?ppopcao=7&call=PW99939F&ssprx=12&idFuncionario=F7367';
+                   var objWindow = window.open( strURL, "ManutAcessos", "top=0, left=0, width=790, height=542, scrollbars=no, status=no, toolbar=no, menubar=no, location=no, resizable=yes" );
+                   objWindow.focus();
+               }
+            </SCRIPT>
+            <link rel="stylesheet" href="../scripts/login.css" type="text/css">
+            <META content="MSHTML 5.50.4807.2300" name=GENERATOR></HEAD>
+            <BODY language=javascript onload="document.all.cmdConfirma.focus();" background="" scroll=no style="overflow-y: hidden;">
+            <div style="POSITION: absolute">
+            <img src="../icons/img_canto.gif" border=0>
+            </div>
+            <TABLE cellspacing=0 cellpadding=0 width="100%" border=0>
+              <TBODY>
+              <TR>
+                <TD height=4>
+              <TR>
+                <TD>
+                  <DIV style="position: absolute; FONT-WEIGHT: lighter; FONT-SIZE: 9px; COLOR: black; FONT-FAMILY: Verdana; LETTER-SPACING: 0px" align=left>
+                  &nbsp;&nbsp;PromaX Versão: 12.22.00.03
+                  <BR>
+                  &nbsp;&nbsp;Base: 12.22
+                  <BR>
+                  &nbsp;&nbsp;Engine: q
+                  </DIV>
+              </TR>
+              </TBODY>
+            </TABLE>
+            <br>
+            <TABLE cellspacing=1 cellpadding=1 width=100% border=0>
+              <TR>
+                <TD width=33%> &nbsp;
+                <TD width=33% align=center> <IMG alt="AmBev" src="../icons/logoLogon.gif">
+                <TD width=33% align=right valign=top> <IMG alt="PromaX" src="../icons/PromaXlgn.gif">&nbsp;&nbsp;&nbsp;
+                                                      <BR>
+                                                      <IFRAME id=iFrameNomeGeo src="" frameborder=0 scrolling=no height=30 width=160></IFRAME>&nbsp;&nbsp;&nbsp;&nbsp;
+            </TABLE>
+            <TABLE style="WIDTH: 394px; HEIGHT: 33px" cellSpacing=1 cellPadding=1 width=75 align=center border=0>
+              <TBODY>
+              <TR>
+                <TD>
+                  <P style="FONT-SIZE: large" align=center><FONT color=black>Login de Usuário</FONT> </P></TD></TR></TBODY>
+            </TABLE>
+            <FORM name=frmLogin method=post onSubmit="MontaSessionID();">
+             <INPUT type=hidden name=SessionID     value=""> <!--  here: newsession-->
+             <INPUT type=hidden name=ppopcao       value=2>
+             <INPUT type=hidden name=opcaomenu     value="">
+             <INPUT type=hidden name=call          value="">
+             <INPUT type=hidden name=versaoBase value="12.22">
+             <INPUT type=hidden name=Animate       value=0>
+             <INPUT type=hidden name=animpath      value="">
+             <INPUT type=hidden name=logUsuario    value="">
+             <INPUT type=hidden name=pxReqID       value="">
+             <INPUT type=hidden name=Senha         value="TOKEN_FICTICIO"></TD>
+            <TABLE class=TableTop style="WIDTH: 216px; HEIGHT: 70px" cellSpacing=1 cellPadding=1 width=75 align=center bgColor=#6699cc border=0>
+              <TBODY>
+              <TR>
+                <TD colspan=2 height=5>
+              <TR>
+                <TD style="FONT-FAMILY: ">
+                  <P align=right>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Usuário :&nbsp;
+                  </P></TD>
+                <TD><INPUT id="" style="WIDTH: 102px; HEIGHT: 22px" maxLength=11 name=Usuario readonly value="F7367">
+              <TR>
+                <TD nowrap>
+                  <P align=right>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Unidade :&nbsp; </P></TD>
+                <TD><select name=unidade>
+                        <OPTION value='2210003'>221.0003 - PAU BRASIL - PATOS</OPTION><OPTION value='2210004'>221.0004 - PAU BRASIL - SUME</OPTION><OPTION value='3610006'>361.0006 - PAU BRASIL BRUMADO</OPTION><OPTION value='3610007'>361.0007 - BARRA DA ESTIVA</OPTION><OPTION value='3610008'>361.0008 - PAU BRASIL CACULE</OPTION>
+                    </select>&nbsp;&nbsp;
+              <TR>
+                <TD height=5px>
+              <TR>
+                <TD colspan=2>
+                  <center><P align=center>&nbsp;&nbsp;<INPUT class=Btn id="" style="WIDTH: 90px; HEIGHT: 26px" type=submit value=Confirma border=0 name=cmdConfirma></P></TD></TR></TBODY>
+              <TR>
+                <TD colspan=2 height=5>
+       </TABLE>
+       </FORM>
+            <TABLE style="WIDTH: 216px; HEIGHT: 45px" cellSpacing=1 cellPadding=1 width=75 align=center border=0>
+              <TBODY>
+              <TR><TD height=7>
+              <!-- Permite solicitar perfil adicional quando já possui acesso vinculado -->
+              <TR><TD><A href="JavaScript:ManutencaoAcessos()">
+                  <DIV class=Buttonic2 style="WIDTH: 216px; HEIGHT: 19px" align=center>&nbsp;Manutenção de Acessos</DIV></A></TD></TR>
+              <TR><TD height=3>
+              <TR id=BtnConfig style="display:none">
+                <TD><A href="JavaScript:Config()">
+                  <DIV class=Buttonic style="WIDTH: 216px; HEIGHT: 19px" align=center>&nbsp;Configurações</DIV></A></TD></TR></TBODY>
+            </TABLE>
+            <BR>
+            <TABLE style="WIDTH: 162px; HEIGHT: 4px" cellSpacing=0 cellPadding=0 width="75%" align=center background="" border=0>
+              <TBODY>
+              <TR>
+                <TD>
+                  <DIV align=center><IMG alt="" src="../icons/logo_meio.gif"></DIV></TD></TR></TBODY>
+            </TABLE>
+            <SCRIPT FOR=window EVENT=onload>
+            //  if( 0 == 1 && 00000 == 82 ){
+            //      document.all.BtnAlteraSenha.style.display = 'none';
+            //  }
+                var aIP = document.location.href.split( "/" );
+                var strURL = "PP00100.exe?ppopcao=13&ipUNB=" + aIP[2];
+                document.all.iFrameNomeGeo.src = strURL;
+                document.all.Usuario.focus();
+                if ( "" != "" ){
+                  document.all.frmLogin.action = "";
+                }
+            </SCRIPT>
+            <TABLE cellSpacing=0 cellPadding=0 width="100%" border=0>
+              <TBODY>
+              <TR>
+                <TD>
+                  <DIV
+                  style="FONT-WEIGHT: bolder; FONT-SIZE: 16px; COLOR: black; FONT-STYLE: italic; FONT-FAMILY: Arial; LETTER-SPACING: 1px"
+                  align=right>&nbsp</DIV></TD></TR>
+              <TR>
+                <TD>
+                  <DIV style="FONT-WEIGHT: bolder; FONT-SIZE: 10px; COLOR: black; FONT-STYLE: italic; FONT-FAMILY: Arial; LETTER-SPACING: 1px" align=right></DIV></TD></TR>
+                  </TBODY>
+            </TABLE>
+            </BODY>
+                   <SCRIPT>
+                       var SessionID;
+                       for( var i=0; i < document.all.unidade.length; i++ ){
+                           if( document.all.unidade[i].value == "2210003" ){
+                               document.all.unidade.value = "2210003";
+                               break;
+                           }
+                       }
+                       if( 'N' == 'S'){
+                           document.all.BtnConfig.style.display = '';
+                       }
+                   </SCRIPT>
+                   <SCRIPT>
+                       function MontaSessionID(){
+                           var Rnd1 = Math.random();
+                           var con=["b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "q", "r", "s", "t", "v", "y", "x", "z", "w"];
+                           var num=["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+                           var vog=["a", "e", "i", "o", "u", "A", "E", "I", "O", "U", "C", "K", "I", "J", "K", "L"];
+                           var lcon = con.length;
+                           var lnum = num.length;
+                           var lvog = vog.length;
+                           var rcon1 = (Math.floor(Rnd1 * lcon));
+                           var rnum1 = (Math.floor(Rnd1 * lnum));
+                           var rvog1 = (Math.floor(Rnd1 * lvog));
+                           var Rnd2 = Math.random();
+                           var rcon2 = (Math.floor(Rnd2 * lcon));
+                           var rnum2 = (Math.floor(Rnd2 * lnum));
+                           var rvog2 = (Math.floor(Rnd2 * lvog));
+                           var senha = con[rcon1] + num[rnum1] + vog[rvog1] + con[rcon2] + num[rnum2] + vog[rvog2];
+                           var Rnd3= Math.random() + 0.2;
+                           var MyValue = parseInt("67891346" * Rnd3);
+                           SessionID = (senha + MyValue);
+                           document.all.SessionID.value = SessionID
+                           if(document.location.href.substring(0,16) == "http://127.0.0.1"){
+                               if(document.location.href.substring(16,17) == ":"){
+                                   animPath = document.location.href.substring(0,27)
+                               }else{
+                                   animPath = document.location.href.substring(0,24)
+                               }
+                               document.all.Animate.value = 0
+                               document.all.animpath.value = ""
+                           }
+                           if(document.all.Usuario.value.toUpperCase() == "IMPLANTACAO"){
+                               document.frmLogin.ppopcao.value = 11
+                               document.frmLogin.call.value = "PW999"
+                           }
+                           document.all.Usuario.disabled = false
+                       }
+                       function Config(){
+                           if(window.confirm( "Este processo desconecta TODOS os usuários, e não permite conexão até o fim da execução, continua?" ) == true){
+                               document.frmLogin.ppopcao.value = 11
+                               document.frmLogin.call.value = "PW999"
+                               document.frmLogin.submit()
+                           }
+                       }
+                   </SCRIPT>
+              </HTML>

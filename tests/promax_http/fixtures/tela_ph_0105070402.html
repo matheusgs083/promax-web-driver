@@ -1,0 +1,238 @@
+
+                          <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+                          <HTML>
+                              <head>
+                                  <META content="text/html charset=ISO-8859-1" http-equiv=Content-Type>
+                                  <script src="../scripts/jquery-1-7-2.js"></script>
+                                  <script src="../scripts/jqfuncoes.js"></script>
+                              </head>
+                          </HTML>
+                    <form name="formPadrao" id="formPadrao">
+                        <input type="hidden" name="SessionID"     id="SessionID"    value=w0Lb1a54659813>
+                        <input type="hidden" name="SubSessionID"  id="SubSessionID" value=h3oz0K28189131>
+                        <input type="hidden" name="opcao"         id="opcao"        value=00>
+                        <input type="hidden" name="ppopcao"       id="ppopcao"      >
+                        <input type="hidden" name="call"          id="call"         value=PH050094>
+                        <input type="hidden" name="callAux"       id="callAux">
+                        <input type="hidden" name="ajaxJson"      id="ajaxJson">
+                        <input type="hidden" name="callRetorno"   id="callRetorno">
+                        <input type="hidden" name="lnkInc"        id="lnkInc"       value=1>
+                        <input type="hidden" name="lnkAlt"        id="lnkAlt"       value=1>
+                        <input type="hidden" name="lnkExc"        id="lnkExc"       value=1>
+                        <input type="hidden" name="lnkCon"        id="lnkCon"       value=1>
+                        <input type="hidden" name="lnkEsp"        id="lnkEsp"       value=1>
+                    </form>
+               <head>
+                   <style text="text/css">html{overflow: hidden;}</style>
+                   <title>Relatório do Cliente +</title>
+                   <link href="../scripts/PY070000.css" rel="stylesheet" type="text/css">
+                   <link href="../scripts/PY080000.css" rel="stylesheet" type="text/css">
+                   <link href="../scripts/jquery-ui-1-8-18.css"  rel="stylesheet" type="text/css">
+                   <link href="../scripts/jquery-jstree.css" type="text/css" rel="stylesheet" />
+                   <link href="../scripts/jquery-confirm.css" type="text/css" rel="stylesheet" />
+                   <script type="text/javascript" src="../scripts/jquery-ui-1-8-18.js"></script>
+                   <script type="text/javascript" src="../scripts/jquery-hotkeys.js"></script>
+                   <script type="text/javascript" src="../scripts/jquery-jstree.js"></script>
+                   <script type="text/javascript" src="../scripts/jquery-confirm.js"></script>
+                   <script type="text/javascript" src="../scripts/jquery-auto-numeric.js"></script>
+                   <script type="text/javascript" src="../scripts/funcoesSiv.js"></script>
+                   <script type="text/javascript" src="../scripts/jquery-mask-money.js"></script>
+                   <script type="text/javascript" src="../scripts/jquery-mask-input.js"></script>
+               </head>
+               <body class="fundoSite">
+                       <div id="topo" class="w100">
+                           <div class="cabecalho" style="height: 50px;">
+                               <div class="left w05">
+                                   <img src="../icons/sivHelp.png" style="margin: -8px 10px; height:40px;" id="PY070000imgProcessando" style="cursor: pointer;" title="Ajuda" onclick="abrirAjuda()";>
+                               </div>
+                               <div class="left w84" style="overflow: hidden; margin-top: 03px;">
+                                   <span style="font-size: 150%; font-weight: bold;">01.05.07.04.02 -</span>
+                                   <span style="font-size: 150%; font-weight: bold;">Relatório do Cliente +</span>
+                               </div>
+                               <div class="left" style="margin-top: 05px; margin-right: 20px;">
+                                   <span style="font-size: 120%;">PH050094</span>
+                               </div>
+                               <div class="w100 scrollWrap" style="margin-top: 10px; margin-left: 30px;">
+                                   <input type="hidden" value="" id="unidadeMenuAnt" />
+                                   <input type="hidden" value="" name="unidadeMenu" id="unidadeMenu" />
+                                   <input type="hidden" value="" id="dsUnidadeMenu" />
+                                   <img src="../icons/sivSetaMenuUnidade.gif" style="cursor: pointer;" onClick="PY070000TelaUnidades();" />
+                                   <span style="margin-left: 5px; cursor: pointer;" id="unidadeMenu2" onClick="PY070000TelaUnidades();"></span>
+                                   <span style="margin-left: 650px; font-size: 100%;" id="idDtMovimento"> </span>
+                               </div>
+                           </div>
+                       </div>
+                   <div id="conteudo" class="w100">
+                       <input type="hidden" id="idModuloExecutado" />
+                   </div>
+               </body>
+               <script type="text/javascript">
+                   $(document).ready(function(){
+                       $("#unidadeMenu").val("2210003");
+                       $("#dsUnidadeMenu").val("PAU BRASIL - PATOS");
+                       $("#ipServidor").val("");
+                       $("#unidadeMenuAnt").val("2210003");
+                       $("#unidadeMenu2").text("221" + "." + "0003 - PAU BRASIL - PATOS");
+                       $('#PY070000imgProcessando').ajaxStart(function() { $(this).attr('src', '../icons/sivAjaxLoader.gif'); } ).ajaxStop(function() { $(this).attr('src', '../icons/sivHelp.png'); });
+                   });
+                   function abrirAjuda(){
+                       $("#idModuloExecutado").val();
+                       var arquivoPdf = '../html/PHelp_' +
+                                        '01' + '_' +
+                                        '05' + '_' +
+                                        '07' + '_' +
+                                        '04' + '_' +
+                                        '02' + '.pdf';
+
+                       var arquivoExiste = function(url, callback) {
+                           var http = new XMLHttpRequest();
+                           http.open('GET', url);
+                           http.onreadystatechange = function() {
+                               if(http.readyState == 4) {
+                                  callback(http.status != 404);
+                               }
+                           };
+                           http.send(null);
+                       }
+                       arquivoExiste(arquivoPdf, function(existe){
+                           if( existe ){
+                               var strParametros = "top=0,left=0,height=" + screen.availHeight + ",width=" + screen.availWidth + ",status=no,toolbar=no,menubar=no,location=no,resizable=yes,scrollbars=yes,channelmode=no";
+                               var winAjuda = window.open( arquivoPdf, "AjudaOnLine", strParametros );
+                               try{
+                                   winAjuda.focus();
+                               } catch(e){}
+                           } else {
+                               alert("Arquivo de ajuda não disponível [" + arquivoPdf + "]");
+                           }
+                       });
+                   }
+                   function AbrirPesquisa( href_pesquisa, rotina, top, left, width, height, aEntrada, aSaida, scrollbars, status, toolbar, menubar, location, resizable, multiFrame ){
+                       var strURL = "";
+                       var topo = 220;
+                       var esquerda = 166;
+                       var largura = 618;
+                       var altura = 260;
+                       var screenParametros = "";
+                       var ParametrosIN = "";
+                       var ParametrosOUT = "";
+                       var subSessionID = "";
+                       if( scrollbars != "yes" && scrollbars != "no" )
+                           scrollbars = "yes";
+                       if( status != "yes" && status != "no" )
+                           status = "no";
+                       if( toolbar != "yes" && toolbar != "no" )
+                           toolbar = "no";
+                       if( menubar != "yes" && menubar != "no" )
+                           menubar = "no";
+                       if( location != "yes" && location != "no" )
+                           location = "no";
+                       if( resizable != "yes" && resizable != "no" )
+                           resizable = "yes";
+                       screenParametros = "scrollbars=" + scrollbars + ", " +
+                                  "status=" + status + ", " +
+                                  "toolbar=" + toolbar + ", " +
+                                  "menubar=" + menubar + ", " +
+                                  "location=" + location + ", " +
+                                  "resizable=" + resizable;
+                       if( top > 0 )
+                           topo = top;
+                       if( left > 0 )
+                           esquerda = left;
+                       if( width > 0 )
+                           largura = width;
+                       if( height > 0 )
+                           altura = height;
+                       for( Count = 0; Count < aEntrada.length; Count++ ) {
+                           cTMP = Count + 1;
+                           ParametrosIN = ParametrosIN + "cE" + cTMP + "=" + aEntrada[Count] + "&";
+                       }
+                       for( Count = 0; Count < aSaida.length; Count++ ) {
+                           cTMP = Count + 1;
+                           ParametrosOUT = ParametrosOUT + "cS" + cTMP + "=" + aSaida[Count] + "&";
+                       }
+                       if( rotina.substring(0, 2) == "PH" ){
+                           try{
+                               subSessionID = $("#SubSessionID").val();
+                           }catch(e){
+                               subSessionID = MontaSessionJS();
+                           }
+                       }
+                       else{
+                           subSessionID = MontaSessionJS();
+                       }
+                       if( multiFrame != undefined && multiFrame.toUpperCase() == 'MULTI-FRAME' ){
+                           if( ( ParametrosIN + ParametrosOUT ).length > 500 ){
+                               alert('Excesso de parâmetros na chamada');
+                           }
+                           var textoReplace = ParametrosIN + ParametrosOUT + 'SubSessionID=' + subSessionID;
+                           strURL = href_pesquisa + '&call=' + rotina + '&parMultiFrame=' + textoReplace.replace(/&/g, '¤');
+                       }
+                       else {
+                           strURL = href_pesquisa + '&call=' + rotina + '&SubSessionID=' + subSessionID + "&" + ParametrosIN + ParametrosOUT;
+                       }
+                       try{
+                           var maxWin = aJanelas.length;
+                       }
+                       catch( e ){
+                           aJanelas = new Array();
+                       }
+                       aJanelas[aJanelas.length] = window.open( strURL, rotina, "top=" + topo + ", left=" + esquerda + ", width=" + largura + ", height=" + altura + ", " + screenParametros );
+                       aJanelas[aJanelas.length -1].focus();
+                       return false;
+                   }
+                   function abreJanelaNovoModelo( programa ){
+                       var strParametros = "top=0,left=0,height=670,width=1003,status=no,toolbar=no,menubar=no,location=no,resizable=yes,scrollbars=yes,channelmode=no";
+                       var strUrl = "../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&ppopcao=7&call=" + programa + "&SubSessionID=" + MontaSessionJS();
+                       return window.open( strUrl, null, strParametros );
+                   }
+               </script>
+               <div id="PY070000ListaUnidades" style="display: none">
+               </div>
+               <script type="text/javascript">
+                   function PY070000TelaUnidades(){
+                       var callAnt = $("#call").val();
+                       $("#call").val('PY080000');
+                       var funcaoRetorno = function(){
+                           var cdEmpresaCorp = $("#unidadeMenu").val().substr(0,3);
+                           var cdFilialCorp = $("#unidadeMenu").val().substr(3,4);
+                           $("#unidadeMenu2").text(cdEmpresaCorp + '.' + cdFilialCorp + ' - ' + $("#dsUnidadeMenu").val());
+                           if( $("#unidadeMenu").val() != $("#unidadeMenuAnt").val() ){
+                               $("#call").val(callAnt);
+                               trocaEmpresa($("#unidadeMenu").val());
+                               $("#unidadeMenuAnt").val($("#unidadeMenu").val());
+                           }
+                       }
+                       novoDialogBox( 'PY070049', 'PY070000ListaUnidades', '', 600, 'Unidades', 'usuario=', ['unidadeMenu', 'dsUnidadeMenu'], funcaoRetorno  );
+                   }
+                   function trocaEmpresa(strUnidade){
+                       var prgRotina = "01" + "05" + "07" + "04" + "02";
+                       $("#callRetorno").val('');
+                       $("#call").val(prgRotina);
+                       $('#ajaxJson').val("N");
+                       $("#opcao").val(0);
+                       $('#ppopcao').val(14);
+                       $('#SubSessionID').val(MontaSessionJS());
+                       $.ajax({
+                           type : "Post",
+                           url : "PP00100.exe",
+                           dataType: "html",
+                           contentType : 'application/x-www-form-urlencoded; charset=iso-8859-1',
+                           data : $('#formPadrao').serialize() + "&changeUNB=A&unidade=" + strUnidade + "&Usuario=F7367" + "&logUsuario=F7367",
+                           success : function(data) {
+                              $("#divBody").html(data);
+                              $("#callRetorno").val("");
+                              $("#opcao").val(1);
+                              execAjaxHtml( null, "conteudo" );
+                           }
+                       });
+                       $('#ajaxJson').val("S");
+                       $('#ppopcao').val(0);
+                       $("#unidadeMenu").val(strUnidade);
+                   }
+               </script>
+               <script>
+                   $(document).ready(function(){
+                       $('#opcao').val(1);
+                       execAjaxHtml( null, "conteudo", "" );
+                   });
+               </script>

@@ -1,0 +1,298 @@
+
+<html>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HEAD>
+<meta http-equiv="Expires" content="Mon, 01 Jan 1996 12:12:00 GMT">
+<meta http-equiv="Pragma" content="no-cache">
+<META content="text/html; charset=windows-1252" http-equiv=Content-Type>
+<HEAD> <TITLE></TITLE> </HEAD>
+<link rel="stylesheet" href="../scripts/acao.css" type="text/css"></link>
+<script src="../scripts/funcoes.js" language="JavaScript"></script>
+<script src="../scripts/funcoes.vbs" language="VbScript"></script>
+               <script FOR="document" EVENT="onhelp" Language="javaScript">
+                   MostraHelp( 'PW03064R', '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&ppopcao=6' )
+                   return false;
+               </script>
+               <script>
+                   var aJanelas = new Array();
+                   var relatorio = 0;
+               </script>
+               <script FOR="window" EVENT="onunload" Language="JavaScript">
+                   if( relatorio > 0 ){
+                       window.open( "../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=t8Kn6O51115868&ppopcao=10", "fim", "top=3000,left=0,height=40,width=200,status=no,toolbar=no,menubar=no,location=no,resizable=no,scrollbars=no,channelmode=no" );
+                   }
+                   for( var i=0; i < aJanelas.length; i++ ){
+                       aJanelas[i].close();
+                   }
+               </script>
+<BODY leftMargin=0 topMargin=0 marginheight="0" marginwidth="0">
+<FORM name=form1 method=post>
+<DIV id=divRotinaGenerico></DIV>
+<INPUT type=hidden name=SessionID    value=w0Lb1a54659813>
+<INPUT type=hidden name=SubSessionID value=t8Kn6O51115868>
+<input type=hidden name=opcao        value=00>
+<INPUT type=hidden name=ppopcao      value=00>
+<INPUT type=hidden name=call         value=PW03064R>
+                <table width=100% cellspacing=0 cellpadding=0 border=0>
+                   <tr>
+                      <td height=20 nowrap>
+                          <div id=imgWait><img src="../icons/Process.gif" border=0></img></div>
+                      </td>
+                   </tr>
+                </table>
+                <script>
+                    try{
+                        if( document.parentWindow.parent.document.title == '' ){
+                            document.parentWindow.parent.document.title = '';
+                        }
+                    }
+                    catch( e ){}
+                    try{
+                        document.parentWindow.parent.top_rotina.document.all.versaoprg.outerText = 'x';
+                    }
+                    catch( e ){}
+                </script>
+               <script>
+                         ExecucaoBackground = false;
+                  var btnCancelar = 1;
+                  function Visualizar(){
+                      if( !ValidaParRel() ){
+                          return false;
+                      }
+                      document.parentWindow.parent.top_rotina.document.all.unidade.disabled = true;
+                      AbreProgressBar(btnCancelar);
+                      document.form1.opcao.value = 1;
+                      document.form1.submit();
+                      return true;
+                  }
+                  function AbreProgressBar(Cancelar){
+                      if( Cancelar == undefined || Cancelar != "0" ){
+                          Cancelar = "1"; // Habilita cancelamento do processo
+                      }
+                      var strURL = '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=t8Kn6O51115868&ppopcao=6&opcaomenu=3&btnCancelar=' + Cancelar;
+                      ProgressBar = window.open( strURL, 't8Kn6O51115868' , "top=230, left=220, width=350, height=10, scrollbars=no, status=no, toolbar=no, menubar=no, location=no");
+                      ProgressBar.focus();
+                      return false;
+                  }
+                  function Confirmar(){
+                     if( !ValidaParRel() ){
+                         return false;
+                     }
+                     query="";
+                     var field = document.forms[0];
+                     for (i = 0; i < field.length; i++) {
+                          if ((field.elements[i].type == "text") ||
+                              (field.elements[i].type == "textarea") ||
+                              (field.elements[i].type == "checkbox") ||
+                              (field.elements[i].type == "radio") ||
+                              (field.elements[i].tagName == "SELECT")  ||
+                              (field.elements[i].type == "hidden" && field.elements[i].OcultoRotina == "1" )
+                             )
+                             {
+                              if ((field.elements[i].type == "radio") || (field.elements[i].type == "checkbox"))
+                                 {
+                                  if (field.elements[i].checked == true)
+                                     query = query + field.elements[i].name + "=" + field.elements[i].value + "&"
+                                 }
+                              else
+                                 {
+                                  query = query + field.elements[i].name + "=" + field.elements[i].value + "&"
+                                 }
+                             }
+                     }
+                     parent.window.returnValue = query;
+                     window.parent.parent.close();
+                  }
+               </script>
+               <script>
+                   function Habilita(){
+                       switch( document.all.opcaoRel.value ){
+                           case "1":
+                               document.all.linha.innerHTML = document.all.opcaoRel[ document.all.opcaoRel.selectedIndex ].text + "&nbsp;";
+                               document.all.cdMercadoriaInicial.value = '0';
+                               document.all.cdMercadoriaFinal.value = '9999999';
+                               break;
+                           case "2":
+                               document.all.linha.innerHTML = document.all.opcaoRel[ document.all.opcaoRel.selectedIndex ].text + "&nbsp;";
+                               document.all.cdMercadoriaInicial.value = '0';
+                               document.all.cdMercadoriaFinal.value = '999';
+                               return false;
+                               break;
+                           case "3":
+                               document.all.linha.innerHTML = document.all.opcaoRel[ document.all.opcaoRel.selectedIndex ].text + "&nbsp;";
+                               document.all.cdMercadoriaInicial.value = '0';
+                               document.all.cdMercadoriaFinal.value = '999';
+                               return false;
+                               break;
+                           default:
+                               document.all.linha.innerHTML = document.all.opcaoRel[ document.all.opcaoRel.selectedIndex ].text + "&nbsp;";
+                               document.all.cdMercadoriaInicial.value = '0';
+                               document.all.cdMercadoriaFinal.value = '9999999';
+                               break;
+                           }
+                   }
+                   function VerificaOpcao(opcaocheck){
+                       if(opcaocheck == 1 ){
+                            document.all.idDifConsolidaArmazem.checked = false;
+                       }
+                       else {
+                            document.all.idConsolida.checked = false;
+                       }
+                   }
+               </script>
+               <TABLE width="100%">
+               <TR><TD>
+                  <TABLE border=1 cellspacing=1 cellpadding=20 bordercolor=White bordercolordark=White bordercolorlight=DimGray class=WindowScreen rules=none width="100%">
+                  <TR><TD width=50%>
+                     <TABLE border=0 width=100% height=100%>
+                     <TR><TD>
+                        <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Opções&nbsp;</LABEL></LEGEND>
+                           <TABLE height=60px border=0 rules=none align=center cellspacing=1 cellpadding=2 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 5px 2px 7px">
+                               <TR>
+                                   <TD class=titulocampo>Classificação
+                                   <TD><SELECT tabIndex=1  class=combo name=opcaoRel obrigatorio=1 onkeyDown="DigitaCombo( this )" onChange="Habilita()">
+                                         <OPTION value="1">Item</OPTION>
+                                         <OPTION value="2">Grupo</OPTION>
+                                         <OPTION value="3">Embalagem</OPTION>
+                                       </SELECT>
+                            </TABLE>
+                        </FIELDSET>
+                     <TR><TD height=10>
+                     <TR><TD>
+                        <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Preferências&nbsp;</LABEL></LEGEND>
+                           <TABLE border=0 width=95% rules=none align=center cellspacing=1 cellpadding=2 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 5px 2px 7px">
+                              <TR>
+                                  <TD class=titulocampo2 colspan=3>
+                                     <INPUT tabIndex=2 class='checkbox' type=checkbox name=idConsolida value="S"  onClick="VerificaOpcao(1);">&nbsp;Consolida Armazéns
+                              <TR>
+                                  <TD class=titulocampo2 colspan=3>
+                                     <INPUT tabIndex=3 class='checkbox' type=checkbox name=idSomenteCarregado value="S" >&nbsp;Deduzir Somente &quot;Carregado&quot; do &quot;Disponível&quot;
+                              <TR>
+                                  <TD class=titulocampo2 colspan=3>
+                                     <INPUT tabIndex=4 class='checkbox' type=checkbox name=idDifConsolidaArmazem value="S" onClick="VerificaOpcao(2);">&nbsp;Diferença Total Consolidada por Armazém/Item
+                              <TR>
+                                 <TD colspan=2>
+                                    <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Listar&nbsp;</LABEL></LEGEND>
+                                       <TABLE border=0>
+                                        <TR>
+                                           <TD class=titulocampo><div align=left><INPUT tabIndex=5 class=checkbox type=checkbox name=idListarProdutos value="S";">&nbsp;Produtos</div>
+                                        <TR>
+                                           <TD class=titulocampo><div align=left><INPUT tabIndex=5 class=checkbox type=checkbox name=idListarVasGarraf value="S";">&nbsp;Vasilhames/Garrafeiras</div>
+                                       </TABLE>
+                                    </FIELDSET>
+                                 <TD>
+                                    <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Data&nbsp;</LABEL></LEGEND>
+                                       <TABLE border=0 width=95% align=center cellspacing=1 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 3px 2px 4px">
+                                          <TR>
+                                             <TD class='titulocampo'><DIV align=left style="margin-left: 25px;"><INPUT tabIndex=6 class='radio' type=radio name=tpData value="F">&nbsp;Fiscal</DIV></TD>
+                                          <TR>
+                                             <TD class='titulocampo'><DIV align=left style="margin-left: 25px;"><INPUT tabIndex=6 class='radio' type=radio name=tpData value="E" checked>&nbsp;Entrega</DIV></TD>
+                                          </TR>
+                                       </TABLE>
+                                    </FIELDSET>
+                                 </TD>
+                              <TR>
+                            </TABLE>
+                        </FIELDSET>
+                  </TABLE>
+                  <TD>
+                     <TABLE border=0 width=100% height=100%>
+                     <TR><TD nowrap valign=top height="40%" width=40%>
+                        <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Seleções&nbsp;</LABEL></LEGEND>
+                           <TABLE valign=center border=0 rules=none align=center cellspacing=1 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 31px 31px 31px">
+                              <TR>
+                                 <TD>&nbsp;</TD>
+                                 <TD class=titulocampo><div align=center>Inicial</div></TD>
+                                 <TD class=titulocampo><div align=center>Final</div></TD>
+                              <TR>
+                                 <TD width=80 class=titulocampo> Período&nbsp;
+                                 <TD><INPUT tabIndex=07 class='campo' name=periodoInicial size=8 maxlength=10 onkeypress="return SomenteNumeros( '/' )" onBlur="FormataCampo( this, '99/99/9999' );" obrigatorio=1 data=1>&nbsp;
+                                 <TD><INPUT tabIndex=08 class='campo' name=periodoFinal size=8 maxlength=10 onkeypress="return SomenteNumeros( '/' )" onBlur="FormataCampo( this, '99/99/9999' );" obrigatorio=1 data=1>
+                              <TR>
+                                 <TD class='titulocampo' id=linha>&nbsp;&nbsp;
+                                 <TD><INPUT tabIndex=09 class='campo' name=cdMercadoriaInicial size=8 maxlength=7 onkeypress="return SomenteNumeros()">
+                                 <TD><INPUT tabIndex=10 class='campo' name=cdMercadoriaFinal size=8 maxlength=7 onkeypress="return SomenteNumeros()" obrigatorio=1>
+                              <TR>
+                                 <TD class=titulocampo> Armazém&nbsp;
+                                 <TD><INPUT tabIndex=11 class='campo' name=cdArmazemInicial size=8 maxlength=2 onkeypress="return SomenteNumeros()">&nbsp;
+                                 <TD><INPUT tabIndex=12 class='campo' name=cdArmazemFinal size=8 maxlength=2 onkeypress="return SomenteNumeros()" obrigatorio=1>
+                              <TR>
+                                 <TD class=titulocampo> Depósito&nbsp;
+                                 <TD><INPUT tabIndex=13 class='campo' name=cdDepositoInicial size=8 maxlength=2 onkeypress="return SomenteNumeros()">&nbsp;
+                                 <TD><INPUT tabIndex=14 class='campo' name=cdDepositoFinal size=8 maxlength=2 onkeypress="return SomenteNumeros()" obrigatorio=1>
+                              <TR>
+                                 <TD height=90px colspan=3>&nbsp;</TD>
+                           </TABLE>
+                        </FIELDSET>
+               </TABLE>
+               </TABLE>
+             <TABLE width=100%>
+               <TR>
+                    <TD width=100%>
+                    <TD nowrap><BUTTON name=BotVisualizar AccessKey="V" tabIndex=99 onclick="return Visualizar()" class=botao title="Visualizar Impressão"><LABEL><U>V</U>isualizar</LABEL></BUTTON>
+                    <TD><DIV id=DivBtReservado></DIV>
+                               <input type=hidden name=GeraExcel value=1>
+                </TABLE>&nbsp;
+               <script>
+                   document.all.linha.innerHTML = document.all.opcaoRel[ document.all.opcaoRel.selectedIndex ].text + "&nbsp;";
+                   document.all.periodoInicial.value = "17" + "/" + "11" + "/" + "2026";
+                   document.all.periodoFinal.value = "17" + "/" + "11" + "/" + "2026";
+                   document.all.cdMercadoriaInicial.value = "0";
+                   document.all.cdMercadoriaFinal.value = "9999999";
+                   document.all.cdArmazemInicial.value = "0";
+                   document.all.cdArmazemFinal.value = "99";
+                   document.all.cdDepositoInicial.value = "0";
+                   document.all.cdDepositoFinal.value = "99";
+                   document.all.idListarProdutos.checked = true;
+                   document.all.idListarVasGarraf.checked = true;
+                   if( "R" != "R" || "S" != "S"){
+                       document.all.idListarProdutos.disabled = true;
+                       document.all.idListarVasGarraf.disabled = true;
+                   }
+                   if( "R" != "R" ){
+                       document.all.tpData[0].disabled = true;
+                       document.all.tpData[1].disabled = true;
+                   }
+                   document.all.opcaoRel.focus();
+               </script>
+            <script>
+                  function ValidaParRel(){
+                     if( !ValidaCampos() ){
+                         return false;
+                     }
+                     if (DataMaior(document.all.periodoInicial.value, document.all.periodoFinal.value)){
+                         alert ('Período inicial maior que final');
+                         document.all.periodoInicial.select();
+                         document.all.periodoInicial.focus();
+                         return false;
+                     }
+                     if( !ComparaValor( 'cdMercadoriaInicial', 'cdMercadoriaFinal', 'Item' ) ){
+                         return false;
+                     }
+                     if( !ComparaValor( 'cdArmazemInicial', 'cdArmazemFinal', 'Armazem' ) ){
+                         return false;
+                     }
+                     if( !ComparaValor( 'cdDepositoInicial', 'cdDepositoFinal', 'Depósito' ) ){
+                         return false;
+                     }
+                     return true;
+                  }
+            </script>
+                    <script>
+                        oOption = document.createElement( "OPTION" );
+                        oOption.value = '4';
+                        oOption.text = "Ordem de Carga";
+                        document.parentWindow.parent.rotina.document.all ( "opcaoRel" ).add( oOption );
+                        oOption = null;
+                    </script>
+               <script>
+                   if( document.all.imgWait != null ){
+                       document.all.imgWait.style.display = 'none';
+                   }
+                   try{
+                       if( 'S' == 'S' ){
+                           document.parentWindow.parent.top_rotina.document.all.unidade.disabled = false;
+                       }
+                   }
+                   catch( e ){}
+               </script>
