@@ -240,7 +240,14 @@ def _campos_titulos_por_data(campo_tipo: str, opcao_rel, tipo_data, data_inicial
     tipo = str(tipo_data).strip().upper()
     if tipo not in {"C", "M"}:
         raise ValueError(f"Tipo de data invalido: {tipo_data} (use C=Contabil ou M=Movimento)")
-    return {"opcaoRel": str(opcao_rel).zfill(2), campo_tipo: tipo, "iniDat": data_inicial, "fimDat": data_final}
+    return {
+        "opcaoRel": str(opcao_rel).zfill(2),
+        campo_tipo: tipo,
+        "iniDat": data_inicial,
+        "fimDat": data_final,
+        # ValidaParRel() zera a fila antes do submit; com 1 o relatorio vai para a fila de impressao.
+        "filaimpressao": "0",
+    }
 
 
 def campos_140506(*, opcao_rel: str, tipo_data: str, data_inicial: str, data_final: str) -> dict[str, str | None]:
@@ -275,4 +282,85 @@ def campos_120606(
         if chave not in TITULOS_120606:
             raise ValueError(f"Tipo de titulo desconhecido na 12.06.06: {chave}")
         campos[TITULOS_120606[chave]] = "S" if marcado else None
+    return campos
+
+
+# 05.13 (PW02009R) -- Analise de Vendas. Replica Habilita() da classificacao,
+# DesabilitaCampos() de "Todos" e HabilitaHectolitro() do radio volumeFin.
+_CLASSIFICACOES_0513 = {str(n) for n in range(1, 15)}
+
+
+def campos_0513(
+    *,
+    opcao_rel: str,
+    volume_fin: str,
+    tp_equipe: str,
+    mes_ano_inicial: str,
+    mes_ano_final: str,
+    quantos_clientes: str,
+) -> dict[str, str | None]:
+    opcao = str(int(opcao_rel))
+    if opcao not in _CLASSIFICACOES_0513:
+        raise ValueError(f"Classificacao invalida para a 05.13: {opcao_rel}")
+    if volume_fin not in {"V", "F"} or tp_equipe not in {"A", "E"}:
+        raise ValueError("volume_fin deve ser V/F e tp_equipe A/E")
+    campos: dict[str, str | None] = {
+        "OpcaoRel": opcao,
+        # Habilita(): faixas voltam a 0..9999 e o tipo de perfil sai desmarcado.
+        "codigoInicial1": "0",
+        "codigoFinal1": "9999",
+        "codigoInicial2": "0",
+        "codigoFinal2": "9999",
+        "selecionarTipoPerfil": None,
+        "tipoPerfil": None,  # desabilitado por HabilitaEscolheTipoPerfil(); o navegador nao envia
+        # Situacao "Todos" desmarca e desabilita as situacoes individuais.
+        "Todos": "G",
+        **{n: None for n in ("Ativo", "Bloqueado", "Inativo", "Temporario", "Duplicado", "Excluido")},
+        "volumeFin": volume_fin,
+        "tpEquipe": tp_equipe,
+        "mesAnoInicial": mes_ano_inicial,
+        "mesAnoFinal": mes_ano_final,
+        "quantosClientes": str(quantos_clientes),
+        "percentualVenda": "0,00",
+        "tpConsolidacao": None,
+    }
+    # HabilitaHectolitro(): hectolitro so existe em Volume.
+    campos["hectolitro"] = "S" if volume_fin == "V" else None
+    return campos
+
+
+# 12.06.16 (PW04119R) -- a tela nao preenche faixas; o robo Edge tambem as deixa vazias.
+def campos_120616(*, opcao_rel: str, mes_ano: str) -> dict[str, str | None]:
+    opcao = str(int(opcao_rel))
+    if opcao not in {"1", "2", "3", "4", "5"}:
+        raise ValueError(f"Classificacao invalida para a 12.06.16: {opcao_rel}")
+    return {"opcaoRel": opcao, "mesAno": mes_ano, "filaimpressao": "0"}
+
+
+# 12.06.01 (PW04105R) -- Titulos em aberto. Habilita() marca "Pendentes Royalties"
+# nas classificacoes 01/02; as demais faixas vem do script de carga.
+def campos_120601(
+    *,
+    opcao_rel: str,
+    vencimento_inicial: str,
+    vencimento_final: str,
+    especie_inicial: int | str | None = None,
+    especie_final: int | str | None = None,
+    notas_tit_nao_atualizados: bool = True,
+) -> dict[str, str | None]:
+    opcao = str(opcao_rel).zfill(2)
+    campos: dict[str, str | None] = {
+        "opcaoRel": opcao,
+        "idPendRoyalties": "S" if opcao in {"01", "02"} else None,
+        "idNotasTitNaoAtu": "S" if notas_tit_nao_atualizados else None,
+        "iniVencimento": vencimento_inicial,
+        "fimVencimento": vencimento_final,
+        # Combos de dia de visita ficam desabilitados sem "diasVisita"; o navegador nao envia.
+        "diaVisitaInicial": None,
+        "diaVisitaFinal": None,
+    }
+    if especie_inicial is not None:
+        campos["iniEspecie"] = str(especie_inicial)
+    if especie_final is not None:
+        campos["fimEspecie"] = str(especie_final)
     return campos

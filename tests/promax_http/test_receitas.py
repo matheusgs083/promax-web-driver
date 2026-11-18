@@ -137,3 +137,38 @@ def test_120606_so_altera_os_titulos_informados():
 
     assert (campos["tpData"], campos["idTitulosNormais"]) == ("C", "S")
     assert "idTitulosRefugo" not in campos
+
+
+def test_140506_e_120606_tiram_o_relatorio_da_fila_de_impressao():
+    from promax_http.receitas import campos_120606, campos_140506
+
+    args = dict(opcao_rel="01", tipo_data="C", data_inicial="01/11/2026", data_final="16/11/2026")
+
+    assert campos_140506(**args)["filaimpressao"] == "0"
+    assert campos_120606(**args)["filaimpressao"] == "0"
+
+
+def test_0513_financeiro_tira_hectolitro_e_usa_todas_as_situacoes():
+    from promax_http.receitas import campos_0513
+
+    campos = campos_0513(opcao_rel="12", volume_fin="F", tp_equipe="A", mes_ano_inicial="11/2026", mes_ano_final="11/2026", quantos_clientes="99999")
+
+    assert (campos["OpcaoRel"], campos["Todos"], campos["volumeFin"]) == ("12", "G", "F")
+    assert campos["hectolitro"] is None and campos["Ativo"] is None
+
+
+def test_0513_recusa_classificacao_inexistente():
+    import pytest
+    from promax_http.receitas import campos_0513
+
+    with pytest.raises(ValueError):
+        campos_0513(opcao_rel="0", volume_fin="F", tp_equipe="A", mes_ano_inicial="11/2026", mes_ano_final="11/2026", quantos_clientes="1")
+
+
+def test_120601_pendentes_royalties_so_nas_classificacoes_01_e_02():
+    from promax_http.receitas import campos_120601
+
+    args = dict(vencimento_inicial="01/10/2026", vencimento_final="17/11/2026")
+
+    assert campos_120601(opcao_rel="01", **args)["idPendRoyalties"] == "S"
+    assert campos_120601(opcao_rel="05", **args)["idPendRoyalties"] is None

@@ -395,3 +395,40 @@ def test_140506_envia_tipo_de_data_e_periodo(cliente, promax, tmp_path):
 
     assert (enviado["call"], enviado["preferencias1"], enviado["fimDat"]) == ("PW04235R", "C", "16/11/2026")
     assert (enviado["iniEmi"], enviado["fimEmi"]) == ("00/00/0000", "99/99/9999")
+
+
+def test_0513_envia_classificacao_situacao_e_sem_campos_desabilitados(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_0513
+
+    enviado = _visualizar_com(
+        cliente, promax, tmp_path, "rotina_0513.html",
+        campos_0513(opcao_rel="12", volume_fin="F", tp_equipe="A", mes_ano_inicial="11/2026", mes_ano_final="11/2026", quantos_clientes="99999"),
+    )
+
+    assert (enviado["call"], enviado["OpcaoRel"], enviado["Todos"], enviado["quantosClientes"]) == ("PW02009R", "12", "G", "99999")
+    assert (enviado["marca"], enviado["produto"], enviado["percentualVenda"]) == ("9999", "9999999", "0,00")
+    for ausente in ("hectolitro", "tipoPerfil", "Ativo", "selecionarTipoPerfil"):
+        assert ausente not in enviado, ausente
+
+
+def test_120616_envia_mes_e_fila_zerada(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_120616
+
+    enviado = _visualizar_com(cliente, promax, tmp_path, "rotina_120616.html", campos_120616(opcao_rel="3", mes_ano="11/2026"))
+
+    assert (enviado["call"], enviado["opcaoRel"], enviado["mesAno"], enviado["filaimpressao"]) == ("PW04119R", "3", "11/2026", "0")
+
+
+def test_120601_envia_vencimento_especie_e_so_titulos_atualizados(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_120601
+
+    enviado = _visualizar_com(
+        cliente, promax, tmp_path, "rotina_120601.html",
+        campos_120601(opcao_rel="01", vencimento_inicial="01/10/2026", vencimento_final="17/11/2026",
+                      especie_inicial=4, especie_final=4, notas_tit_nao_atualizados=False),
+    )
+
+    assert (enviado["call"], enviado["iniVencimento"], enviado["fimEspecie"]) == ("PW04105R", "01/10/2026", "4")
+    assert (enviado["idNotasTitAtu"], enviado["idPendRoyalties"], enviado["titulo"]) == ("S", "S", "T")
+    assert "idNotasTitNaoAtu" not in enviado and "diaVisitaInicial" not in enviado
+    assert (enviado["iniLiberacao"], enviado["fimLiberacao"]) == ("00/00/0000", "99/99/9999")

@@ -29,7 +29,10 @@ from promax_http.receitas import (
     campos_020502,
     campos_030237,
     campos_0512,
+    campos_0513,
+    campos_120601,
     campos_120606,
+    campos_120616,
     campos_140501,
     campos_140506,
     campos_150501,
@@ -867,7 +870,60 @@ def main(
             unidades_alvo,
         )
 
+    def tarefa_0513_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="0513",
+                tracker_name="Rotina 0513",
+                subpasta="",
+                nome_arquivo=f"{primeiro_dia_mes_atual_traco} (nUnidade) nomeUnidade0513",
+                campos=campos_0513(
+                    opcao_rel="12",
+                    volume_fin="F",
+                    tp_equipe="A",
+                    mes_ano_inicial=mes_ano_atual,
+                    mes_ano_final=mes_ano_atual,
+                    quantos_clientes="99999",
+                ),
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_120616_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="120616",
+                tracker_name="Rotina 120616",
+                subpasta="",
+                nome_arquivo=f"{primeiro_dia_mes_atual_traco} (nUnidade) 120616_nomeUnidade120616",
+                campos=campos_120616(opcao_rel="3", mes_ano=mes_ano_atual),
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_120601_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="120601",
+                tracker_name="Rotina 120601",
+                subpasta="",
+                nome_arquivo=f"{primeiro_dia_mes_atual_traco} 120601_nomeUnidade120601",
+                campos=campos_120601(
+                    opcao_rel="01",
+                    vencimento_inicial=report_start_text or primeiro_dia_mes_passado,
+                    vencimento_final=report_end_text or data_ontem_formatada,
+                    especie_inicial=4,
+                    especie_final=4,
+                    notas_tit_nao_atualizados=False,
+                ),
+            ),
+            unidades_alvo,
+        )
+
     rotinas_http = {
+        "0513": tarefa_0513_http,
+        "120616": tarefa_120616_http,
+        "120601": tarefa_120601_http,
         "030237_ESTOQUE": tarefa_030237_estoque_http,
         "140501": tarefa_140501_http,
         "140506": tarefa_140506_http,

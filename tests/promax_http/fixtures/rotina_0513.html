@@ -1,0 +1,1304 @@
+
+<html>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HEAD>
+<meta http-equiv="Expires" content="Mon, 01 Jan 1996 12:12:00 GMT">
+<meta http-equiv="Pragma" content="no-cache">
+<META content="text/html; charset=windows-1252" http-equiv=Content-Type>
+<HEAD> <TITLE></TITLE> </HEAD>
+<link rel="stylesheet" href="../scripts/acao.css" type="text/css"></link>
+<script src="../scripts/funcoes.js" language="JavaScript"></script>
+<script src="../scripts/funcoes.vbs" language="VbScript"></script>
+               <script FOR="document" EVENT="onhelp" Language="javaScript">
+                   MostraHelp( 'PW02009R', '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&ppopcao=6' )
+                   return false;
+               </script>
+               <script>
+                   var aJanelas = new Array();
+                   var relatorio = 0;
+               </script>
+               <script FOR="window" EVENT="onunload" Language="JavaScript">
+                   if( relatorio > 0 ){
+                       window.open( "../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=s8Ks8K36917797&ppopcao=10", "fim", "top=3000,left=0,height=40,width=200,status=no,toolbar=no,menubar=no,location=no,resizable=no,scrollbars=no,channelmode=no" );
+                   }
+                   for( var i=0; i < aJanelas.length; i++ ){
+                       aJanelas[i].close();
+                   }
+               </script>
+<BODY leftMargin=0 topMargin=0 marginheight="0" marginwidth="0">
+<FORM name=form1 method=post>
+<DIV id=divRotinaGenerico></DIV>
+<INPUT type=hidden name=SessionID    value=w0Lb1a54659813>
+<INPUT type=hidden name=SubSessionID value=s8Ks8K36917797>
+<input type=hidden name=opcao        value=00>
+<INPUT type=hidden name=ppopcao      value=00>
+<INPUT type=hidden name=call         value=PW02009R>
+                <table width=100% cellspacing=0 cellpadding=0 border=0>
+                   <tr>
+                      <td height=20 nowrap>
+                          <div id=imgWait><img src="../icons/Process.gif" border=0></img></div>
+                      </td>
+                   </tr>
+                </table>
+                <script>
+                    try{
+                        if( document.parentWindow.parent.document.title == '' ){
+                            document.parentWindow.parent.document.title = '';
+                        }
+                    }
+                    catch( e ){}
+                    try{
+                        document.parentWindow.parent.top_rotina.document.all.versaoprg.outerText = 'e';
+                    }
+                    catch( e ){}
+                </script>
+               <script>
+                         ExecucaoBackground = false;
+                  var btnCancelar = 1;
+                  function Visualizar(){
+                      if( !ValidaParRel() ){
+                          return false;
+                      }
+                      document.parentWindow.parent.top_rotina.document.all.unidade.disabled = true;
+                      AbreProgressBar(btnCancelar);
+                      document.form1.opcao.value = 1;
+                      document.form1.submit();
+                      return true;
+                  }
+                  function AbreProgressBar(Cancelar){
+                      if( Cancelar == undefined || Cancelar != "0" ){
+                          Cancelar = "1"; // Habilita cancelamento do processo
+                      }
+                      var strURL = '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=s8Ks8K36917797&ppopcao=6&opcaomenu=3&btnCancelar=' + Cancelar;
+                      ProgressBar = window.open( strURL, 's8Ks8K36917797' , "top=230, left=220, width=350, height=10, scrollbars=no, status=no, toolbar=no, menubar=no, location=no");
+                      ProgressBar.focus();
+                      return false;
+                  }
+                  function Confirmar(){
+                     if( !ValidaParRel() ){
+                         return false;
+                     }
+                     query="";
+                     var field = document.forms[0];
+                     for (i = 0; i < field.length; i++) {
+                          if ((field.elements[i].type == "text") ||
+                              (field.elements[i].type == "textarea") ||
+                              (field.elements[i].type == "checkbox") ||
+                              (field.elements[i].type == "radio") ||
+                              (field.elements[i].tagName == "SELECT")  ||
+                              (field.elements[i].type == "hidden" && field.elements[i].OcultoRotina == "1" )
+                             )
+                             {
+                              if ((field.elements[i].type == "radio") || (field.elements[i].type == "checkbox"))
+                                 {
+                                  if (field.elements[i].checked == true)
+                                     query = query + field.elements[i].name + "=" + field.elements[i].value + "&"
+                                 }
+                              else
+                                 {
+                                  query = query + field.elements[i].name + "=" + field.elements[i].value + "&"
+                                 }
+                             }
+                     }
+                     parent.window.returnValue = query;
+                     window.parent.parent.close();
+                  }
+               </script>
+                <script>
+                   function ValidaOpcaoRel(){
+                       if( document.all.OpcaoRel.value == 0 ) {
+                           alert('Escolha uma Opção');
+                           document.all.OpcaoRel.focus();
+                           return false;
+                       }
+                       var mesAnoIni = parseInt( ( '' + document.all.mesAnoInicial.value.substr(3, 4) + document.all.mesAnoInicial.value.substr(0, 2) ), 10 );
+                       var mesAnoFim = parseInt( ( '' + document.all.mesAnoFinal.value.substr(3, 4) + document.all.mesAnoFinal.value.substr(0, 2) ), 10 );
+                      return true;
+                   }
+                   function DesabilitaCampos(){
+                      if   (document.all.Todos.checked ){
+                           document.all.Ativo.checked = false;
+                           document.all.Bloqueado.checked = false;
+                           document.all.Inativo.checked = false;
+                           document.all.Temporario.checked = false;
+                           document.all.Excluido.checked = false;
+                           document.all.Duplicado.checked = false;
+                           document.all.Ativo.disabled = true;
+                           document.all.Bloqueado.disabled = true;
+                           document.all.Inativo.disabled = true;
+                           document.all.Temporario.disabled = true;
+                           document.all.Excluido.disabled = true;
+                           document.all.Duplicado.disabled = true;
+                      }
+                      else {
+                           document.all.Ativo.disabled = false;
+                           document.all.Bloqueado.disabled = false;
+                           document.all.Inativo.disabled = false;
+                           document.all.Temporario.disabled = false;
+                           document.all.Excluido.disabled = false;
+                           document.all.Duplicado.disabled = false;
+                      }
+                   }
+                   function AdicionaOption( num ){
+                     if( event.keyCode == 13 || num == 1 ){
+                         oOption = document.createElement( "OPTION" );
+                         oOption.value = document.all.tipoMarca.value;
+                         oOption.text = document.all.tipoMarca.value;
+                         document.all.Selecionados.add( oOption );
+                         oOption = null;
+                         document.all.tipoMarca.selectedIndex = 0;
+                     }
+                   }
+                   function HabilitaEscolheTipoMarca(){
+                      document.all.tipoMarca.selectedIndex = 0;
+                      if ( document.all.selecionarTipomarca.checked ) {
+                         document.all.tipoMarca.disabled = false;
+                         document.all.Selecionados.disabled = false;
+                         document.all.Selecionados.disabled = false;
+                         for ( i = 0; i < 6; i++ ){
+                             document.all.Selecionados.remove(0);
+                         }
+                         document.all.embalagem.disabled = false;
+                         document.all.embalagem.className = 'campo';
+                         document.all.embalagem.value = 999;
+                         document.all.produto.disabled = true;
+                         document.all.produto.className = 'clsDisabled';
+                         document.all.produto.value = 9999999;
+                      }
+                      else {
+                         document.all.tipoMarca.disabled = true;
+                         document.all.Selecionados.disabled = true;
+                         for ( i = 0; i < 6; i++ ){
+                             document.all.Selecionados.remove(0);
+                         }
+                         document.all.Selecionados.disabled = true;
+                         document.all.embalagem.value = 999;
+                         document.all.embalagem.disabled =  true;
+                         document.all.embalagem.className = 'clsDisabled';
+                         document.all.produto.value = 9999999;
+                         document.all.produto.disabled = true;
+                         document.all.produto.className = 'clsDisabled';
+                         oOption = document.createElement( "OPTION" );
+                         oOption.text = "Todos";
+                         oOption.value = "0";
+                         document.all.Selecionados.add( oOption );
+                      }
+                   }
+                   function AdicionoOption( num ){
+                     if( event.keyCode == 13 || num == 1 ){
+                         oOption = document.createElement( "OPTION" );
+                         oOption.value = document.all.tipoPerfil.value;
+                         oOption.text = document.all.tipoPerfil.value;
+                         document.all.SelecaoPerfil.add( oOption );
+                         oOption = null;
+                         document.all.tipoPerfil.selectedIndex = 0;
+                     }
+                   }
+                   function HabilitaEscolheTipoPerfil(){
+                      document.all.tipoPerfil.selectedIndex = 0;
+                      if ( document.all.selecionarTipoPerfil.checked ) {
+                         document.all.tipoPerfil.disabled = false;
+                         document.all.SelecaoPerfil.disabled = false;
+                         document.all.SelecaoPerfil.disabled = false;
+                         for ( i = 0; i < 6; i++ ){
+                             document.all.SelecaoPerfil.remove(0);
+                         }
+                      }
+                      else {
+                         document.all.tipoPerfil.disabled = true;
+                         document.all.SelecaoPerfil.disabled = true;
+                         for ( i = 0; i < 6; i++ ){
+                             document.all.SelecaoPerfil.remove(0);
+                         }
+                         document.all.SelecaoPerfil.disabled = true;
+                         oOption = document.createElement( "OPTION" );
+                         oOption.text = "Nenhum";
+                         oOption.value = "0";
+                         document.all.SelecaoPerfil.add( oOption );
+                      }
+                   }
+                   function Habilita(){
+                      ControleConsolidacao();
+                      document.all.selecionarTipoPerfil.checked = false;
+                      HabilitaEscolheTipoPerfil();
+                      document.all.selecionarTipoPerfil.disabled = true;
+                      document.all.Controle1.value = "";
+                      document.all.Controle4.value = "";
+                      if   (document.all.OpcaoRel.value == 0){
+                            document.all.nome1.innerHTML = " ";
+                            document.all.nome2.innerHTML = " ";
+                            document.all.codigoInicial1.value = 0000;
+                            document.all.codigoFinal1.value = 9999;
+                            document.all.codigoInicial2.value = 0000;
+                            document.all.codigoFinal2.value = 9999;
+                            document.all.codigoInicial1.disabled = true;
+                            document.all.codigoInicial1.className = 'clsDisabled';
+                            document.all.codigoFinal1.disabled = true;
+                            document.all.codigoFinal1.className = 'clsDisabled';
+                            document.all.codigoInicial2.disabled = true;
+                            document.all.codigoInicial2.className = 'clsDisabled';
+                            document.all.codigoFinal2.disabled = true;
+                            document.all.codigoFinal2.className = 'clsDisabled';
+                            return true;
+                      }
+                      if   (document.all.OpcaoRel.value == 1){
+                            document.all.nome1.innerHTML = "Área";
+                            document.all.nome2.innerHTML = " ";
+                            document.all.codigoInicial1.disabled = false;
+                            document.all.codigoInicial1.className = 'campo';
+                            document.all.codigoFinal1.disabled = false;
+                            document.all.codigoFinal1.className = 'campo';
+                            document.all.codigoInicial1.value = 0000;
+                            document.all.codigoFinal1.value = 9999;
+                            document.all.codigoInicial2.value = 0000;
+                            document.all.codigoFinal2.value = 9999;
+                            document.all.codigoInicial2.disabled = true;
+                            document.all.codigoInicial2.className = 'clsDisabled';
+                            document.all.codigoFinal2.disabled = true;
+                            document.all.codigoFinal2.className = 'clsDisabled';
+                            document.all.selecionarTipoPerfil.disabled = false;
+                            VerificaMarcPerfil();
+                            return true;
+                      }
+                      if   (document.all.OpcaoRel.value == 2){
+                            document.all.nome1.innerHTML = "Setor";
+                            document.all.nome2.innerHTML = " ";
+                            document.all.codigoInicial1.disabled = false;
+                            document.all.codigoInicial1.className = 'campo';
+                            document.all.codigoFinal1.disabled = false;
+                            document.all.codigoFinal1.className = 'campo';
+                            document.all.codigoInicial1.value = 0000;
+                            document.all.codigoFinal1.value = 9999;
+                            document.all.codigoInicial2.value = 0000;
+                            document.all.codigoFinal2.value = 9999;
+                            document.all.codigoInicial2.disabled = true;
+                            document.all.codigoInicial2.className = 'clsDisabled';
+                            document.all.codigoFinal2.disabled = true;
+                            document.all.codigoFinal2.className = 'clsDisabled';
+                            return true;
+                      }
+                      if   (document.all.OpcaoRel.value == 3){
+                            document.all.nome1.innerHTML = "Categoria";
+                            document.all.nome2.innerHTML = " ";
+                            document.all.codigoInicial1.disabled = false;
+                            document.all.codigoInicial1.className = 'campo';
+                            document.all.codigoFinal1.disabled = false;
+                            document.all.codigoFinal1.className = 'campo';
+                            document.all.codigoInicial1.value = 0000;
+                            document.all.codigoFinal1.value = 9999;
+                            document.all.codigoInicial2.value = 0000;
+                            document.all.codigoFinal2.value = 9999;
+                            document.all.codigoInicial2.disabled = true;
+                            document.all.codigoInicial2.className = 'clsDisabled';
+                            document.all.codigoFinal2.disabled = true;
+                            document.all.codigoFinal2.className = 'clsDisabled';
+                            return true;
+                      }
+                      if   (document.all.OpcaoRel.value == 4){
+                            document.all.nome1.innerHTML = "Categoria";
+                            document.all.nome2.innerHTML = "Área";
+                            document.all.codigoInicial1.disabled = false;
+                            document.all.codigoInicial1.className = 'campo';
+                            document.all.codigoFinal1.disabled = false;
+                            document.all.codigoFinal1.className = 'campo';
+                            document.all.codigoInicial1.value = 0000;
+                            document.all.codigoFinal1.value = 9999;
+                            document.all.codigoInicial2.value = 0000;
+                            document.all.codigoFinal2.value = 9999;
+                            document.all.codigoInicial2.disabled = false;
+                            document.all.codigoInicial2.className = 'campo';
+                            document.all.codigoFinal2.disabled = false;
+                            document.all.codigoFinal2.className = 'campo';
+                            return true;
+                      }
+                      if   (document.all.OpcaoRel.value == 5){
+                            document.all.nome1.innerHTML = "Categoria";
+                            document.all.nome2.innerHTML = "Setor";
+                            document.all.codigoInicial1.disabled = false;
+                            document.all.codigoInicial1.className = 'campo';
+                            document.all.codigoFinal1.disabled = false;
+                            document.all.codigoFinal1.className = 'campo';
+                            document.all.codigoInicial1.value = 0000;
+                            document.all.codigoFinal1.value = 9999;
+                            document.all.codigoInicial2.value = 0000;
+                            document.all.codigoFinal2.value = 9999;
+                            document.all.codigoInicial2.disabled = false;
+                            document.all.codigoInicial2.className = 'campo';
+                            document.all.codigoFinal2.disabled = false;
+                            document.all.codigoFinal2.className = 'campo';
+                            return true;
+                      }
+                      if   (document.all.OpcaoRel.value == 6){
+                            document.all.nome1.innerHTML = "Gte. Vendas";
+                            document.all.nome2.innerHTML = " ";
+                            document.all.codigoInicial1.disabled = false;
+                            document.all.codigoInicial1.className = 'campo';
+                            document.all.codigoFinal1.disabled = false;
+                            document.all.codigoFinal1.className = 'campo';
+                            document.all.codigoInicial1.value = 0000;
+                            document.all.codigoFinal1.value = 9999;
+                            document.all.codigoInicial2.value = 0000;
+                            document.all.codigoFinal2.value = 9999;
+                            document.all.codigoInicial2.disabled = true;
+                            document.all.codigoInicial2.className = 'clsDisabled';
+                            document.all.codigoFinal2.disabled = true;
+                            document.all.codigoFinal2.className = 'clsDisabled';
+                            document.all.selecionarTipoPerfil.disabled = false;
+                            VerificaMarcPerfil();
+                            return true;
+                      }
+                      if   (document.all.OpcaoRel.value == 7){
+                            document.all.nome1.innerHTML = " ";
+                            document.all.nome2.innerHTML = " ";
+                            document.all.codigoInicial1.value = 0000;
+                            document.all.codigoFinal1.value = 9999;
+                            document.all.codigoInicial2.value = 0000;
+                            document.all.codigoFinal2.value = 9999;
+                            document.all.codigoInicial1.disabled = true;
+                            document.all.codigoInicial1.className = 'clsDisabled';
+                            document.all.codigoFinal1.disabled = true;
+                            document.all.codigoFinal1.className = 'clsDisabled';
+                            document.all.codigoInicial2.disabled = true;
+                            document.all.codigoInicial2.className = 'clsDisabled';
+                            document.all.codigoFinal2.disabled = true;
+                            document.all.codigoFinal2.className = 'clsDisabled';
+                            return true;
+                      }
+                      if   (document.all.OpcaoRel.value == 8){
+                            document.all.nome1.innerHTML = "Gte. Vendas";
+                            document.all.nome2.innerHTML = "Segmento";
+                            document.all.codigoInicial1.disabled = false;
+                            document.all.codigoInicial1.className = 'campo';
+                            document.all.codigoFinal1.disabled = false;
+                            document.all.codigoFinal1.className = 'campo';
+                            document.all.codigoInicial1.value = 0000;
+                            document.all.codigoFinal1.value = 9999;
+                            document.all.codigoInicial2.value = 0000;
+                            document.all.codigoFinal2.value = 9999;
+                            document.all.codigoInicial2.disabled = false;
+                            document.all.codigoInicial2.className = 'campo';
+                            document.all.codigoFinal2.disabled = false;
+                            document.all.codigoFinal2.className = 'campo';
+                            document.all.selecionarTipoPerfil.disabled = false;
+                            VerificaMarcPerfil();
+                            return true;
+                      }
+                      if   (document.all.OpcaoRel.value == 9){
+                            document.all.nome1.innerHTML = "Segmento";
+                            document.all.nome2.innerHTML = " ";
+                            document.all.codigoInicial1.disabled = false;
+                            document.all.codigoInicial1.className = 'campo';
+                            document.all.codigoFinal1.disabled = false;
+                            document.all.codigoFinal1.className = 'campo';
+                            document.all.codigoInicial1.value = 0000;
+                            document.all.codigoFinal1.value = 9999;
+                            document.all.codigoInicial2.value = 0000;
+                            document.all.codigoFinal2.value = 9999;
+                            document.all.codigoInicial2.disabled = true;
+                            document.all.codigoInicial2.className = 'clsDisabled';
+                            document.all.codigoFinal2.disabled = true;
+                            document.all.codigoFinal2.className = 'clsDisabled';
+                            return true;
+                      }
+                      if   (document.all.OpcaoRel.value == 10){
+                            document.all.nome1.innerHTML = "Área";
+                            document.all.nome2.innerHTML = "Segmento";
+                            document.all.codigoInicial1.value = 0000;
+                            document.all.codigoFinal1.value = 9999;
+                            document.all.codigoInicial2.value = 0000;
+                            document.all.codigoFinal2.value = 9999;
+                            document.all.codigoInicial1.disabled = false;
+                            document.all.codigoInicial1.className = 'campo';
+                            document.all.codigoFinal1.disabled = false;
+                            document.all.codigoFinal1.className = 'campo';
+                            document.all.codigoInicial2.disabled = false;
+                            document.all.codigoInicial2.className = 'campo';
+                            document.all.codigoFinal2.disabled = false;
+                            document.all.codigoFinal2.className = 'campo';
+                            document.all.selecionarTipoPerfil.disabled = false;
+                            VerificaMarcPerfil();
+                            return true;
+                      }
+                      if   (document.all.OpcaoRel.value == 11){
+                            document.all.nome1.innerHTML = "Setor";
+                            document.all.nome2.innerHTML = "Segmento";
+                            document.all.codigoInicial1.value = 0000;
+                            document.all.codigoFinal1.value = 9999;
+                            document.all.codigoInicial2.value = 0000;
+                            document.all.codigoFinal2.value = 9999;
+                            document.all.codigoInicial1.disabled = false;
+                            document.all.codigoInicial1.className = 'campo';
+                            document.all.codigoFinal1.disabled = false;
+                            document.all.codigoFinal1.className = 'campo';
+                            document.all.codigoInicial2.disabled = false;
+                            document.all.codigoInicial2.className = 'campo';
+                            document.all.codigoFinal2.disabled = false;
+                            document.all.codigoFinal2.className = 'campo';
+                            return true;
+                      }
+                      if   (document.all.OpcaoRel.value == 12){
+                            document.all.nome1.innerHTML = "Comercial";
+                            document.all.nome2.innerHTML = " ";
+                            document.all.codigoInicial1.disabled = false;
+                            document.all.codigoInicial1.className = 'campo';
+                            document.all.codigoFinal1.disabled = false;
+                            document.all.codigoFinal1.className = 'campo';
+                            document.all.codigoInicial1.value = 0000;
+                            document.all.codigoFinal1.value = 9999;
+                            document.all.codigoInicial2.value = 0000;
+                            document.all.codigoFinal2.value = 9999;
+                            document.all.codigoInicial2.disabled = true;
+                            document.all.codigoInicial2.className = 'clsDisabled';
+                            document.all.codigoFinal2.disabled = true;
+                            document.all.codigoFinal2.className = 'clsDisabled';
+                            return true;
+                      }
+                      if   (document.all.OpcaoRel.value == 13){
+                            document.all.nome1.innerHTML = "Gte. Vendas";
+                            document.all.nome2.innerHTML = "Categoria";
+                            document.all.codigoInicial1.value = 0000;
+                            document.all.codigoFinal1.value = 9999;
+                            document.all.codigoInicial2.value = 0000;
+                            document.all.codigoFinal2.value = 9999;
+                            document.all.codigoInicial1.disabled = false;
+                            document.all.codigoInicial1.className = 'campo';
+                            document.all.codigoFinal1.disabled = false;
+                            document.all.codigoFinal1.className = 'campo';
+                            document.all.codigoInicial2.disabled = false;
+                            document.all.codigoInicial2.className = 'campo';
+                            document.all.codigoFinal2.disabled = false;
+                            document.all.codigoFinal2.className = 'campo';
+                            document.all.selecionarTipoPerfil.disabled = false;
+                            VerificaMarcPerfil();
+                            return true;
+                      }
+                      if   (document.all.OpcaoRel.value == 14){
+                            document.all.nome1.innerHTML = "Distrital";
+                            document.all.nome2.innerHTML = " ";
+                            document.all.codigoInicial1.disabled = false;
+                            document.all.codigoInicial1.className = 'campo';
+                            document.all.codigoFinal1.disabled = false;
+                            document.all.codigoFinal1.className = 'campo';
+                            document.all.codigoInicial1.value = 0000;
+                            document.all.codigoFinal1.value = 9999;
+                            document.all.codigoInicial2.value = 0000;
+                            document.all.codigoFinal2.value = 9999;
+                            document.all.codigoInicial2.disabled = true;
+                            document.all.codigoInicial2.className = 'clsDisabled';
+                            document.all.codigoFinal2.disabled = true;
+                            document.all.codigoFinal2.className = 'clsDisabled';
+                            return true;
+                      }
+                   }
+                   function HabilitaPercentualVendas(){
+                      if ( document.all.quantosClientes.value > 0 ) {
+                         document.all.percentualVenda.value = '0,00';
+                         document.all.percentualVenda.disabled = true;
+                         document.all.percentualVenda.className = 'clsDisabled';
+                      }
+                      else {
+                         document.all.percentualVenda.disabled = false;
+                         document.all.percentualVenda.className = 'campo';
+                         document.all.percentualVenda.value = '0,00';
+                      }
+                   }
+                   function ValidaQuantosPercentual(){
+                      var numeroReal = 0;
+                      numeroReal = document.all.percentualVenda.value.replace(",",".");
+                      if ( ( parseInt( document.all.quantosClientes.value, 10 ) == 0 ) && ( parseFloat( numeroReal ) == 0 ) ) {
+                         alert('Informe Quantidade de Clientes ou Percentual de Vendas');
+                         document.all.quantosClientes.focus();
+                         return false;
+                      }
+                      return true;
+                   }
+                   function HabilitaProduto(){
+                      if ( document.all.embalagem.value == 999 ) {
+                         document.all.produto.value == 9999999;
+                         document.all.produto.disabled = true;
+                         document.all.produto.className = 'clsDisabled';
+                      }
+                      else {
+                         document.all.produto.disabled = false;
+                         document.all.produto.className = 'campo';
+                         document.all.produto.value == 9999999;
+                      }
+                   }
+                   function HabilitaEmbalagem(){
+                      if ( document.all.Selecionados.length >= 1 ) {
+                         document.all.embalagem.value = 999;
+                         document.all.embalagem.disabled = false;
+                         document.all.embalagem.className = 'campo';
+                         //document.all.produto.value = 9999999;
+                         //document.all.produto.disabled = false;
+                         //document.all.produto.className = 'campo';
+                      }
+                      else {
+                         document.all.embalagem.value = 999;
+                         document.all.embalagem.disabled = true;
+                         document.all.embalagem.className = 'clsDisabled';
+                         //document.all.produto.value = 9999999;
+                         //document.all.produto.disabled = true;
+                         //document.all.produto.className = 'clsDisabled';
+                      }
+                   }
+                   function HabilitaHectolitro() {
+                      if ( document.all.volumeFin(0).checked ) {
+                         document.all.hectolitro.disabled = false;
+                         document.all.hectolitro.checked = true;
+                      }
+                      else {
+                         document.all.hectolitro.checked = false;
+                         document.all.hectolitro.disabled = true;
+                      }
+                   }
+                   function ChecaTecla( ctrl ){
+                      var Tecla = event.keyCode;
+                      if( Tecla == 13 || ctrl == 1 ){
+                          Adiciona();
+                      }
+                      if( Tecla == 46 && ctrl == 2 ){
+                          Remove();
+                      }
+                      if( document.all.Selecionados.length > 1 ){                         //*>AJ040903
+                          document.all.embalagem.value = "999";                           //*>AJ040903
+                          document.all.embalagem.disabled = true;                         //*>AJ040903
+                          document.all.embalagem.className = 'clsDisabled';               //*>AJ040903
+                          document.all.produto.value = "9999999";                         //*>AJ040903
+                          document.all.produto.disabled = true;                           //*>AJ040903
+                          document.all.produto.className = 'clsDisabled';                 //*>AJ040903
+                      }                                                                   //*>AJ040903
+                      else{                                                               //*>AJ040903
+                          document.all.embalagem.disabled = false;                        //*>AJ040903
+                          document.all.embalagem.className = 'campo';                     //*>AJ040903
+                          //document.all.produto.disabled = false;                          //*>AJ040903
+                          //document.all.produto.className = 'campo';                       //*>AJ040903
+                      }                                                                   //*>AJ040903
+                   }
+                   function Remove(){
+                       var nIndice = parseInt( document.all.Selecionados.value, 10 );
+                       var ctrl1 = document.all.Controle1.value;
+                       var ctrl2 = document.all.Controle2.value;
+                       var ctrl3 = document.all.Controle3.value;
+                       var xRemover = document.all.Selecionados.value;
+                       if( nIndice == 0 || isNaN( nIndice ) ){
+                           alert( 'Nenhum item selecionado' );
+                           document.all.Selecionados.focus();
+                           return false;
+                       }
+                       for( i = 0; i < document.all.Selecionados.length; i++ ){
+                           if( document.all.Selecionados[i].value == xRemover ) {
+                               nIndice = i;
+                               break;
+                           }
+                       }
+                       document.all.Controle1.value = ( ctrl1 ).replace( xRemover + ";", '' );
+                       document.all.Controle2.value = ( ctrl2 ).replace( xRemover + ";", '' );
+                       document.all.Controle3.value = ( ctrl3 ).replace( xRemover + ";", '' );
+                       document.all.Selecionados.remove( nIndice );
+                       HabilitaEmbalagem();
+                   }
+                   function Adiciona(){
+                       document.all.embalagem.value = 999;
+                       document.all.embalagem.disabled = false;
+                       document.all.embalagem.className = 'campo';
+                       //document.all.produto.value = 9999999;
+                       //document.all.produto.disabled = false;
+                       //document.all.produto.className = 'campo';
+                       var nMaxElementos = 6;
+                       var nNovo = parseInt( document.all.tipoMarca.value, 10 );
+                       if( Existente() || nNovo == 0 || isNaN( nNovo ) ){
+                           document.all.tipoMarca.selectedIndex = 0;
+                           return false;
+                       }
+                       if( document.all.Selecionados.length >= nMaxElementos ){
+                           alert( 'Todos os itens já foram adicionados' );
+                           return false;
+                       }
+                       oOption = document.createElement( "OPTION" );
+                       oOption.text = document.all.tipoMarca.value;
+                       oOption.value = document.all.tipoMarca.value;
+                       document.all.Selecionados.add( oOption );
+                       oOption = null;
+                       if( ( document.all.Controle1.value ).length + ( document.all.tipoMarca.value ).length >= 250 ){
+                           if( ( document.all.Controle2.value ).length + ( document.all.tipoMarca.value ).length >= 250 ){
+                               controlADD = "Controle3";
+                           }
+                           else {
+                               controlADD = "Controle2";
+                           }
+                       }
+                       else {
+                           controlADD = "Controle1";
+                       }
+                       document.all( controlADD ).value = document.all( controlADD ).value + document.all.tipoMarca.value + ";";
+                       document.all.Selecionados.value = document.all.tipoMarca.value;
+                       document.all.tipoMarca.selectedIndex = 0;
+                       document.all.tipoMarca.focus();
+                       HabilitaEmbalagem();
+                   }
+                   function Existente(){
+                       for( i = 0; i < document.all.Selecionados.length; i++ ){
+                           if( document.all.Selecionados[i].value == document.all.tipoMarca.value ) {
+                               return true;
+                           }
+                       }
+                   }
+                   function AdicionaNoClick(){
+                       if( document.all.tipoMarca.selectedIndex >= 1 ){
+                           ChecaTecla( 1 );
+                       }
+                   }
+                   function AdicionaNaTecla(){
+                       if( event.keyCode == 13 ){
+                           ChecaTecla( 1 );
+                       }
+                   }
+                   function CheckTecla( ctrl ){
+                      var Tecla = event.keyCode;
+                      if( Tecla == 13 || ctrl == 1 ){
+                          Adicionar();
+                      }
+                      if( Tecla == 46 && ctrl == 2 ){
+                          Remover();
+                      }
+                      if( document.all.SelecaoPerfil.length > 1 ){
+                      }
+                      else{
+                      }
+                   }
+                   function Remover(){
+                       var nIndice = parseInt( document.all.SelecaoPerfil.value, 10 );
+                       var ctrl1 = document.all.Controle4.value;
+                       var ctrl2 = document.all.Controle5.value;
+                       var ctrl3 = document.all.Controle6.value;
+                       var xRemover = document.all.SelecaoPerfil.value;
+                       if( nIndice == 0 || isNaN( nIndice ) ){
+                           alert( 'Nenhum perfil selecionado' );
+                           document.all.SelecaoPerfil.focus();
+                           return false;
+                       }
+                       for( i = 0; i < document.all.SelecaoPerfil.length; i++ ){
+                           if( document.all.SelecaoPerfil[i].value == xRemover ) {
+                               nIndice = i;
+                               break;
+                           }
+                       }
+                       document.all.Controle4.value = ( ctrl1 ).replace( xRemover + ";", '' );
+                       document.all.Controle5.value = ( ctrl2 ).replace( xRemover + ";", '' );
+                       document.all.Controle6.value = ( ctrl3 ).replace( xRemover + ";", '' );
+                       document.all.SelecaoPerfil.remove( nIndice );
+                   }
+                   function Adicionar(){
+                       var nMaxElementos = 5;
+                       var nNovo = parseInt( document.all.tipoPerfil.value, 10 );
+                       if( Existentes() || nNovo == 0 || isNaN( nNovo ) ){
+                           document.all.tipoPerfil.selectedIndex = 0;
+                           return false;
+                       }
+                       if( document.all.SelecaoPerfil.length >= nMaxElementos ){
+                           alert( 'Todos os perfil já foram adicionados' );
+                           return false;
+                       }
+                       oOption = document.createElement( "OPTION" );
+                       oOption.text = document.all.tipoPerfil.value;
+                       oOption.value = document.all.tipoPerfil.value;
+                       document.all.SelecaoPerfil.add( oOption );
+                       oOption = null;
+                       if( ( document.all.Controle4.value ).length + ( document.all.tipoPerfil.value ).length >= 250 ){
+                           if( ( document.all.Controle5.value ).length + ( document.all.tipoPerfil.value ).length >= 250 ){
+                               controlADD = "Controle6";
+                           }
+                           else {
+                               controlADD = "Controle5";
+                           }
+                       }
+                       else {
+                           controlADD = "Controle4";
+                       }
+                       document.all( controlADD ).value = document.all( controlADD ).value + document.all.tipoPerfil.value + ";";
+                       document.all.SelecaoPerfil.value = document.all.tipoPerfil.value;
+                       document.all.tipoPerfil.selectedIndex = 0;
+                       document.all.tipoPerfil.focus();
+                   }
+                   function Existentes(){
+                       for( i = 0; i < document.all.SelecaoPerfil.length; i++ ){
+                           if( document.all.SelecaoPerfil[i].value == document.all.tipoPerfil.value ) {
+                               return true;
+                           }
+                       }
+                   }
+                   function AdicionaClick(){
+                       if( document.all.tipoPerfil.selectedIndex >= 1 ){
+                           CheckTecla( 1 );
+                       }
+                   }
+                   function AdicionaTecla(){
+                       if( event.keyCode == 13 ){
+                           CheckTecla( 1 );
+                       }
+                   }
+                   function VerifPerfilGrpPerfil(){
+                       if( document.all.grupoPerfilVendas.value != '00' ){
+                           document.all.perfilVendas.value = '000';
+                           document.all.perfilVendas.disabled = true;
+                           document.all.selecionarTipoPerfil.checked = false;
+                           HabilitaEscolheTipoPerfil();
+                           document.all.selecionarTipoPerfil.disabled = true;
+                       }
+                       else{
+                           document.all.perfilVendas.disabled = false;
+                           if( document.all.OpcaoRel.value == 1  ||
+                               document.all.OpcaoRel.value == 6  ||
+                               document.all.OpcaoRel.value == 8  ||
+                               document.all.OpcaoRel.value == 10 ||
+                               document.all.OpcaoRel.value == 13 ){
+                               document.all.selecionarTipoPerfil.checked = false;
+                               HabilitaEscolheTipoPerfil();
+                               document.all.selecionarTipoPerfil.disabled = false;
+                           }
+                       }
+                   }
+                   function VerifGrpPerfilPerfil(){
+                       if( document.all.perfilVendas.value != '000' ){
+                           document.all.grupoPerfilVendas.value = '00';
+                           document.all.grupoPerfilVendas.disabled = true;
+                           document.all.selecionarTipoPerfil.checked = false;
+                           HabilitaEscolheTipoPerfil();
+                           document.all.selecionarTipoPerfil.disabled = true;
+                       }
+                       else{
+                           document.all.grupoPerfilVendas.disabled = false;
+                           if( document.all.OpcaoRel.value == 1 ||
+                               document.all.OpcaoRel.value == 6  ||
+                               document.all.OpcaoRel.value == 8  ||
+                               document.all.OpcaoRel.value == 10 ||
+                               document.all.OpcaoRel.value == 13 ){
+                               document.all.selecionarTipoPerfil.checked = false;
+                               HabilitaEscolheTipoPerfil();
+                               document.all.selecionarTipoPerfil.disabled = false;
+                           }
+                       }
+                   }
+                   function VerificaMarcPerfil() {
+                      if( document.all.perfilVendas.value != '000' ){
+                               document.all.selecionarTipoPerfil.checked = false;
+                               HabilitaEscolheTipoPerfil();
+                               document.all.selecionarTipoPerfil.disabled = true;
+                      }
+                      if( document.all.grupoPerfilVendas.value != '00' ){
+                               document.all.selecionarTipoPerfil.checked = false;
+                               HabilitaEscolheTipoPerfil();
+                               document.all.selecionarTipoPerfil.disabled = true;
+                      }
+                   }
+                   function PesquisaVisao() {
+                       if( document.all.cdVisao.disabled ) {
+                           return false;
+                       }
+                       AbrirPesquisa( '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&ppopcao=6', 'PW01271P', 100, 177, 500, 420, [ 'SUBMIT-FRAME', 'CarregaVisao()' ], [ 'cdVisao' ], 'no', '', '', '', '', '', 'MULTI-FRAME' );
+                   }
+                   function CarregaVisao() {
+                       if( parseInt( "0" + document.all.cdVisao.value, 10 ) == 0 ){
+                           return false;
+                       }
+                       document.all.BotCarregaVisao.focus();
+                       document.all.opcao.value = 9;
+                       EnviarFormulario();
+                   }
+                   function ControleConsolidacao() {
+                       if( document.all.OpcaoRel[document.all.OpcaoRel.selectedIndex].Consolida == "S" ){
+                           document.all.fsConsolidacao.disabled = false;
+                           document.all.cdVisao.value = '';
+                           document.all.cdVisao.disabled = false;
+                           document.all.cdVisao.className = 'campo';
+                           document.all.tpConsolidacao[0].disabled = true;
+                           document.all.tpConsolidacao[1].disabled = true;
+                           document.all.tpConsolidacao[2].disabled = true;
+                           document.all.tpConsolidacao[3].disabled = true;
+                           document.all.tpConsolidacao[0].checked = true;
+                           document.all.tpConsolidacao[1].checked = false;
+                           document.all.tpConsolidacao[2].checked = false;
+                           document.all.tpConsolidacao[3].checked = false;
+                       }
+                       else {
+                           document.all.fsConsolidacao.disabled = true;
+                           document.all.cdVisao.value = '';
+                           document.all.cdVisao.disabled = true;
+                           document.all.cdVisao.className = 'clsDisabled';
+                           document.all.tpConsolidacao[0].disabled = true;
+                           document.all.tpConsolidacao[1].disabled = true;
+                           document.all.tpConsolidacao[2].disabled = true;
+                           document.all.tpConsolidacao[3].disabled = true;
+                           document.all.tpConsolidacao[0].checked = false;
+                           document.all.tpConsolidacao[1].checked = false;
+                           document.all.tpConsolidacao[2].checked = false;
+                           document.all.tpConsolidacao[3].checked = false;
+                       }
+                   }
+                   function VoltaTelaConsolidacao() {
+                       document.all.cdVisao.value = FormataCampo( "000" , "999" , "valor" );
+                       document.all.BotCarregaVisao.click();
+                       document.all.tpConsolidacao[0].checked = false;
+                       document.all.tpConsolidacao[1].checked = false;
+                       document.all.tpConsolidacao[2].checked = false;
+                       document.all.tpConsolidacao[3].checked = false;
+                       switch( "0" ) {
+                           case "1" : document.all.tpConsolidacao[0].checked = true; break;
+                           case "2" : document.all.tpConsolidacao[2].checked = true; break;
+                           case "3" : document.all.tpConsolidacao[1].checked = true; break;
+                           case "4" : document.all.tpConsolidacao[3].checked = true; break;
+                       }
+                   }
+                </script>
+                <INPUT type=hidden OcultoRotina=1 value="" name=Controle1>
+                <INPUT type=hidden OcultoRotina=1 value="" name=Controle2>
+                <INPUT type=hidden OcultoRotina=1 value="" name=Controle3>
+                <INPUT type=hidden OcultoRotina=1 value="" name=Controle4>
+                <INPUT type=hidden OcultoRotina=1 value="" name=Controle5>
+                <INPUT type=hidden OcultoRotina=1 value="" name=Controle6>
+               <TABLE width="100%"><TR><TD>
+                  <TABLE border=1 cellspacing=1 cellpadding=17 bordercolor=White bordercolordark=White bordercolorlight=DimGray class=WindowScreen rules=none width=100%>
+                     <TR>
+                        <TD>
+                           <TABLE border=0 width=100% height=100% cellspacing=0 cellpadding=0>
+                              <TR>
+                                 <TD>
+                                    <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Opções&nbsp;</LABEL></LEGEND>
+                                       <TABLE border=0 rules=none align=center cellspacing=2 cellpadding=1 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen>
+                                          <TR>
+                                             <TD height=5 colspan=2>
+                                          <TR>
+                                             <TD class=titulocampo>Classificação
+                                             <TD><SELECT tabindex=1 class=combo id=select1 name=OpcaoRel onChange="Habilita();" onKeyDown="DigitaCombo( this );" obrigatorio=1>
+                                                    <OPTION Consolida="N" value=0>--Selecionar--     </OPTION>
+                                                    <OPTION Consolida="S" value=1>Area               </OPTION>
+                                                    <OPTION Consolida="N" value=2>Setor              </OPTION>
+                                                    <OPTION Consolida="S" value=3>Categoria          </OPTION>
+                                                    <OPTION Consolida="S" value=4>Categoria/Area     </OPTION>
+                                                    <OPTION Consolida="N" value=5>Categoria/Setor    </OPTION>
+                                                    <OPTION Consolida="S" value=6>Gerente Vendas     </OPTION>
+                                                    <OPTION Consolida="S" value=7>Geral              </OPTION>
+                                                    <OPTION Consolida="S" value=8>Gte. Vendas/Segmento</OPTION>
+                                                    <OPTION Consolida="S" value=9>Segmento           </OPTION>
+                                                    <OPTION Consolida="S" value=10>Area/Segmento     </OPTION>
+                                                    <OPTION Consolida="N" value=11>Setor/Segmento    </OPTION>
+                                                    <OPTION Consolida="S" value=12>Comercial         </OPTION>
+                                                    <OPTION Consolida="S" value=13>Gte. Vendas/Categ.</OPTION>
+                                                    <OPTION Consolida="S" value=14>Distrital         </OPTION>
+                                                 </SELECT>&nbsp;&nbsp;
+                                          <TR>
+                                             <TD class=titulocampo>Perfil de Vendas
+                                             <TD><SELECT tabindex=3 class=combo name=perfilVendas onChange="VerifGrpPerfilPerfil();" onKeyDown="DigitaCombo( this );">
+                                                       <OPTION value='000'>--Todos--</OPTION>
+                                                  </SELECT>
+                                          <TR>
+                                             <TD class=titulocampo>Grupo Perfil de Vendas
+                                             <TD><SELECT tabindex=4 class=combo name=grupoPerfilVendas onChange="VerifPerfilGrpPerfil();" onKeyDown="DigitaCombo( this );" >
+                                                       <OPTION value='00'>--Todos--</OPTION>
+                                                  </SELECT>
+                                          <TR>
+                                             <TD height=5 colspan=2>
+                                       </TABLE>
+                                    </FIELDSET>
+                              <TR>
+                                 <TD height=10>
+                              <TR>
+                                 <TD>
+                                    <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Preferências&nbsp;</LABEL></LEGEND>
+                                       <TABLE width=95% border=0 align=center cellspacing=1 cellpadding=2 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen id=TABLE1>
+                                          <TR>
+                                             <TD colspan=3 height=5>
+                                          <TR>
+                                             <TD class=titulocampo2>&nbsp&nbsp;Situação
+                                             <TD rowspan=2 valign=top>
+                                                <FIELDSET style="margin-left: 4;"><LEGEND><LABEL class=titulocampo>&nbsp;Tipo&nbsp;</LABEL></LEGEND>
+                                                   <TABLE border=0>
+                                                      <TR>
+                                                         <TD class=titulocampo height=5><div align=left><INPUT tabIndex=12 class=radio type=radio name=volumeFin id=radio1 value="V" onClick="HabilitaHectolitro();" checked>&nbsp;Volume
+                                                         <TD class=titulocampo height=5><div align=left><INPUT tabIndex=12 class=radio type=radio name=volumeFin id=radio1 value="F" onClick="HabilitaHectolitro();">&nbsp;Financeiro
+                                                   </TABLE>
+                                                </FIELDSET>
+                                             <TD rowspan=2 valign=top>
+                                                <FIELDSET style="margin-left: 4;"><LEGEND><LABEL class=titulocampo>&nbsp;Equipe&nbsp;</LABEL></LEGEND>
+                                                   <TABLE border=0>
+                                                      <TR>
+                                                         <TD class=titulocampo height=5><div align=left><INPUT tabIndex=13 class=radio type=radio name=tpEquipe id=radio2 value="A" checked>&nbsp;Atual
+                                                         <TD class=titulocampo height=5><div align=left><INPUT tabIndex=13 class=radio type=radio name=tpEquipe id=radio2 value="E">&nbsp;Espelho
+                                                   </TABLE>
+                                                </FIELDSET>
+                                          <TR>
+                                             <TD class=titulocampo><DIV align=left><input tabIndex=5 class=checkbox id="Checkbox1" type="checkbox" name=Todos value="G" onclick="DesabilitaCampos()">&nbsp;Todos</DIV>
+                                          <TR>
+                                             <TD class=titulocampo><DIV align=left><input tabIndex=6 class=checkbox id="Checkbox2" type="checkbox" name=Ativo value="A" disabled onclick="DesabilitaCampos()">&nbsp;Ativos</DIV>
+                                             <TD nowrap align=left class=titulocampo><DIV align=left><INPUT class=checkbox tabIndex=14 type=checkbox name=hectolitro value="S" checked>&nbsp;Hectolitros</DIV></TD>
+                                             <TD nowrap class=titulocampo><DIV align=left><INPUT class=checkbox tabIndex=15 type=checkbox name=quebraPagina value="S">&nbsp;Quebra Página</DIV></TD>
+                                          <TR>
+                                             <TD class=titulocampo><DIV align=left><input tabIndex=7 class=checkbox id="Checkbox3" type="checkbox" name=Bloqueado value="B" disabled onclick="DesabilitaCampos()">&nbsp;Bloqueados</DIV>
+                                             <TD nowrap class=tituloCampo><DIV align=left><INPUT type=checkbox tabIndex=16 class=check name=selecionarTipomarca value="S" onClick="HabilitaEscolheTipoMarca();">&nbsp;Selecionar Tipo Marca</DIV></TD>
+                                             <TD>&nbsp;
+                                          <TR>
+                                             <TD class=titulocampo><DIV align=left><input tabIndex=8 class=checkbox id="Checkbox5" type="checkbox" name=Temporario value="T" disabled nclick="DesabilitaCampos()">&nbsp;Temporários</DIV>
+                                             <TD>
+                                                <SELECT name=tipoMarca class=combo tabIndex=17 onKeyDown="AdicionaNaTecla(1);" onClick="AdicionaNoClick();" disabled style="margin-left: 4; width: 160;">
+                                                   <OPTION value="000">-- Selecionar --</OPTION>
+                                                </SELECT>
+                                             <TD valign=top rowspan=3 heigth=48><SELECT name=Selecionados tabIndex=18 multiple style="WIDTH: 80px; heigth: 48px; margin-left: 4;" onKeyDown="ChecaTecla(2);" disabled></SELECT></DIV></TD>
+                                          <TR>
+                                             <TD class=titulocampo><DIV align=left><input tabindex=9 class=checkbox id="Checkbox7" type="checkbox" name=Duplicado value="D" disabled onclick="DesabilitaCampos()">&nbsp;Duplicados</DIV>
+                                             <TD>&nbsp;
+                                          <TR>
+                                             <TD class=titulocampo><DIV align=left><input tabIndex=10 class=checkbox id="Checkbox6" type="checkbox" name=Excluido value="E" disabled onclick="DesabilitaCampos()">&nbsp;Excluídos</DIV>
+                                             <TD nowrap class=tituloCampo><DIV align=left><INPUT type=checkbox tabIndex=18
+                                                        class=check name=selecionarTipoPerfil value="S" onClick="HabilitaEscolheTipoPerfil();">&nbsp;Selecionar Tipo Perfil</DIV></TD>
+                                          <TR>
+                                             <TD class=titulocampo><div align=left><input tabindex=11 class=checkbox id="Checkbox4" type="checkbox" name=Inativo value="I" disabled onclick="DesabilitaCampos()">&nbsp;Inativos
+                                             <TD>
+                                                <SELECT name=tipoPerfil class=combo tabIndex=17 onKeyDown="AdicionaTecla(1);" onClick="AdicionaClick();" disabled style="margin-left: 4; width: 160;">
+                                                   <OPTION value="000">-- Selecionar --</OPTION>
+                                                </SELECT>
+                                             <TD valign=top rowspan=3 heigth=48><SELECT name=SelecaoPerfil tabIndex=18 multiple style="WIDTH: 80px; heigth: 48px; margin-left: 4;" onKeyDown="CheckTecla(2);" disabled></SELECT></DIV></TD>
+                                          <TR>
+                                             <TD colspan=2>&nbsp;
+                                          <TR>
+                                             <TD colspan=2>&nbsp;
+                                       </TABLE>
+                                    </FIELDSET>
+                                 </TD>
+                              </TR>
+                           </TABLE>
+                        <TD>
+                           <TABLE border=0 width=100% height=100% cellspacing=0 cellpadding=0>
+                              <TR>
+                                 <TD nowrap valign=top height="40%" width=40%>
+                                    <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Seleções&nbsp;</LABEL></LEGEND>
+                                       <TABLE border=0 rules=none align=center cellspacing=1 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 4px 4px 4px">
+                                          <TR>
+                                             <TD>&nbsp;
+                                             <TD class=titulocampo><DIV align=center>Inicial&nbsp;&nbsp;&nbsp;</DIV>
+                                             <TD class=titulocampo><DIV align=center>Final</DIV>
+                                          <TR>
+                                             <TD align=right><label id=nome1 class=titulocampo></label>&nbsp;
+                                             <TD><INPUT class='clsDisabled' disabled type="text" tabIndex=19 name=codigoInicial1 size=5 maxlength=4 onkeypress="return SomenteNumeros()">&nbsp;
+                                             <TD><INPUT class='clsDisabled' disabled type="text" tabIndex=20 name=codigoFinal1 size=5 maxlength=4 onkeypress="return SomenteNumeros()">
+                                          <TR>
+                                             <TD align=right><label id=nome2 class=titulocampo></label>&nbsp;
+                                             <TD><INPUT class='clsDisabled' disabled type="text" tabIndex=21 name=codigoInicial2 size=5 maxlength=4 onkeypress="return SomenteNumeros()">&nbsp;
+                                             <TD><INPUT class='clsDisabled' disabled type="text" tabIndex=22 name=codigoFinal2 size=5 maxlength=4 onkeypress="return SomenteNumeros()">
+                                          <TR>
+                                             <TD class=titulocampo>Mês/Ano&nbsp;
+                                             <TD><INPUT class=campo type="text"  tabIndex=23 name=mesAnoInicial size=5 maxlength=7 onkeypress="return SomenteNumeros()" onblur="return FormataCampo(this,'99/9999');"
+                                                  obrigatorio=1 data=2>&nbsp;
+                                             <TD><INPUT class=campo type="text"  tabIndex=24 name=mesAnoFinal size=5 maxlength=7 onkeypress="return SomenteNumeros()" onblur="return FormataCampo(this,'99/9999');"
+                                                  obrigatorio=1 data=2>
+                                          <TR>
+                                             <TD>&nbsp;
+                                             <TD>&nbsp;
+                                          <TR>
+                                             <TD class=tituloCampo nowrap>Qtde Clientes&nbsp;</TD>
+                                             <TD><INPUT class=campo type="text" id=text10 tabIndex=25 name=quantosClientes size=5 maxlength=5 width="5%" onkeypress="return SomenteNumeros()" onKeyUp="HabilitaPercentualVendas()"></TD>
+                                          <TR>
+                                             <TD class=titulocampo nowrap>Percentual Venda&nbsp;</TD>
+                                             <TD><INPUT class=campo type=text tabIndex=26 name=percentualVenda onBlur="FormataCampo( this,'9999,99','valor' );" size=5 maxlength=4 onkeypress="return SomenteNumeros()"></TD>
+                                          <TR>
+                                             <TD class=titulocampo>Marca&nbsp;</TD>
+                                             <TD><INPUT class=campo type="text" id=text10 tabIndex=27 name=marca size=5 maxlength=4 onkeypress="return SomenteNumeros()" obrigatorio=1></TD>
+                                          <TR>
+                                             <TD class=titulocampo>Linha Marca&nbsp;</TD>
+                                             <TD><INPUT class=campo type="text" id=text10 tabIndex=28 name=linhaMarca size=5 maxlength=3 onkeypress="return SomenteNumeros()" obrigatorio=1></TD>
+                                          <TR>
+                                             <TD class=titulocampo>Embalagem&nbsp;</TD>
+                                             <TD><INPUT class='clsDisabled' type="text" id=text10 tabIndex=29 name=embalagem disabled size=5 maxlength=3 onkeypress="return SomenteNumeros()" onKeyUp="HabilitaProduto()" obrigatorio=1></TD>
+                                          <TR>
+                                             <TD class=titulocampo>Produto&nbsp;</TD>
+                                             <TD><INPUT class='clsDisabled' type="text" id=text10 tabIndex=30 name=produto disabled size=5 maxlength=7 onkeypress="return SomenteNumeros()" obrigatorio=1></TD>
+                                          <TR>
+                                             <TD colspan=2 height=28>
+                                       </TABLE>
+                                    </FIELDSET>
+                              <TR>
+                                 <TD>
+                        <FIELDSET id=fsConsolidacao disabled><LEGEND><LABEL class=titulocampo>&nbsp;Consolidação&nbsp;</LABEL></LEGEND>
+                           <TABLE border=0 rules=none align=center cellspacing=1 cellpadding=2 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 5px 2px 7px">
+                             <TR>
+                                <TD class=titulocampo width=17%>Visão&nbsp;
+                                <TD><INPUT tabindex=60 type=text name=cdVisao size=3 maxLength=3 class="clsDisabled" onKeyPress="return SomenteNumeros();" onKeyDown="AltPesquisa( 'PesquisaVisao();' );" bloco=1 disabled>
+                                   <IMG src=../icons/busca.gif name=BotPesquisaVisao title="Pesquisa Visão"         style="cursor:hand;" onClick="PesquisaVisao();"                                  bloco=1>
+                                   <IMG src=../icons/check.gif name=BotCarregaVisao  title="Carregar Visão" tabIndex=61 style="cursor:hand;" onClick="CarregaVisao();" onKeyDown="VerificaTeclaPress( '13', 'CarregaVisao();' )" bloco=1>
+                                <TD class=titulocampo><div align=left><INPUT tabIndex=62 class=radio type=radio name=tpConsolidacao id=radio1 value="1" disabled>&nbsp;UNB
+                                <TD class=titulocampo><div align=left><INPUT tabIndex=62 class=radio type=radio name=tpConsolidacao id=radio1 value="3" disabled>&nbsp;GV
+                             <TR>
+                                <TD colspan=2>&nbsp;
+                                <TD class=titulocampo><div align=left><INPUT tabIndex=62 class=radio type=radio name=tpConsolidacao id=radio1 value="2" disabled>&nbsp;GD
+                                <TD class=titulocampo><div align=left><INPUT tabIndex=62 class=radio type=radio name=tpConsolidacao id=radio1 value="4" disabled>&nbsp;SV
+                           </TABLE>
+                        </FIELDSET>
+                           </TABLE>
+                  </TABLE>
+               </TABLE>
+                   <script>
+                      DesabilitaCampos();
+                      function ValidaParRel(){
+                         var clienteVazio;
+                         var percVazio;
+                         if( !ValidaCampos() ){
+                             return false;
+                         }
+                         if ( ( document.all.Todos.checked == false ) &&
+                            ( document.all.Ativo.checked == false ) &&
+                            ( document.all.Temporario.checked == false ) &&
+                            ( document.all.Duplicado.checked == false ) &&
+                            ( document.all.Inativo.checked == false ) &&
+                            ( document.all.Excluido.checked == false ) &&
+                            ( document.all.Bloqueado.checked == false ) ){
+                              document.all.Todos.focus();
+                              alert('Selecione uma situação');
+                              document.all.Todos.select();
+                              return false;
+                         }
+                         if ( ! ValidaOpcaoRel() ) {
+                            return false;
+                         }
+                         if ( ( parseInt( document.all.codigoInicial1.value, 10 ) ) > ( parseInt( document.all.codigoFinal1.value, 10 ) ) ){
+                            document.all.codigoInicial1.focus();
+                            alert('Valor Inicial maior que Final');
+                            return false;
+                         }
+                         if ( ( parseInt( document.all.codigoInicial2.value, 10 ) ) > ( parseInt( document.all.codigoFinal2.value, 10 ) ) ){
+                            document.all.codigoInicial2.focus();
+                            alert('Valor Inicial maior que Final');
+                            return false;
+                         }
+                         if ( ! ExecucaoBackground ) {
+                            if ( ! ValidaData ( '01/' + document.all.mesAnoInicial.value , "DD/MM/AAAA" ) ) {
+                                return false;
+                            }
+                            if ( ! ValidaData ( '01/' + document.all.mesAnoFinal.value , "DD/MM/AAAA" ) ) {
+                                return false;
+                            }
+                         }
+                         if ( ! ValidaQuantosPercentual() ) {
+                            return false;
+                         }
+                         if ( ( document.all.selecionarTipomarca.checked ) && ( document.all.Selecionados.length < 1 ) ){    //*>AJ040903
+                            alert('Informe Tipo Marca');
+                            document.all.tipoMarca.focus();
+                            return false;
+                         }
+                         qtdCli = parseInt( document.all.quantosClientes.value,10 );
+                         if( qtdCli == 0 || isNaN( qtdCli ) ){
+                             clienteVazio = "sim";
+                         }
+                         else{
+                             clienteVazio = "não";
+                         }
+                         percVend = parseFloat( document.all.percentualVenda.value,10 );
+                         if( percVend == 0 || isNaN( percVend ) ){
+                             percVazio = "sim";
+                         }
+                         else{
+                             percVazio = "não";
+                         }
+                         if( clienteVazio == "sim" && percVazio == "sim" ){
+                             alert( 'Informar Quantidade de Clientes ou Percentual de Vendas');
+                             document.all.quantosClientes.focus();
+                             document.all.quantosClientes.select();
+                             return false;
+                         }
+                         document.all.tipoMarca.disabled = false;
+                         document.all.Selecionados.disabled = false;
+                         document.all.produto.disabled = false;
+                         document.all.produto.className = 'campo';
+                         document.all.embalagem.disabled = false;
+                         document.all.embalagem.className = 'campo';
+                         document.all.percentualVenda.disabled = false;
+                         document.all.percentualVenda.className = 'campo';
+                         document.all.codigoInicial2.disabled = false;
+                         document.all.codigoInicial2.className = 'campo';
+                         document.all.codigoFinal2.disabled = false;
+                         document.all.codigoFinal2.className = 'campo';
+                         document.all.perfilVendas.disabled = false;
+                         document.all.perfilVendas.className = 'campo';
+                         document.all.grupoPerfilVendas.disabled = false;
+                         document.all.grupoPerfilVendas.className = 'campo';
+                         return true;
+                      }
+                   </script>
+             <TABLE width=100%>
+               <TR>
+                    <TD width=100%>
+                    <TD nowrap><BUTTON name=BotVisualizar AccessKey="V" tabIndex=99 onclick="return Visualizar()" class=botao title="Visualizar Impressão"><LABEL><U>V</U>isualizar</LABEL></BUTTON>
+                    <TD><DIV id=DivBtReservado></DIV>
+                               <input type=hidden name=GeraExcel value=1>
+                </TABLE>&nbsp;
+                    <INPUT type=hidden id=hiddentipoMarca>
+                    <SCRIPT>
+                        if( document.parentWindow.parent.rotina.document.all ( 'tipoMarca' ).options[0] == null ){
+                            document.all ( 'hiddentipoMarca' ).value = 'NaoExisteOpcaoInicial';
+                            oOption = document.createElement( "OPTION" );
+                            oOption.value = 'CCC';
+                            oOption.text = ' Carregando ... ';
+                            document.parentWindow.parent.rotina.document.all ( 'tipoMarca' ).add( oOption );
+                            oOption = null;
+                        }
+                        else {
+                            document.all ( 'hiddentipoMarca' ).value = document.parentWindow.parent.rotina.document.all ( 'tipoMarca' ).options[0].text;
+                            document.parentWindow.parent.rotina.document.all ( 'tipoMarca' ).options[0].text = ' Carregando ... ';
+                        }
+                    </SCRIPT>
+               <SCRIPT>
+                   function CCmbtipoMarca(vlrCmb,txtCmb){oOpt=document.createElement("OPTION");oOpt.value=vlrCmb;oOpt.text=txtCmb;parent.frames['rotina'].document.all ('tipoMarca').add(oOpt);oOpt=null;}CCmbtipoMarca("01","01 - CERVEJA");CCmbtipoMarca("02","02 - REFRIGERANTE");CCmbtipoMarca("03","03 - CONCENTRADO");CCmbtipoMarca("04","04 - EXTRATO");CCmbtipoMarca("05","05 - AGUA");CCmbtipoMarca("06","06 - GASES");CCmbtipoMarca("07","07 - MALTE");CCmbtipoMarca("08","08 - XAROPE");CCmbtipoMarca("09","09 - LEVEDURA");CCmbtipoMarca("10","10 - ISOTONICO");CCmbtipoMarca("11","11 - FOLHA ACO");CCmbtipoMarca("12","12 - CHA");CCmbtipoMarca("13","13 - AGUARDENTE");CCmbtipoMarca("14","14 - SUCO");CCmbtipoMarca("15","15 - SEMENTE");CCmbtipoMarca("16","16 - MALTA");CCmbtipoMarca("17","17 - ESPUMANTE");CCmbtipoMarca("18","18 - ROLHA");CCmbtipoMarca("19","19 - BOBINA ALUMINIO");CCmbtipoMarca("20","20 - GARRAFA");CCmbtipoMarca("21","21 - GARRAFEIRA");CCmbtipoMarca("22","22 - FILME");CCmbtipoMarca("23","23 - SERVICOS DE ROYALTIE");CCmbtipoMarca("24","24 - ROTULO PLASTICO");CCmbtipoMarca("25","25 - ROTULO PAPEL");CCmbtipoMarca("26","26 - ENERGETICO");CCmbtipoMarca("27","27 - AROMA");CCmbtipoMarca("28","28 - BEBIDAS QUENTES");CCmbtipoMarca("29","29 - BEBIDA FRUTADA NAO A");CCmbtipoMarca("30","30 - CAFE");CCmbtipoMarca("31","31 - ACHOCOLATADO");CCmbtipoMarca("32","32 - BARRA DE CEREAL");CCmbtipoMarca("33","33 - BOBINA PAPEL");CCmbtipoMarca("34","34 - FECULA");CCmbtipoMarca("35","35 - ALCOOL GEL");CCmbtipoMarca("36","36 - TAMPA MET");CCmbtipoMarca("37","37 - LATA MET");CCmbtipoMarca("38","38 - TAMPA");CCmbtipoMarca("39","39 - LEITE E LATICINIOS");CCmbtipoMarca("40","40 - GIN");CCmbtipoMarca("41","41 - WHISKY");CCmbtipoMarca("42","42 - ALCOOL LIQUIDO");CCmbtipoMarca("43","43 - VINHO");CCmbtipoMarca("44","44 - MASCARA");CCmbtipoMarca("45","45 - MASCARA ALGODAO E AL");CCmbtipoMarca("46","46 - VODKA");CCmbtipoMarca("47","47 - COMPLEMENTO ALIMENTA");CCmbtipoMarca("48","48 - CARTAZETE");CCmbtipoMarca("49","49 - LICOR");CCmbtipoMarca("50","50 - CACHACA");CCmbtipoMarca("51","51 - RUM");CCmbtipoMarca("52","52 - CONHAQUE");CCmbtipoMarca("53","53 - BISCOITO");CCmbtipoMarca("54","54 - VERMUTE E SIMILARES");CCmbtipoMarca("55","55 - PRODUTOS ALIMENTICIO");CCmbtipoMarca("56","56 - EMBALAGENS E PARTES");CCmbtipoMarca("57","57 - ASSENTOS E PARTES DE");CCmbtipoMarca("58","58 - APERITIVOS AMARGOS B");CCmbtipoMarca("59","59 - PLASTICOS E SUAS OBR");CCmbtipoMarca("60","60 - TEQUILA");CCmbtipoMarca("61","61 - CATUABA");CCmbtipoMarca("62","62 - REFRESCOS E OUTRAS B");CCmbtipoMarca("63","63 - SANGRIAS E COQUETEIS");CCmbtipoMarca("64","64 - BEBIDAS ALCOOLICAS");CCmbtipoMarca("65","65 - ARROZ");CCmbtipoMarca("66","66 - FEIJAO");CCmbtipoMarca("67","67 - WAFFLES E WAFERS");CCmbtipoMarca("68","68 - OLEO");CCmbtipoMarca("69","69 - AZEITE");CCmbtipoMarca("70","70 - ROLHA SEMI ELAB");CCmbtipoMarca("71","71 - PRODUTOS ALIMENTICIO");CCmbtipoMarca("72","72 - FARINHA DE TRIGO");CCmbtipoMarca("73","73 - MISTURAS E PASTAS");CCmbtipoMarca("74","74 - MOSTARDA");CCmbtipoMarca("75","75 - MOLHO DE TOMATE");CCmbtipoMarca("76","76 - ERVILHA");CCmbtipoMarca("77","77 - BEBIDA ICE");CCmbtipoMarca("78","78 - KETCHUP");CCmbtipoMarca("79","79 - MAIONESE");CCmbtipoMarca("80","80 - MILHO");CCmbtipoMarca("81","81 - REFRIGERADOS E CONGE");CCmbtipoMarca("82","82 - OXIGENIO");CCmbtipoMarca("83","83 - MACARRAO");CCmbtipoMarca("84","84 - MATERIAIS DE MARKETI");CCmbtipoMarca("85","85 - CEREAIS E GRAOS");CCmbtipoMarca("86","86 - AGUAS E SUCOS");CCmbtipoMarca("87","87 - COOLER DE VINHO");CCmbtipoMarca("88","88 - VINHOS FUTURE BEVS");CCmbtipoMarca("89","89 - OUTRAS BEBIDAS NAO A");CCmbtipoMarca("90","90 - OUTROS PRODUTOS MARK");CCmbtipoMarca("91","91 - REFRESCO");CCmbtipoMarca("92","92 - ENERGETICO MKT PLACE");CCmbtipoMarca("93","93 - MAQUINA APARELHO FER");CCmbtipoMarca("94","94 - VALVULA");CCmbtipoMarca("95","95 - LUPULO");CCmbtipoMarca("97","97 - VASILHAME");CCmbtipoMarca("98","98 - GARRAFEIRA");CCmbtipoMarca("99","99 - MATERIAL");
+               </SCRIPT>
+                    <script>
+                        document.parentWindow.parent.rotina.document.all ( 'tipoMarca' ).value = '000';
+                    </script>
+                    <SCRIPT>
+                        if( document.all ( 'hiddentipoMarca' ).value == 'NaoExisteOpcaoInicial' ){
+                            document.parentWindow.parent.rotina.document.all ( 'tipoMarca' ).remove( 0 );
+                        }
+                        else {
+                            document.parentWindow.parent.rotina.document.all ( 'tipoMarca' ).options[0].text = document.all ( 'hiddentipoMarca' ).value;
+                        }
+                        document.parentWindow.parent.rotina.document.all ( 'tipoMarca' ).disabled = false;
+                    </SCRIPT>
+                    <INPUT type=hidden id=hiddentipoPerfil>
+                    <SCRIPT>
+                        if( document.parentWindow.parent.rotina.document.all ( 'tipoPerfil' ).options[0] == null ){
+                            document.all ( 'hiddentipoPerfil' ).value = 'NaoExisteOpcaoInicial';
+                            oOption = document.createElement( "OPTION" );
+                            oOption.value = 'CCC';
+                            oOption.text = ' Carregando ... ';
+                            document.parentWindow.parent.rotina.document.all ( 'tipoPerfil' ).add( oOption );
+                            oOption = null;
+                        }
+                        else {
+                            document.all ( 'hiddentipoPerfil' ).value = document.parentWindow.parent.rotina.document.all ( 'tipoPerfil' ).options[0].text;
+                            document.parentWindow.parent.rotina.document.all ( 'tipoPerfil' ).options[0].text = ' Carregando ... ';
+                        }
+                    </SCRIPT>
+               <SCRIPT>
+                   function CCmbtipoPerfil(vlrCmb,txtCmb){oOpt=document.createElement("OPTION");oOpt.value=vlrCmb;oOpt.text=txtCmb;parent.frames['rotina'].document.all ('tipoPerfil').add(oOpt);oOpt=null;}CCmbtipoPerfil("001","001 - M1 SKOL");CCmbtipoPerfil("002","002 - M2 BRAHMA");CCmbtipoPerfil("003","003 - M3 ANTARCTICA");CCmbtipoPerfil("004","004 - M2M3");CCmbtipoPerfil("005","005 - SEGMENTADO");CCmbtipoPerfil("006","006 - M4");CCmbtipoPerfil("007","007 - TRIMARCA");CCmbtipoPerfil("008","008 - Promotor de Vendas");CCmbtipoPerfil("009","009 - 31064");
+               </SCRIPT>
+                    <script>
+                        document.parentWindow.parent.rotina.document.all ( 'tipoPerfil' ).value = '000';
+                    </script>
+                    <SCRIPT>
+                        if( document.all ( 'hiddentipoPerfil' ).value == 'NaoExisteOpcaoInicial' ){
+                            document.parentWindow.parent.rotina.document.all ( 'tipoPerfil' ).remove( 0 );
+                        }
+                        else {
+                            document.parentWindow.parent.rotina.document.all ( 'tipoPerfil' ).options[0].text = document.all ( 'hiddentipoPerfil' ).value;
+                        }
+                        document.parentWindow.parent.rotina.document.all ( 'tipoPerfil' ).disabled = false;
+                    </SCRIPT>
+                   <script>
+                       HabilitaEscolheTipoMarca();
+                       HabilitaEscolheTipoPerfil();
+                       document.all.selecionarTipoPerfil.disabled = true
+                   </script>
+                <script>
+                    document.all.codigoInicial1.value = "0";
+                    document.all.codigoFinal1.value = "9999";
+                    document.all.codigoInicial2.value = "0";
+                    document.all.codigoFinal2.value = "9999";
+                    document.all.mesAnoInicial.value = "11/2026";
+                    document.all.mesAnoFinal.value = "11/2026";
+                    document.all.tipoMarca.disabled = true;
+                    document.all.produto.value = "9999999";
+                    document.all.embalagem.value = "999";
+                    document.all.percentualVenda.value = "0,00";
+                    document.all.marca.value = "9999";                                     //*>AJ070206:48148
+                    document.all.linhaMarca.value = "999";
+                    document.all.OpcaoRel.focus();
+                </script>
+
+               <script>
+                   function ChamaBuscaErros(){
+                       document.parentWindow.parent.top_rotina.BuscaErros();
+                   }
+                   function ZeraTimeOutCtrl(){
+                       document.parentWindow.parent.top_rotina.timeOut = 0;
+                   }
+               </script>
+               <script for=imgWait event=onpropertychange>
+                   try{
+                       if( document.all.imgWait.style.display != 'none' ){
+                           ChamaBuscaErros();
+                       }
+                   }
+                   catch( e ){
+                       setTimeout( 'ChamaBuscaErros()', 1000 );
+                   }
+               </script>
+               <script> document.parentWindow.parent.bottom_rotina.document.location.href = "../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=s8Ks8K36917797&ppopcao=00&call=PW02009R&frame=9&opcao=1&"; </script>
+                    <INPUT type=hidden id=hiddenperfilVendas>
+                    <SCRIPT>
+                        if( document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).options[0] == null ){
+                            document.all ( 'hiddenperfilVendas' ).value = 'NaoExisteOpcaoInicial';
+                            oOption = document.createElement( "OPTION" );
+                            oOption.value = 'CCC';
+                            oOption.text = ' Carregando ... ';
+                            document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).add( oOption );
+                            oOption = null;
+                        }
+                        else {
+                            document.all ( 'hiddenperfilVendas' ).value = document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).options[0].text;
+                            document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).options[0].text = ' Carregando ... ';
+                        }
+                    </SCRIPT>
+               <SCRIPT>
+                   function CCmbperfilVendas(vlrCmb,txtCmb){oOpt=document.createElement("OPTION");oOpt.value=vlrCmb;oOpt.text=txtCmb;parent.frames['rotina'].document.all ('perfilVendas').add(oOpt);oOpt=null;}CCmbperfilVendas("001","001 - M1 SKOL");CCmbperfilVendas("002","002 - M2 BRAHMA");CCmbperfilVendas("003","003 - M3 ANTARCTICA");CCmbperfilVendas("004","004 - M2M3");CCmbperfilVendas("005","005 - SEGMENTADO");CCmbperfilVendas("006","006 - M4");CCmbperfilVendas("007","007 - TRIMARCA");CCmbperfilVendas("008","008 - Promotor de Vendas");CCmbperfilVendas("009","009 - 31064");
+               </SCRIPT>
+                    <script>
+                        document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).value = '000';
+                    </script>
+                    <SCRIPT>
+                        if( document.all ( 'hiddenperfilVendas' ).value == 'NaoExisteOpcaoInicial' ){
+                            document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).remove( 0 );
+                        }
+                        else {
+                            document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).options[0].text = document.all ( 'hiddenperfilVendas' ).value;
+                        }
+                        document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).disabled = false;
+                    </SCRIPT>
+                    <INPUT type=hidden id=hiddengrupoPerfilVendas>
+                    <SCRIPT>
+                        if( document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).options[0] == null ){
+                            document.all ( 'hiddengrupoPerfilVendas' ).value = 'NaoExisteOpcaoInicial';
+                            oOption = document.createElement( "OPTION" );
+                            oOption.value = 'CCC';
+                            oOption.text = ' Carregando ... ';
+                            document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).add( oOption );
+                            oOption = null;
+                        }
+                        else {
+                            document.all ( 'hiddengrupoPerfilVendas' ).value = document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).options[0].text;
+                            document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).options[0].text = ' Carregando ... ';
+                        }
+                    </SCRIPT>
+               <SCRIPT>
+                   function CCmbgrupoPerfilVendas(vlrCmb,txtCmb){oOpt=document.createElement("OPTION");oOpt.value=vlrCmb;oOpt.text=txtCmb;parent.frames['rotina'].document.all ('grupoPerfilVendas').add(oOpt);oOpt=null;}CCmbgrupoPerfilVendas("01","01 - M1");CCmbgrupoPerfilVendas("02","02 - M2");CCmbgrupoPerfilVendas("03","03 - M3");CCmbgrupoPerfilVendas("04","04 - M2M3");CCmbgrupoPerfilVendas("05","05 - Segmentada");CCmbgrupoPerfilVendas("06","06 - M4");CCmbgrupoPerfilVendas("07","07 - PROM");CCmbgrupoPerfilVendas("09","09 - VD Interna");
+               </SCRIPT>
+                    <script>
+                        document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).value = '00';
+                    </script>
+                    <SCRIPT>
+                        if( document.all ( 'hiddengrupoPerfilVendas' ).value == 'NaoExisteOpcaoInicial' ){
+                            document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).remove( 0 );
+                        }
+                        else {
+                            document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).options[0].text = document.all ( 'hiddengrupoPerfilVendas' ).value;
+                        }
+                        document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).disabled = false;
+                    </SCRIPT>
+               <script>
+                   if( document.all.imgWait != null ){
+                       document.all.imgWait.style.display = 'none';
+                   }
+                   try{
+                       if( 'S' == 'S' ){
+                           document.parentWindow.parent.top_rotina.document.all.unidade.disabled = false;
+                       }
+                   }
+                   catch( e ){}
+               </script>
