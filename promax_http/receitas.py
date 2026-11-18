@@ -163,3 +163,116 @@ def campos_020220(
     if cd_visao is not None:
         campos["cdVisao"] = str(cd_visao)
     return campos
+
+
+# 05.12 (PW02008R) -- o script de carga preenche ano, meses e todas as faixas;
+# Habilita() com opcao diferente de 01 so libera os campos, sem mudar valores.
+def campos_0512(*, opcao_rel: str, ano: str, converte_hecto: bool | None = None) -> dict[str, str | None]:
+    campos: dict[str, str | None] = {"opcaoRel": str(opcao_rel).zfill(2), "ano": str(ano)}
+    if converte_hecto is not None:
+        campos["idConverteHecto"] = "S" if converte_hecto else None
+    return campos
+
+
+# 15.05.01 (PW06011R) -- listas NBZ/Depto/Pacote/VBZ/Conta (SalvaItem), periodo
+# (CarregaPeriodo/VerificaPeriodo) e a sequencia de postbacks do botao Visualizar.
+PASSOS_150501 = ("2", "3", "4", "5")  # AdicionaNbz, AdicionaPacote, AdicionaVbz, ValidaSelecoes
+_TAMANHO_LISTA_150501 = {"Nbz": 2, "Depto": 4, "Pacote": 4, "Vbz": 4, "Conta": 10}
+
+
+def campos_150501(
+    *,
+    visao: str,
+    periodo: str,
+    mes_ano: str | None = None,
+    data_inicial: str | None = None,
+    data_final: str | None = None,
+    ano: str | None = None,
+    totaliza_periodo: bool | None = None,
+    nbz: tuple[str, ...] = ("99",),
+    depto: tuple[str, ...] = ("9999",),
+    pacote: tuple[str, ...] = ("9999",),
+    vbz: tuple[str, ...] = ("9999",),
+    conta: tuple[str, ...] = ("9999999999",),
+) -> dict[str, str | None]:
+    periodo = str(periodo).strip().upper()
+    campos: dict[str, str | None] = {"visao": str(visao).zfill(2), "idPeriodo": periodo}
+    # VerificaPeriodo(): Diario abre 00/00/0000 a 99/99/9999; Mensal/Anual limpam as datas.
+    if periodo == "D":
+        campos.update(dtInicial=data_inicial or "00/00/0000", dtFinal=data_final or "99/99/9999")
+    else:
+        campos.update(dtInicial="", dtFinal="")
+    if periodo == "M":
+        campos["dtMesAno"] = mes_ano
+    if periodo == "A":
+        campos["dtAno"] = ano
+    for nome, itens in (("Nbz", nbz), ("Depto", depto), ("Pacote", pacote), ("Vbz", vbz), ("Conta", conta)):
+        tamanho = _TAMANHO_LISTA_150501[nome]
+        campos[f"lista{nome}"] = "".join(str(item).zfill(tamanho) for item in itens)
+    if totaliza_periodo is not None:
+        campos["idTotalizaPeriodo"] = "S" if totaliza_periodo else None
+    return campos
+
+
+# 14.05.01 (PW04210R) -- o script de carga preenche todas as faixas; o robo so
+# escolhe a classificacao e deixa as preferencias de previsao desmarcadas.
+_CLASSIFICACOES_140501 = {"01", "02", "03", "04", "05", "06", "08", "09", "11", "12", "16"}
+
+
+def campos_140501(*, opcao_rel: str = "01") -> dict[str, str | None]:
+    opcao = str(opcao_rel).zfill(2)
+    if opcao not in _CLASSIFICACOES_140501:
+        raise ValueError(f"Classificacao invalida para a 14.05.01: {opcao_rel}")
+    return {
+        "opcaoRel": opcao,
+        "quebraPag": None,
+        "idListaPrevTodas": None,
+        "idListaPrevPendAprov": None,
+        "idListaPrevAprovadas": None,
+        "idListaPrevRejeitadas": None,
+    }
+
+
+# 14.05.06 (PW04235R) e 12.06.06 (PW04109R) -- mesmo desenho de tela: o tipo de
+# data (Contabil/Movimento) libera iniDat/fimDat (CarregaCampo); demais faixas
+# vem do script de carga.
+def _campos_titulos_por_data(campo_tipo: str, opcao_rel, tipo_data, data_inicial, data_final):
+    tipo = str(tipo_data).strip().upper()
+    if tipo not in {"C", "M"}:
+        raise ValueError(f"Tipo de data invalido: {tipo_data} (use C=Contabil ou M=Movimento)")
+    return {"opcaoRel": str(opcao_rel).zfill(2), campo_tipo: tipo, "iniDat": data_inicial, "fimDat": data_final}
+
+
+def campos_140506(*, opcao_rel: str, tipo_data: str, data_inicial: str, data_final: str) -> dict[str, str | None]:
+    campos = _campos_titulos_por_data("preferencias1", opcao_rel, tipo_data, data_inicial, data_final)
+    # HabilitaQuebraPg(): quebra de pagina so existe na classificacao Portador (03).
+    campos["quebraPagina"] = None
+    return campos
+
+
+TITULOS_120606 = {
+    "normais": "idTitulosNormais",
+    "aluguel": "idTitulosAluguel",
+    "cobranca_ca": "idTitulosCobrancaCa",
+    "vale_fisico": "idTitulosValeFisico",
+    "refugo": "idTitulosRefugo",
+    "quebras": "idTitulosQuebras",
+}
+
+
+def campos_120606(
+    *,
+    opcao_rel: str,
+    tipo_data: str,
+    data_inicial: str,
+    data_final: str,
+    titulos: dict[str, bool] | None = None,
+) -> dict[str, str | None]:
+    """``titulos`` so muda os tipos informados; os outros ficam como a tela carrega
+    (Normais, Cobranca CA, Vale Fisico, Refugo e Quebras marcados)."""
+    campos = _campos_titulos_por_data("tpData", opcao_rel, tipo_data, data_inicial, data_final)
+    for chave, marcado in (titulos or {}).items():
+        if chave not in TITULOS_120606:
+            raise ValueError(f"Tipo de titulo desconhecido na 12.06.06: {chave}")
+        campos[TITULOS_120606[chave]] = "S" if marcado else None
+    return campos

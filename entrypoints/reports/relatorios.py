@@ -23,7 +23,17 @@ from core.services.report_orchestration_service import ReportOrchestrationServic
 from core.services.report_post_processing_service import encontrar_primeira_planilha_excel
 from core.config.settings import get_settings
 from promax_http.integracao import PedidoRelatorio, SessaoHttp, gerar_relatorio_http, rotinas_em_http
-from promax_http.receitas import campos_020220, campos_020502, campos_030237
+from promax_http.receitas import (
+    PASSOS_150501,
+    campos_020220,
+    campos_020502,
+    campos_030237,
+    campos_0512,
+    campos_120606,
+    campos_140501,
+    campos_140506,
+    campos_150501,
+)
 
 from pages.reports.relatorio_030224_page import Relatorio030224Page
 from pages.reports.relatorio_030237_page import Relatorio030237Page
@@ -750,8 +760,122 @@ def main(
             unidades_alvo,
         )
 
+    def tarefa_0512_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="0512",
+                tracker_name="Rotina 0512",
+                subpasta="",
+                nome_arquivo=f"05,12 {ano_atual} nomeUnidade0512",
+                campos=campos_0512(opcao_rel="11", ano=ano_atual, converte_hecto=True),
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_150501_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="150501",
+                tracker_name="Rotina 150501",
+                subpasta="150501",
+                nome_arquivo=f"{ano_atual}-{mes_atual} nomeUnidade150501",
+                campos=campos_150501(visao="02", periodo="M", mes_ano=mes_ano_atual, totaliza_periodo=True),
+                passos_previos=PASSOS_150501,
+                opcao_visualizar="1",
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_140501_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="140501",
+                tracker_name="Rotina 140501 Fluxo de Caixa",
+                subpasta="140501",
+                nome_arquivo="14,05,01_nUnidade",
+                # Faixas abertas conforme PW04210R; datas do job nao restringem os titulos em aberto.
+                campos=campos_140501(opcao_rel="01"),
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_140506_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="140506",
+                tracker_name="Rotina 140506",
+                subpasta="140506",
+                nome_arquivo="14,05,06_nUnidade",
+                campos=campos_140506(
+                    opcao_rel="01",
+                    tipo_data="C",
+                    data_inicial=report_start_text or primeiro_dia_mes_atual,
+                    data_final=report_end_text or data_ontem_formatada,
+                ),
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_120606_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="120606",
+                tracker_name="Rotina 120606",
+                subpasta="120606",
+                nome_arquivo="12,06,06_nUnidade",
+                campos=campos_120606(
+                    opcao_rel="01",
+                    tipo_data="C",
+                    data_inicial=report_start_text or primeiro_dia_mes_atual,
+                    data_final=report_end_text or data_ontem_formatada,
+                    titulos={"normais": True},
+                ),
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_020502_fluxodecaixa_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="020502",
+                tracker_name="Rotina 020502 Fluxo de Caixa",
+                subpasta="020502 fluxo de caixa",
+                nome_arquivo="02,05,02_nUnidade",
+                campos=campos_020502(
+                    opcao_rel="1",
+                    listar_produtos=True,
+                    listar_vasilhames_garrafeiras=False,
+                    tipo_data="E",
+                    periodo_inicial=data_ontem_formatada,
+                    periodo_final=data_ontem_formatada,
+                ),
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_150501_fluxodecaixa_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="150501",
+                tracker_name="Rotina 150501 Fluxo de Caixa",
+                subpasta="150501 fluxo de caixa",
+                nome_arquivo=f"{ano_atual}-{mes_atual} nomeUnidade150501",
+                campos=campos_150501(visao="01", periodo="M", mes_ano=mes_ano_atual, totaliza_periodo=True),
+                passos_previos=PASSOS_150501,
+                opcao_visualizar="1",
+            ),
+            unidades_alvo,
+        )
+
     rotinas_http = {
         "030237_ESTOQUE": tarefa_030237_estoque_http,
+        "140501": tarefa_140501_http,
+        "140506": tarefa_140506_http,
+        "120606": tarefa_120606_http,
+        "020502_FLUXO_DE_CAIXA": tarefa_020502_fluxodecaixa_http,
+        "150501_FLUXO_DE_CAIXA": tarefa_150501_fluxodecaixa_http,
+        "0512": tarefa_0512_http,
+        "150501": tarefa_150501_http,
         "020502": tarefa_020502_http,
         "030237_GIRO": tarefa_030237_giro_http,
         "030237_ENTRADA": tarefa_030237_entrada_http,

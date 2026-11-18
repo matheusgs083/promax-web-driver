@@ -1,0 +1,596 @@
+
+<html>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HEAD>
+<meta http-equiv="Expires" content="Mon, 01 Jan 1996 12:12:00 GMT">
+<meta http-equiv="Pragma" content="no-cache">
+<META content="text/html; charset=windows-1252" http-equiv=Content-Type>
+<HEAD> <TITLE></TITLE> </HEAD>
+<link rel="stylesheet" href="../scripts/acao.css" type="text/css"></link>
+<script src="../scripts/funcoes.js" language="JavaScript"></script>
+<script src="../scripts/funcoes.vbs" language="VbScript"></script>
+               <script FOR="document" EVENT="onhelp" Language="javaScript">
+                   MostraHelp( 'PW06011R', '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&ppopcao=6' )
+                   return false;
+               </script>
+               <script>
+                   var aJanelas = new Array();
+                   var relatorio = 0;
+               </script>
+               <script FOR="window" EVENT="onunload" Language="JavaScript">
+                   if( relatorio > 0 ){
+                       window.open( "../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=x9Jj4A58849956&ppopcao=10", "fim", "top=3000,left=0,height=40,width=200,status=no,toolbar=no,menubar=no,location=no,resizable=no,scrollbars=no,channelmode=no" );
+                   }
+                   for( var i=0; i < aJanelas.length; i++ ){
+                       aJanelas[i].close();
+                   }
+               </script>
+<BODY leftMargin=0 topMargin=0 marginheight="0" marginwidth="0">
+<FORM name=form1 method=post>
+<DIV id=divRotinaGenerico></DIV>
+<INPUT type=hidden name=SessionID    value=w0Lb1a54659813>
+<INPUT type=hidden name=SubSessionID value=x9Jj4A58849956>
+<input type=hidden name=opcao        value=00>
+<INPUT type=hidden name=ppopcao      value=00>
+<INPUT type=hidden name=call         value=PW06011R>
+                <table width=100% cellspacing=0 cellpadding=0 border=0>
+                   <tr>
+                      <td height=20 nowrap>
+                          <div id=imgWait><img src="../icons/Process.gif" border=0></img></div>
+                      </td>
+                   </tr>
+                </table>
+                <script>
+                    try{
+                        if( document.parentWindow.parent.document.title == '' ){
+                            document.parentWindow.parent.document.title = '';
+                        }
+                    }
+                    catch( e ){}
+                    try{
+                        document.parentWindow.parent.top_rotina.document.all.versaoprg.outerText = 'u';
+                    }
+                    catch( e ){}
+                </script>
+               <script>
+                         ExecucaoBackground = false;
+                  var btnCancelar = 1;
+                  function Visualizar(){
+                      if( !ValidaParRel() ){
+                          return false;
+                      }
+                      document.parentWindow.parent.top_rotina.document.all.unidade.disabled = true;
+                      AbreProgressBar(btnCancelar);
+                      document.form1.opcao.value = 1;
+                      document.form1.submit();
+                      return true;
+                  }
+                  function AbreProgressBar(Cancelar){
+                      if( Cancelar == undefined || Cancelar != "0" ){
+                          Cancelar = "1"; // Habilita cancelamento do processo
+                      }
+                      var strURL = '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=x9Jj4A58849956&ppopcao=6&opcaomenu=3&btnCancelar=' + Cancelar;
+                      ProgressBar = window.open( strURL, 'x9Jj4A58849956' , "top=230, left=220, width=350, height=10, scrollbars=no, status=no, toolbar=no, menubar=no, location=no");
+                      ProgressBar.focus();
+                      return false;
+                  }
+                  function Confirmar(){
+                     if( !ValidaParRel() ){
+                         return false;
+                     }
+                     query="";
+                     var field = document.forms[0];
+                     for (i = 0; i < field.length; i++) {
+                          if ((field.elements[i].type == "text") ||
+                              (field.elements[i].type == "textarea") ||
+                              (field.elements[i].type == "checkbox") ||
+                              (field.elements[i].type == "radio") ||
+                              (field.elements[i].tagName == "SELECT")  ||
+                              (field.elements[i].type == "hidden" && field.elements[i].OcultoRotina == "1" )
+                             )
+                             {
+                              if ((field.elements[i].type == "radio") || (field.elements[i].type == "checkbox"))
+                                 {
+                                  if (field.elements[i].checked == true)
+                                     query = query + field.elements[i].name + "=" + field.elements[i].value + "&"
+                                 }
+                              else
+                                 {
+                                  query = query + field.elements[i].name + "=" + field.elements[i].value + "&"
+                                 }
+                             }
+                     }
+                     parent.window.returnValue = query;
+                     window.parent.parent.close();
+                  }
+               </script>
+               <script>
+                   function VerificaPeriodo(){
+                       document.all.lnOpcaoDiario.style.display = "none";
+                       document.all.lnOpcaoMensal.style.display = "none";
+                       document.all.lnOpcaoAnual.style.display = "none";
+                       document.all.dtInicial.value = "";
+                       document.all.dtFinal.value = "";
+                       switch( document.all.idPeriodo.value ){
+                           case "D":
+                               document.all.lnOpcaoDiario.style.display = "";
+                               document.all.dtInicial.value = "00/00/0000";
+                               document.all.dtFinal.value = "99/99/9999";
+                               break;
+                           case "M":
+                               document.all.lnOpcaoMensal.style.display = "";
+                               break;
+                           case "A":
+                               document.all.lnOpcaoAnual.style.display = "";
+                               break;
+                       }
+                   }
+                   function CarregaPeriodo(){
+                      var qtdCombo = document.all.idPeriodo.length;
+                      for( i = 0; i < qtdCombo; i++ ){
+                           document.all.idPeriodo.remove( 0 );
+                      }
+                      if( document.all.visao.value == "01" ){
+                          IncluiPeriodo ( 'D', 'Diário' );
+                      }
+                      IncluiPeriodo ( 'M', 'Mensal' );
+                      IncluiPeriodo ( 'A', 'Anual' );
+                      document.all.idPeriodo.value = 'M';
+                      VerificaPeriodo();
+                   }
+                   function SalvaItem( cod ){
+                       document.all [ 'lista' + cod ].value = '';
+                       var aux = '';
+                       var result = '';
+                       var tamanho = 4;
+                       if( cod == "Nbz" ){
+                           tamanho = 2;
+                       }
+                       else{
+                           if( cod == "Conta" ){
+                               tamanho = 10;
+                           }
+                       }
+                       for( i = 0; i < document.all [ 'cd' + cod + 'Lista' ].length; i++ ){
+                            aux = document.all [ 'cd' + cod + 'Lista' ][i].value;
+                            if( aux.length != tamanho ){
+                                aux = Replicate( 0, tamanho - aux.length ) + aux;
+                            }
+                            result = result + aux;
+                       }
+                       document.all [ 'lista' + cod ].value = result;
+                       if( result == '' ){
+                           return false;
+                       }
+                       else{
+                           return true;
+                       }
+                   }
+     //            Adiciona NBZ e atualiza combo de departamentos
+                   function AdicionaNbz(){
+                       if( AdicionaItemLista( 'Nbz' ) ){
+                           SalvaItem( 'Nbz' );
+                           limInd = document.all.cdDepto.length;
+                           for( i = 0; i < limInd; i++ ){
+                                document.all.cdDepto.remove( 0 );
+                           }
+                           Disabled( 'blocoDepto', true );
+                           document.all.opcao.value = 2;
+                           EnviarFormulario();
+                       }
+                   }
+     //            Adiciona departamento
+                   function AdicionaDepto(){
+                       AdicionaItemLista( 'Depto' );
+                   }
+     //            Adiciona pacote e atualiza combo de VBZ's
+                   function AdicionaPacote(){
+                       if( AdicionaItemLista( 'Pacote' ) ){                            //*>AJ030105:28838
+                           SalvaItem( 'Pacote' );                                      //*>AJ030105:28838
+                           limInd = document.all.cdVbz.length;                         //*>AJ030105:28838
+                           for( i = 0; i < limInd; i++ ){                              //*>AJ030105:28838
+                                document.all.cdVbz.remove( 0 );                        //*>AJ030105:28838
+                           }                                                           //*>AJ030105:28838
+                           Disabled( 'blocoVbz', true );
+                           document.all.opcao.value = 3;                               //*>AJ030105:28838
+                           EnviarFormulario();                                         //*>AJ030105:28838
+                       }                                                               //*>AJ030105:28838
+                   }
+     //            Adiciona VBZ e atualiza combo de contas
+                   function AdicionaVbz(){
+                       if( AdicionaItemLista( 'Vbz' ) ){                               //*>AJ030105:28838
+                           SalvaItem( 'Vbz' );                                         //*>AJ030105:28838
+                           limInd = document.all.cdConta.length;                       //*>AJ030105:28838
+                           for( i = 0; i < limInd; i++ ){                              //*>AJ030105:28838
+                                document.all.cdConta.remove( 0 );                      //*>AJ030105:28838
+                           }                                                           //*>AJ030105:28838
+                           Disabled( 'blocoConta', true );
+                           document.all.opcao.value = 4;                               //*>AJ030105:28838
+                           EnviarFormulario();                                         //*>AJ030105:28838
+                       }                                                               //*>AJ030105:28838
+                   }
+     //            Adiciona conta
+                   function AdicionaConta(){
+                       AdicionaItemLista( 'Conta' );
+                   }
+     //            Adiciona NBZ/Depto/Pacote/VBZ/Conta na lista
+                   function AdicionaItemLista( cod ){
+                      var nMaxElementos = 15;
+                      if( document.all [ 'cd' + cod + 'Lista' ].length >= nMaxElementos
+                      && document.all.controleMensagem.value != 1 ){
+                          alert( 'Todos os itens já foram adicionados' );
+                          document.all.controleMensagem.value = 1;
+                          return false;
+                      }
+                      else{
+                          document.all.controleMensagem.value = 2;
+                      }
+                      if( document.all [ 'cd' + cod ].value == 0 ){
+                          return false;
+                      }
+                      if( document.all [ 'cd' + cod ].value != '' ){
+                          if( ItemExistente( cod ) ){
+                              if( cod == "Vbz" || cod == "Conta" ){
+                                  alert( cod + ' já adicionada à lista' );
+                              }
+                              else{
+                                  alert( cod + ' já adicionado à lista' );
+                              }
+                              document.all [ 'cd' + cod ].focus();
+                              return false;
+                          }
+                          Inclui( document.all [ 'cd' + cod ].value, cod );
+                      }
+                      document.all [ 'cd' + cod + 'Lista' ].value = document.all [ 'cd' + cod ].value;
+                      document.all [ 'cd' + cod ].value = '';
+                      document.all [ 'cd' + cod ].focus();
+                      return true;                                                     //*>AJ030105:28838
+                   }
+                   function Inclui( i, cod ){
+                       indice = document.all [ 'cd' + cod ].selectedIndex;
+                       oOption = document.createElement( 'OPTION' );
+                       oOption.value = i;
+                       oOption.text = document.all [ 'cd' + cod ].item( indice ).text;
+                       document.all [ 'cd' + cod + 'Lista' ].add( oOption );
+                       document.all [ 'cd' + cod + 'Lista' ].size = document.all [ 'cd' + cod + 'Lista' ].size + 1;
+                       oOption = null;
+                   }
+                   function IncluiPeriodo( valor, desc ){
+                       indice = document.all.idPeriodo.length;
+                       indice++;
+                       oOption = document.createElement( 'OPTION' );
+                       oOption.value = valor;
+                       oOption.text = desc;
+                       document.all.idPeriodo.add( oOption );
+                       oOption = null;
+                   }
+     //            Verifica se Nbz/Depto/Pacote/Vbz já existe na lista
+                   function ItemExistente( cod ){
+                      var campo = parseInt( document.all [ 'cd' + cod ].value,10 );
+                      for( i = 0; i < document.all [ 'cd' + cod + 'Lista' ].length; i++ ){
+                          if( document.all [ 'cd' + cod + 'Lista' ][i].value == campo ){
+                              return true;
+                          }
+                      }
+                   }
+     //            Remove NBZ e atualiza combo de departamentos
+                   function RemoverNbz(){
+                       if( RemoverItem( 'Nbz' ) ){
+                           SalvaItem( 'Nbz' );
+                           limInd = document.all.cdDepto.length;
+                           for( i = 0; i < limInd; i++ ){
+                                document.all.cdDepto.remove( 0 );
+                           }
+                           Disabled( 'blocoDepto', false );
+                           document.all.opcao.value = 2;
+                           EnviarFormulario();
+                       }
+                   }
+                   function RemoverDepto(){
+                       RemoverItem( 'Depto' );
+                   }
+     //            Remove pacote e atualiza combo de VBZ's
+                   function RemoverPacote(){
+                       if( RemoverItem( 'Pacote' ) ){
+                           SalvaItem( 'Pacote' );
+                           limInd = document.all.cdVbz.length;
+                           for( i = 0; i < limInd; i++ ){
+                                document.all.cdVbz.remove( 0 );
+                           }
+                           Disabled( 'blocoVbz', true );
+                           document.all.opcao.value = 3;
+                           EnviarFormulario();
+                       }
+                   }
+     //            Remove VBZ e atualiza combo de contas
+                   function RemoverVbz(){
+                       if( RemoverItem( 'Vbz' ) ){
+                           SalvaItem( 'Vbz' );
+                           limInd = document.all.cdConta.length;
+                           for( i = 0; i < limInd; i++ ){
+                                document.all.cdConta.remove( 0 );
+                           }
+                           Disabled( 'blocoConta', true );
+                           document.all.opcao.value = 4;
+                           EnviarFormulario();
+                       }
+                   }
+                   function RemoverConta(){
+                       RemoverItem( 'Conta' );
+                   }
+     //            Remove Nbz/Depto/Pacote/Vbz/Conta na lista
+                   function RemoverItem( cod ){
+                      var xRemover = document.all [ 'cd' + cod + 'Lista' ].value;
+                      if( document.all [ 'cd' + cod + 'Lista' ].selectedIndex < 0 ){
+                          alert( 'Nenhum item selecionado' );
+                          document.all [ 'cd' + cod + 'Lista' ].focus();
+                          return false;
+                      }
+                      for( i = 0; i < document.all [ 'cd' + cod + 'Lista' ].length; i++ ){
+                          if( document.all [ 'cd' + cod + 'Lista' ][i].value == xRemover ) {
+                              nIndice = i;
+                              break;
+                          }
+                      }
+                      document.all [ 'cd' + cod + 'Lista' ].remove( nIndice );
+                      if( document.all [ 'cd' + cod + 'Lista' ].length != nIndice ){
+                          document.all [ 'cd' + cod + 'Lista' ].selectedIndex = nIndice;
+                      }
+                      else{
+                          document.all [ 'cd' + cod + 'Lista' ].selectedIndex = nIndice - 1;
+                      }
+                      if( document.all [ 'cd' + cod + 'Lista' ].length <= 0 ){
+                          document.all [ 'cd' + cod ].focus();
+                      }
+                      return true;                                                     //*>AJ030105:28838
+                   }
+                   function ValidaSelecoes(){
+                      if( !SalvaItem( 'Nbz' ) ){
+                          alert( 'Informação inválida' );
+                          document.all.cdNbz.focus();
+                          return false;
+                      }
+                      if( !SalvaItem( 'Depto' ) ){
+                          alert( 'Informação inválida' );
+                          document.all.cdDepto.focus();
+                          return false;
+                      }
+                      if( !SalvaItem( 'Pacote' ) ){
+                          alert( 'Informação inválida' );
+                          document.all.cdPacote.focus();
+                          return false;
+                      }
+                      if( !SalvaItem( 'Vbz' ) ){
+                          alert( 'Informação inválida' );
+                          document.all.cdVbz.focus();
+                          return false;
+                      }
+                      if( !SalvaItem( 'Conta' ) ){
+                          alert( 'Informação inválida' );
+                          document.all.cdConta.focus();
+                          return false;
+                      }
+                      document.all.opcao.value = 5;
+                      EnviarFormulario();
+                   }
+                   function ValidaParRel(){
+                       if( !ValidaCampos() ){
+                           return false;
+                       }
+                       switch( document.all.idPeriodo.value ){
+                           case "D":
+                               if( !ValidaCampos( 'obrOpcaoDiario' ) ){
+                                   return false;
+                               }
+                               if( DataMaior( document.all.dtInicial.value, document.all.dtFinal.value ) ){
+                                   alert( 'Data inicial maior que data final' );
+                                   document.all.dtInicial.select();
+                                   return false;
+                               }
+                               break;
+                           case "M":
+                               if( !ValidaCampos( 'obrOpcaoMensal' ) ){
+                                   return false;
+                               }
+                               break;
+                           case "A":
+                               if( !ValidaCampos( 'obrOpcaoAnual' ) ){
+                                   return false;
+                               }
+                               break;
+                       }
+                       SalvaItem( 'Nbz' );
+                       SalvaItem( 'Depto' );
+                       SalvaItem( 'Pacote' );
+                       SalvaItem( 'Vbz' );
+                       SalvaItem( 'Conta' );
+                       return true;
+                   }
+               </script>
+               <input type=hidden name=listaNbz value=''>
+               <input type=hidden name=listaDepto value=''>
+               <input type=hidden name=listaPacote value=''>
+               <input type=hidden name=listaVbz value=''>
+               <input type=hidden name=listaVbzAux value=''>
+               <input type=hidden name=listaPacoteAux value=''>
+               <input type=hidden name=listaConta value=''>
+               <input type=hidden name=controleMensagem>
+               <input type=hidden name=cdDono>
+               <input type=hidden name=mrObz>
+               <input type=hidden name=idPermiteConsultaObz>
+               <input type=hidden name=cdDeptoConsulta>
+               <TABLE width="100%">
+               <TR><TD>
+                  <TABLE border=1 cellspacing=1 cellpadding=20 bordercolor=White bordercolordark=White bordercolorlight=DimGray class=WindowScreen rules=none width="100%">
+                  <TR><TD width=35%>
+                     <TABLE border=0 width=100% height=100%>
+                     <TR><TD>
+                        <FIELDSET style="LEFT: 19px; TOP: 29px"><LEGEND><LABEL class=titulocampo>&nbsp;Opções&nbsp;</LABEL></LEGEND>
+                           <TABLE border=0 rules=none align=center cellspacing=1 cellpadding=2 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 5px 2px 7px">
+                              <TR>
+                                 <TD colspan=2 height=27>
+                              <TR>
+                                 <TD class=titulocampo>Ordem&nbsp;
+                                 <TD><SELECT name=opcaoRel class=combo tabIndex=1 style="WIDTH: 120px">
+                                        <OPTION value="01 - NBZ   ">01 - NBZ</OPTION>
+                                        <OPTION value="02 - Pacote">02 - Pacote</OPTION>
+                                     </SELECT>&nbsp;
+                              <TR>
+                                 <TD class=titulocampo>Regime&nbsp;
+                                 <TD><SELECT name=visao class=combo tabIndex=2 style="WIDTH: 120px" onChange="CarregaPeriodo();">
+                                        <OPTION value='01'>01 - Caixa</OPTION>
+                                        <OPTION value='02'>02 - Competência</OPTION>
+                                     </SELECT>&nbsp;
+                              <TR>
+                                 <TD class=titulocampo>Período&nbsp;
+                                 <TD><SELECT name=idPeriodo class=combo tabIndex=3 style="WIDTH: 120px" onChange="VerificaPeriodo();">
+                                        <OPTION value='D'>Diário</OPTION>
+                                        <OPTION value='M'>Mensal</OPTION>
+                                        <OPTION value='A'>Anual</OPTION>
+                                     </SELECT>&nbsp;
+                              <TR>
+                                 <TD colspan=2 height=28>
+                            </TABLE>
+                        </FIELDSET>
+                     <TR><TD height=10>
+                     <TR><TD>
+                        <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Preferências&nbsp;</LABEL></LEGEND>
+                           <TABLE border=0 rules=none align=center cellspacing=1 cellpadding=2 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 5px 2px 7px">
+                              <TR>
+                                 <TD height=27></TD>
+                              <TR>
+                                 <TD class=titulocampo><div align=left><INPUT tabIndex=4 class=checkbox type=checkbox name=idTotalizaPeriodo value="S" checked>&nbsp;Totaliza Período</div>
+                              <TR>
+                                 <TD class=titulocampo><div align=left><INPUT tabIndex=5 class=checkbox type=checkbox name=resumo value="S" checked>&nbsp;Listar Histórico</div>
+                              <TR>
+                                 <TD class=titulocampo><div align=left><INPUT tabIndex=6 class=checkbox type=checkbox name=idQuebra value="S" checked>&nbsp;Quebra por Página</div>
+                              <TR>
+                                 <TD height=28></TD>
+                            </TABLE>
+                        </FIELDSET></TR>
+                     </TABLE>
+                     <TD>
+                     <TABLE border=0 width=100% height=100%>
+                     <TR><TD nowrap valign=top height="40%">
+                        <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Seleções&nbsp;</LABEL></LEGEND>
+                           <TABLE border=0 rules=none align=center cellspacing=1 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 5px 2px 7px">
+                              <TR id=lnOpcaoDiario style="display:  none;">
+                                 <TD class=titulocampo>Data Inicial/Final&nbsp;
+                                 <TD><INPUT tabIndex=7 name=dtInicial size=08 maxlength=10 class="campo" onKeyPress="return SomenteNumeros( '/' );" onBlur="FormataCampo( this, '99/99/9999' );" obrOpcaoDiario=1 data=1>
+                                     <INPUT tabIndex=7 name=dtFinal size=08 maxlength=10 class="campo" onKeyPress="return SomenteNumeros( '/' );" onBlur="FormataCampo( this, '99/99/9999' );" obrOpcaoDiario=1 data=1>
+                                 <TD height=13>
+                              <TR id=lnOpcaoMensal>
+                                 <TD class=titulocampo>Mês/Ano&nbsp;
+                                 <TD><INPUT tabIndex=7 name=dtMesAno size=08 maxlength=07 class="campo" onKeyPress="return SomenteNumeros( '/' );" onBlur="FormataCampo( this, '99/9999' );" obrOpcaoMensal=1 data=2>
+                                 <TD height=13>
+                              <TR id=lnOpcaoAnual style="display:  none;">
+                                 <TD class=titulocampo>Ano&nbsp;
+                                 <TD><INPUT tabIndex=7 name=dtAno size=08 maxlength=07 class="campo" onKeyPress="return SomenteNumeros();" obrOpcaoAnual=1 data=A>
+                                 <TD height=13>
+                              <TR>
+                                 <TD class='titulocampo' width=100px>NBZ&nbsp;
+                                 <TD><SELECT name=cdNbz class=combo tabIndex=8 style="WIDTH: 175px" blocoNbz=1>
+                                        <OPTION value="99">99 - Todos</OPTION>
+                                     </SELECT>&nbsp;
+                                    <BUTTON name=BotAdic style="height:20;" tabIndex=9 onClick="AdicionaNbz();"
+                                    onKeyDown="VerificaTeclaPress( '13', 'AdicionaNbz()' );" title="Adiciona Nbz" blocoNbz=1><LABEL>&nbsp;>&nbsp;</LABEL></BUTTON>
+                                 <TD rowspan=3 align=left valign=top heigth=63>
+                                     <SELECT name=cdNbzLista class=combo tabIndex=10 multiple style="height:48; width:130;" onKeyDown="VerificaTeclaPress( '46', 'RemoverNbz()' ); VerificaTeclaPress( 13, 'event.keyCode=9;' )" blocoNbz=1>
+                                     </SELECT>
+                              <TR>
+                                 <TD>&nbsp;
+                              <TR>
+                                 <TD>&nbsp;
+                              <TR>
+                                 <TD class='titulocampo'>Depto&nbsp;
+                                 <TD><SELECT name=cdDepto class=combo tabIndex=11 style="WIDTH: 175px" blocoDepto=1>
+                                        <OPTION value="9999">9999 - Todos</OPTION>
+                                     </SELECT>&nbsp;
+                                    <BUTTON name=BotAdicDepto style="height:20;" tabIndex=12 onClick="AdicionaDepto(); Disabled( 'blocoNbz', true );"
+                                    onKeyDown="VerificaTeclaPress( '13', 'AdicionaDepto()' );" title="Adiciona Departamento" blocoDepto=1><LABEL>&nbsp;>&nbsp;</LABEL></BUTTON>
+                                 <TD rowspan=3 align=left valign=top heigth=63>
+                                     <SELECT name=cdDeptoLista class=combo tabIndex=13 multiple style="height:48; width:130;" onKeyDown="VerificaTeclaPress( '46', 'RemoverDepto()' ); VerificaTeclaPress( 13, 'event.keyCode=9;' )" blocoDepto=1>
+                                     </SELECT>
+                              <TR>
+                                 <TD>&nbsp;
+                              <TR>
+                                 <TD>&nbsp;
+                              <TR>
+                                 <TD class='titulocampo'>Pacote&nbsp;
+                                 <TD><SELECT name=cdPacote class=combo tabIndex=14 style="WIDTH: 175px" blocoPacote=1>
+                                     </SELECT>&nbsp;
+                                    <BUTTON name=BotAdic style="height:20;" tabIndex=15 onClick="AdicionaPacote();"
+                                    onKeyDown="VerificaTeclaPress( '13', 'AdicionaPacote()' );" title="Adiciona Pacote" blocoPacote=1><LABEL>&nbsp;>&nbsp;</LABEL></BUTTON>
+                                 <TD rowspan=3 align=left valign=top heigth=63>
+                                     <SELECT name=cdPacoteLista class=combo tabIndex=16 multiple style="height:48; width:130;" onKeyDown="VerificaTeclaPress( '46', 'RemoverPacote()' ); VerificaTeclaPress( 13, 'event.keyCode=9;' )" blocoPacote=1>
+                                     </SELECT>
+                              <TR>
+                                 <TD>&nbsp;
+                              <TR>
+                                 <TD>&nbsp;
+                              <TR>
+                                 <TD class='titulocampo'>VBZ&nbsp;
+                                 <TD><SELECT name=cdVbz class=combo tabIndex=17 style="WIDTH: 175px" blocoVbz=1>
+                                     </SELECT>&nbsp;
+                                    <BUTTON name=BotAdicVbz style="height:20;" tabIndex=18 onClick="AdicionaVbz(); Disabled( 'blocoPacote', true );"
+                                    onKeyDown="VerificaTeclaPress( '13', 'AdicionaVbz()' );" title="Adiciona Vbz" blocoVbz=1><LABEL>&nbsp;>&nbsp;</LABEL></BUTTON>
+                                 <TD rowspan=3 align=left valign=top heigth=63>
+                                     <SELECT name=cdVbzLista class=combo tabIndex=19 multiple style="height:48; width:130;" onKeyDown="VerificaTeclaPress( '46', 'RemoverVbz()' ); VerificaTeclaPress( 13, 'event.keyCode=9;' )" blocoVbz=1>
+                                     </SELECT>
+                              <TR>
+                                 <TD>&nbsp;
+                              <TR>
+                                 <TD>&nbsp;
+                              <TR>
+                                 <TD class='titulocampo'>Conta&nbsp;
+                                 <TD><SELECT name=cdConta class=combo tabIndex=20 style="WIDTH: 175px" blocoConta=1>
+                                     </SELECT>&nbsp;
+                                    <BUTTON name=BotAdicConta style="height:20;" tabIndex=21 onClick="AdicionaConta(); Disabled( 'blocoVbz', true );"
+                                    onKeyDown="VerificaTeclaPress( '13', 'AdicionaConta()' );" title="Adiciona Conta" blocoConta=1><LABEL>&nbsp;>&nbsp;</LABEL></BUTTON>
+                                 <TD rowspan=3 align=left valign=top heigth=63>
+                                     <SELECT name=cdContaLista class=combo tabIndex=22 multiple style="height:48; width:130;" onKeyDown="VerificaTeclaPress( '46', 'RemoverConta()' ); VerificaTeclaPress( 13, 'event.keyCode=9;' )" blocoConta=1>
+                                     </SELECT>
+                              <TR>
+                                 <TD colspan=2 height=13>
+                           </TABLE>
+                        </FIELDSET>
+                     </TABLE>
+                  </TABLE>
+               </TABLE>
+                <TABLE width=100%>
+                    <TR>
+                       <TD width=100%>
+                       <TD nowrap><BUTTON name=BotVisualizar AccessKey="V" tabIndex=99 onclick="ValidaSelecoes()" class=botao title="Visualizar Impressão"><LABEL><U>V</U>isualizar</LABEL></BUTTON>
+                               <input type=hidden name=GeraExcel value=1>
+                </TABLE>&nbsp;
+
+               <script>
+                   function ChamaBuscaErros(){
+                       document.parentWindow.parent.top_rotina.BuscaErros();
+                   }
+                   function ZeraTimeOutCtrl(){
+                       document.parentWindow.parent.top_rotina.timeOut = 0;
+                   }
+               </script>
+               <script for=imgWait event=onpropertychange>
+                   try{
+                       if( document.all.imgWait.style.display != 'none' ){
+                           ChamaBuscaErros();
+                       }
+                   }
+                   catch( e ){
+                       setTimeout( 'ChamaBuscaErros()', 1000 );
+                   }
+               </script>
+               <script> document.parentWindow.parent.bottom_rotina.document.location.href = "../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=x9Jj4A58849956&ppopcao=00&call=PW06011R&frame=9&opcao=1&"; </script>
+               <script>
+                   if( document.all.imgWait != null ){
+                       document.all.imgWait.style.display = 'none';
+                   }
+                   try{
+                       if( 'S' == 'S' ){
+                           document.parentWindow.parent.top_rotina.document.all.unidade.disabled = false;
+                       }
+                   }
+                   catch( e ){}
+               </script>

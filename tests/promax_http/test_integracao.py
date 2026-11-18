@@ -36,7 +36,8 @@ class ClienteFalso:
         self.unidade = codigo
         return rotina
 
-    def preparar_exportacao(self, rotina, campos):
+    def preparar_exportacao(self, rotina, campos, **opcoes):
+        self.opcoes = opcoes
         self.ordem.append(("visualizar", self.unidade))
         resultado = self.resultados[self.unidade]
         if self.unidade in self.falha_ao_visualizar:
@@ -103,10 +104,10 @@ def test_janela_segue_para_a_proxima_unidade_enquanto_o_download_roda(tmp_path):
     cliente = ClienteFalso({"2210003": download_lento, "2210004": b"C;D\n"})
     original = cliente.preparar_exportacao
 
-    def preparar(rotina, campos):
+    def preparar(rotina, campos, **opcoes):
         if cliente.unidade == "2210004":
             liberar.set()  # so libera o 1o download depois que a 2a unidade foi visualizada
-        return original(rotina, campos)
+        return original(rotina, campos, **opcoes)
 
     cliente.preparar_exportacao = preparar
 
@@ -124,6 +125,17 @@ def test_sucesso_so_e_anotado_depois_do_download(tmp_path):
 
     assert tracker.por_unidade() == {"2210003": "SUCESSO", "2210004": "ERRO SISTEMA"}
     assert resultado.status is ExecutionStatus.PARTIAL_SUCCESS and resultado.should_retry
+
+
+def test_postbacks_e_opcao_do_visualizar_do_pedido_chegam_ao_cliente(tmp_path):
+    from dataclasses import replace
+
+    cliente = ClienteFalso({"2210003": b"A;B\n"})
+    pedido = replace(PEDIDO, passos_previos=("2", "5"), opcao_visualizar="1")
+
+    gerar_relatorio_http(SessaoFalsa(cliente), pedido, unidades_alvo=None, pasta_base=tmp_path, tracker=TrackerFalso(), logger=Logger())
+
+    assert cliente.opcoes == {"passos_previos": ("2", "5"), "opcao_visualizar": "1"}
 
 
 def test_repescagem_roda_so_as_unidades_pedidas(tmp_path):

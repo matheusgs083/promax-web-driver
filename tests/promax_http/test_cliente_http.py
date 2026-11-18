@@ -327,3 +327,71 @@ def test_020220_envia_faixas_de_carga_e_mercadorias_da_receita(cliente, promax, 
     assert (visualizar["garrafeira"], visualizar["idSopiVisa"]) == ("X", "X")
     assert "todos" not in visualizar and "vasilhame" not in visualizar
     assert (visualizar["idNpHistorico"], visualizar["omitirMapa"]) == ("S", "S")
+
+
+def test_150501_faz_os_postbacks_da_tela_antes_do_visualizar(cliente, promax, tmp_path):
+    from promax_http.receitas import PASSOS_150501, campos_150501
+
+    promax.pagina_rotina = "rotina_150501.html"
+    promax.tela_resultado = "<form name=form1 method=post><input type=hidden name=GeraExcel value=1></form>"
+    promax.resposta_frame9 = "<script>window.open('../tmp/rels/F7367_150501.csv.inf');</script>"
+    promax.arquivos["F7367_150501.csv.inf"] = b"A;B\n"
+    cliente.login("F7367", "segredo")
+    rotina = cliente.abrir_rotina("03030718")
+
+    cliente.exportar_csv(
+        rotina, campos_150501(visao="02", periodo="M", mes_ano="11/2026"), tmp_path / "s.csv",
+        passos_previos=PASSOS_150501, opcao_visualizar="1",
+    )
+
+    postbacks = [c["opcao"] for m, u, c in promax.chamadas if m == "POST" and c.get("frame") == "9"]
+    assert postbacks == ["2", "3", "4", "5"]
+    visualizar = [c for m, u, c in promax.chamadas if "frame=0" in u and m == "POST"][0]
+    assert (visualizar["opcao"], visualizar["call"], visualizar["listaConta"]) == ("1", "PW06011R", "9999999999")
+
+
+def _visualizar_com(cliente, promax, tmp_path, pagina, campos):
+    promax.pagina_rotina = pagina
+    promax.tela_resultado = "<form name=form1 method=post><input type=hidden name=GeraExcel value=1></form>"
+    promax.resposta_frame9 = "<script>window.open('../tmp/rels/X.csv.inf');</script>"
+    promax.arquivos["X.csv.inf"] = b"A;B\n"
+    cliente.login("F7367", "segredo")
+    cliente.exportar_csv(cliente.abrir_rotina("03030718"), campos, tmp_path / "s.csv")
+    return [c for m, u, c in promax.chamadas if "frame=0" in u and m == "POST"][0]
+
+
+def test_120606_envia_titulos_marcados_pela_tela_e_periodo_da_tarefa(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_120606
+
+    enviado = _visualizar_com(
+        cliente, promax, tmp_path, "rotina_120606.html",
+        campos_120606(opcao_rel="01", tipo_data="C", data_inicial="01/11/2026", data_final="16/11/2026", titulos={"normais": True}),
+    )
+
+    assert (enviado["call"], enviado["tpData"], enviado["iniDat"]) == ("PW04109R", "C", "01/11/2026")
+    for nome in ("idTitulosNormais", "idTitulosCobrancaCa", "idTitulosValeFisico", "idTitulosRefugo", "idTitulosQuebras"):
+        assert enviado[nome] == "S", nome
+    assert "idTitulosAluguel" not in enviado
+    assert (enviado["iniCli"], enviado["fimCli"]) == ("0", "999999")
+
+
+def test_140501_envia_faixas_da_tela(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_140501
+
+    enviado = _visualizar_com(cliente, promax, tmp_path, "rotina_140501.html", campos_140501())
+
+    assert (enviado["call"], enviado["opcaoRel"]) == ("PW04210R", "01")
+    assert (enviado["iniValor"], enviado["fimValor"], enviado["fimCGC"]) == ("0,00", "99999999,99", "ZZZZZZZZZZZZ99")
+    assert not any(n.startswith("idListaPrev") for n in enviado)
+
+
+def test_140506_envia_tipo_de_data_e_periodo(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_140506
+
+    enviado = _visualizar_com(
+        cliente, promax, tmp_path, "rotina_140506.html",
+        campos_140506(opcao_rel="01", tipo_data="C", data_inicial="01/11/2026", data_final="16/11/2026"),
+    )
+
+    assert (enviado["call"], enviado["preferencias1"], enviado["fimDat"]) == ("PW04235R", "C", "16/11/2026")
+    assert (enviado["iniEmi"], enviado["fimEmi"]) == ("00/00/0000", "99/99/9999")

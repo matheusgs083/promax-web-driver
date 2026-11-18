@@ -82,3 +82,58 @@ def test_020220_sem_mercadoria_ou_com_todas_vira_todos():
     assert campos_020220()["todos"] == "X"
     tudo = campos_020220(mercadorias=set(MERCADORIAS_020220))
     assert tudo["todos"] == "X" and tudo["garrafeira"] is None
+
+
+def test_0512_comercial_com_hectolitro():
+    from promax_http.receitas import campos_0512
+
+    assert campos_0512(opcao_rel="11", ano="2026", converte_hecto=True) == {
+        "opcaoRel": "11", "ano": "2026", "idConverteHecto": "S"
+    }
+
+
+def test_150501_mensal_competencia_monta_listas_como_salvaitem():
+    from promax_http.receitas import campos_150501
+
+    campos = campos_150501(visao="02", periodo="M", mes_ano="11/2026", totaliza_periodo=True)
+
+    assert (campos["visao"], campos["idPeriodo"], campos["dtMesAno"]) == ("02", "M", "11/2026")
+    assert (campos["dtInicial"], campos["dtFinal"]) == ("", "")
+    assert campos["listaNbz"] == "99" and campos["listaDepto"] == "9999"
+    assert campos["listaPacote"] == "9999" and campos["listaVbz"] == "9999"
+    assert campos["listaConta"] == "9999999999"
+    assert campos["idTotalizaPeriodo"] == "S"
+
+
+def test_140501_numerica_sem_previsoes():
+    from promax_http.receitas import campos_140501
+
+    campos = campos_140501(opcao_rel="01")
+
+    assert campos["opcaoRel"] == "01"
+    assert all(campos[n] is None for n in ("quebraPag", "idListaPrevTodas", "idListaPrevPendAprov"))
+
+
+def test_140501_recusa_classificacao_inexistente():
+    import pytest
+    from promax_http.receitas import campos_140501
+
+    with pytest.raises(ValueError):
+        campos_140501(opcao_rel="07")
+
+
+def test_140506_data_contabil_com_periodo():
+    from promax_http.receitas import campos_140506
+
+    campos = campos_140506(opcao_rel="01", tipo_data="c", data_inicial="01/11/2026", data_final="16/11/2026")
+
+    assert (campos["preferencias1"], campos["iniDat"], campos["fimDat"]) == ("C", "01/11/2026", "16/11/2026")
+
+
+def test_120606_so_altera_os_titulos_informados():
+    from promax_http.receitas import campos_120606
+
+    campos = campos_120606(opcao_rel="01", tipo_data="C", data_inicial="01/11/2026", data_final="16/11/2026", titulos={"normais": True})
+
+    assert (campos["tpData"], campos["idTitulosNormais"]) == ("C", "S")
+    assert "idTitulosRefugo" not in campos

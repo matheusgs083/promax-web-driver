@@ -66,7 +66,11 @@ class PedidoRelatorio:
     tracker_name: str
     subpasta: str
     nome_arquivo: str
-    campos: dict[str, str]
+    campos: dict[str, str | None]
+    # Postbacks da tela antes do Visualizar e opcao do Visualizar, quando o botao
+    # nao chama Visualizar() direto (ex.: 15.05.01).
+    passos_previos: tuple[str, ...] = ()
+    opcao_visualizar: str | None = None
 
 
 def downloads_simultaneos() -> int:
@@ -115,7 +119,12 @@ def gerar_relatorio_http(
                 t0 = time.time()
                 try:
                     rotina = cliente.trocar_unidade(rotina, codigo)
-                    exportacao = cliente.preparar_exportacao(rotina, pedido.campos)
+                    exportacao = cliente.preparar_exportacao(
+                        rotina,
+                        pedido.campos,
+                        passos_previos=pedido.passos_previos,
+                        opcao_visualizar=pedido.opcao_visualizar,
+                    )
                 except RelatorioSemConteudo as exc:
                     tracker.anotar(pedido.tracker_name, codigo, "SEM CONTEUDO", str(exc), time.time() - t0)
                     situacoes.append("sem_conteudo")

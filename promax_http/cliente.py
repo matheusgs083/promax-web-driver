@@ -155,11 +155,20 @@ class ClientePromax:
         self.http.get(f"{self.base}?SessionID={self.session_id}&SubSessionID={rotina.sub_session_id}&ppopcao=10")
 
     # ------------------------------------------------------------- exportacao
-    def exportar_csv(self, rotina: Rotina, campos: dict[str, str | None], destino: Path) -> Path:
+    def exportar_csv(
+        self, rotina: Rotina, campos: dict[str, str | None], destino: Path, **opcoes
+    ) -> Path:
         """Visualiza e exporta na hora (uma etapa depois da outra)."""
-        return self.concluir_exportacao(self.preparar_exportacao(rotina, campos), destino)
+        return self.concluir_exportacao(self.preparar_exportacao(rotina, campos, **opcoes), destino)
 
-    def preparar_exportacao(self, rotina: Rotina, campos: dict[str, str | None]) -> "ExportacaoPreparada":
+    def preparar_exportacao(
+        self,
+        rotina: Rotina,
+        campos: dict[str, str | None],
+        *,
+        passos_previos: tuple[str, ...] = (),
+        opcao_visualizar: str | None = None,
+    ) -> "ExportacaoPreparada":
         """Etapa que precisa da janela da rotina: preenche e Visualiza.
 
         Devolve o pedido de exportacao pronto (URL + campos da tela de resultado,
@@ -169,7 +178,12 @@ class ClientePromax:
         """
         # None nos campos da receita significa "nao enviar" (ex.: checkbox desmarcado).
         valores = {k: v for k, v in {**rotina.form.campos, **campos}.items() if v is not None}
-        opcao_visualizar = _opcao_do_botao(rotina.html_rotina, rotina.form, "BotVisualizar")
+        # Postbacks que a tela faz no frame 9 antes do Visualizar (ex.: a 15.05.01
+        # carrega listas e valida selecoes com opcao=2..5).
+        for opcao in passos_previos:
+            self._log("Postback da tela (opcao=%s) ...", opcao)
+            self._falhar_por_alerta(self._enviar_frame9(rotina, {**valores, "opcao": opcao}))
+        opcao_visualizar = opcao_visualizar or _opcao_do_botao(rotina.html_rotina, rotina.form, "BotVisualizar")
         if not opcao_visualizar:
             # Rotina sem Visualizar: exporta direto pelo frame 9.
             return ExportacaoPreparada(
