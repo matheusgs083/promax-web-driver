@@ -1,0 +1,532 @@
+
+<html>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HEAD>
+<meta http-equiv="Expires" content="Mon, 01 Jan 1996 12:12:00 GMT">
+<meta http-equiv="Pragma" content="no-cache">
+<META content="text/html; charset=windows-1252" http-equiv=Content-Type>
+<HEAD> <TITLE></TITLE> </HEAD>
+<link rel="stylesheet" href="../scripts/acao.css" type="text/css"></link>
+<script src="../scripts/funcoes.js" language="JavaScript"></script>
+<script src="../scripts/funcoes.vbs" language="VbScript"></script>
+               <script FOR="document" EVENT="onhelp" Language="javaScript">
+                   MostraHelp( 'PW02523R', '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&ppopcao=6' )
+                   return false;
+               </script>
+               <script>
+                   var aJanelas = new Array();
+                   var relatorio = 0;
+               </script>
+               <script FOR="window" EVENT="onunload" Language="JavaScript">
+                   if( relatorio > 0 ){
+                       window.open( "../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=b1ah3u54514542&ppopcao=10", "fim", "top=3000,left=0,height=40,width=200,status=no,toolbar=no,menubar=no,location=no,resizable=no,scrollbars=no,channelmode=no" );
+                   }
+                   for( var i=0; i < aJanelas.length; i++ ){
+                       aJanelas[i].close();
+                   }
+               </script>
+<BODY leftMargin=0 topMargin=0 marginheight="0" marginwidth="0">
+<FORM name=form1 method=post>
+<DIV id=divRotinaGenerico></DIV>
+<INPUT type=hidden name=SessionID    value=w0Lb1a54659813>
+<INPUT type=hidden name=SubSessionID value=b1ah3u54514542>
+<input type=hidden name=opcao        value=00>
+<INPUT type=hidden name=ppopcao      value=00>
+<INPUT type=hidden name=call         value=PW02523R>
+                <table width=100% cellspacing=0 cellpadding=0 border=0>
+                   <tr>
+                      <td height=20 nowrap>
+                          <div id=imgWait><img src="../icons/Process.gif" border=0></img></div>
+                      </td>
+                   </tr>
+                </table>
+                <script>
+                    try{
+                        if( document.parentWindow.parent.document.title == '' ){
+                            document.parentWindow.parent.document.title = '';
+                        }
+                    }
+                    catch( e ){}
+                    try{
+                        document.parentWindow.parent.top_rotina.document.all.versaoprg.outerText = 'd';
+                    }
+                    catch( e ){}
+                </script>
+               <script>
+                         ExecucaoBackground = false;
+                  var btnCancelar = 1;
+                  function Visualizar(){
+                      if( !ValidaParRel() ){
+                          return false;
+                      }
+                      document.parentWindow.parent.top_rotina.document.all.unidade.disabled = true;
+                      AbreProgressBar(btnCancelar);
+                      document.form1.opcao.value = 1;
+                      document.form1.submit();
+                      return true;
+                  }
+                  function AbreProgressBar(Cancelar){
+                      if( Cancelar == undefined || Cancelar != "0" ){
+                          Cancelar = "1"; // Habilita cancelamento do processo
+                      }
+                      var strURL = '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=b1ah3u54514542&ppopcao=6&opcaomenu=3&btnCancelar=' + Cancelar;
+                      ProgressBar = window.open( strURL, 'b1ah3u54514542' , "top=230, left=220, width=350, height=10, scrollbars=no, status=no, toolbar=no, menubar=no, location=no");
+                      ProgressBar.focus();
+                      return false;
+                  }
+                  function Confirmar(){
+                     if( !ValidaParRel() ){
+                         return false;
+                     }
+                     query="";
+                     var field = document.forms[0];
+                     for (i = 0; i < field.length; i++) {
+                          if ((field.elements[i].type == "text") ||
+                              (field.elements[i].type == "textarea") ||
+                              (field.elements[i].type == "checkbox") ||
+                              (field.elements[i].type == "radio") ||
+                              (field.elements[i].tagName == "SELECT")  ||
+                              (field.elements[i].type == "hidden" && field.elements[i].OcultoRotina == "1" )
+                             )
+                             {
+                              if ((field.elements[i].type == "radio") || (field.elements[i].type == "checkbox"))
+                                 {
+                                  if (field.elements[i].checked == true)
+                                     query = query + field.elements[i].name + "=" + field.elements[i].value + "&"
+                                 }
+                              else
+                                 {
+                                  query = query + field.elements[i].name + "=" + field.elements[i].value + "&"
+                                 }
+                             }
+                     }
+                     parent.window.returnValue = query;
+                     window.parent.parent.close();
+                  }
+               </script>
+               <SCRIPT>
+                   var timeOutCtrl = 10800;    //3h
+                   function VerificaOpcao(){
+                       if( ( document.all.idTodos.checked == true ) ||
+                         ( ( document.all.idAtivos.checked == true ) &&
+                           ( document.all.idBloqueados.checked == true ) &&
+                           ( document.all.idDuplicados.checked == true ) &&
+                           ( document.all.idInativos.checked == true ) &&
+                           ( document.all.idTemporarios.checked == true ) &&
+                           ( document.all.idEmCadastramento.checked == true ) ) ){
+                           document.all.idTodos.checked = true;
+                           document.all.idAtivos.checked = false;
+                           document.all.idBloqueados.checked = false;
+                           document.all.idDuplicados.checked = false;
+                           document.all.idInativos.checked = false;
+                           document.all.idTemporarios.checked = false;
+                           document.all.idEmCadastramento.checked = false;
+                           Disabled( '', '', [ 'bloco1', false, 'bloco2', true ] );
+                       }
+                       else{
+                           Disabled( 'bloco2', false );
+                       }
+                   }
+     //            Adiciona Tipo de Documento
+                   function AdicionaTpDocumento(){
+                       AdicionaItemLista( 'TpDocumento' );
+                   }
+     //            Adiciona Tipo de Documento
+                   function AdicionaItemLista( cod ){
+                      var nMaxElementos = 25;
+                      if( document.all [ 'cd' + cod + 'Lista' ].length >= nMaxElementos ){
+                          alert( 'Todos os itens já foram adicionados' );
+                          return false;
+                      }
+                      if( document.all [ 'cd' + cod ].value == 0 ){
+                          return false;
+                      }
+                      if( document.all [ 'cd' + cod ].value != '' ){
+                          if( ItemExistente( cod ) ){
+                              alert( 'Tipo de Documento já adicionado à lista' );
+                              document.all [ 'cd' + cod ].focus();
+                              return false;
+                          }
+                          if( document.all[ 'cd' + cod ].value == "999" ){   // Opção a incluir = Todos
+                              LimparListaSel( cod );
+                              Disabled( 'bloco' + cod, true );
+                          }
+                          else{
+                              var elementExists = document.getElementById( [ 'cd' + cod + 'Lista' ] ).options[0];
+                              if( elementExists ){                                                // Primeiro item da lista existe
+                                  if( document.all[ 'cd' + cod + 'Lista' ][0].value == "999" ){   // Primeiro item da lista = Todos
+                                      LimparListaSel( cod );
+                                      Disabled( 'bloco' + cod, true );
+                                  }
+                              }
+                          }
+                          Inclui( document.all [ 'cd' + cod ].value, cod );
+                      }
+                      document.all [ 'cd' + cod + 'Lista' ].value = document.all [ 'cd' + cod ].value;
+                      document.all [ 'cd' + cod ].selectedIndex = 0;
+                      document.all [ 'cd' + cod + 'Lista' ].selectedIndex = -1;
+                      try{
+                          document.all.cdTpDocumento.focus();
+                      }
+                      catch( e ){
+                      }
+                      VerFiltroDataComodato();
+                      return true;
+                   }
+                   function Inclui( i, cod ){
+                       indice = document.all [ 'cd' + cod ].selectedIndex;
+                       oOption = document.createElement( 'OPTION' );
+                       oOption.value = i;
+                       oOption.text = document.all [ 'cd' + cod ].item( indice ).text;
+                       document.all [ 'cd' + cod + 'Lista' ].add( oOption );
+                       document.all [ 'cd' + cod + 'Lista' ].size = document.all [ 'cd' + cod + 'Lista' ].size + 1;
+                       oOption = null;
+                   }
+     //            Verifica se Tipo de Documento já existe na lista
+                   function ItemExistente( cod ){
+                      var campo = document.all [ 'cd' + cod ].value;
+                      for( i = 0; i < document.all [ 'cd' + cod + 'Lista' ].length; i++ ){
+                          if( document.all [ 'cd' + cod + 'Lista' ][i].value == campo ){
+                              return true;
+                          }
+                      }
+                   }
+                   function RemoverTpDocumento(){
+                       RemoverItem( 'TpDocumento' );
+                       VerFiltroDataComodato();
+                   }
+     //            Remove Tipo de Documento
+                   function RemoverItem( cod ){
+                      var xRemover = document.all [ 'cd' + cod + 'Lista' ].value;
+                      if( document.all [ 'cd' + cod + 'Lista' ].selectedIndex < 0 ){
+                          alert( 'Nenhum item selecionado' );
+                          document.all [ 'cd' + cod + 'Lista' ].focus();
+                          return false;
+                      }
+                      for( i = 0; i < document.all [ 'cd' + cod + 'Lista' ].length; i++ ){
+                          if( document.all [ 'cd' + cod + 'Lista' ][i].value == xRemover ) {
+                              nIndice = i;
+                              break;
+                          }
+                      }
+                      document.all [ 'cd' + cod + 'Lista' ].remove( nIndice );
+                      if( document.all [ 'cd' + cod + 'Lista' ].length != nIndice ){
+                          document.all [ 'cd' + cod + 'Lista' ].selectedIndex = nIndice;
+                      }
+                      else{
+                          document.all [ 'cd' + cod + 'Lista' ].selectedIndex = nIndice - 1;
+                      }
+                      if( document.all [ 'cd' + cod + 'Lista' ].length <= 0 ){
+                          document.all [ 'cd' + cod ].focus();
+                      }
+                      return true;
+                   }
+                   function SalvaItem( cod ){
+                       document.all [ 'lista' + cod ].value = '';
+                       var aux = '';
+                       var result = '';
+                       for( i = 0; i < document.all [ 'cd' + cod + 'Lista' ].length; i++ ){
+                            aux = document.all [ 'cd' + cod + 'Lista' ][i].value;
+                            if( aux.length != 3 ){
+                                aux = Replicate( 0, 3 - aux.length ) + aux;
+                            }
+                            result = result + aux;
+                       }
+                       document.all [ 'lista' + cod ].value = result;
+                   }
+                   function LimparListaSel( cod ){
+                       lim = document.all[ 'cd' + cod + 'Lista' ].length;
+                       for( i = 0; i < lim; i++ ){
+                           document.all[ 'cd' + cod + 'Lista' ].remove( 0 );
+                       }
+                   }
+     //            Habilita/Desabilita filtro por Data do Comodato
+     //            Se Tipo de Documento = (Todos) ou = (CC, CNF, NP, ASDOK, ASNOK ou AD), habilita o filtro
+                   function VerFiltroDataComodato(){
+                      if( (ItemExistente2( '006' ) ) ||                // CC
+                          (ItemExistente2( '007' ) ) ||                // CNF
+                          (ItemExistente2( '008' ) ) ||                // NP
+                          (ItemExistente2( '009' ) ) ||                // AD
+                          (ItemExistente2( '028' ) ) ||                // ASNOK
+                          (ItemExistente2( '029' ) ) ||                // ASDOK
+                          (ItemExistente2( '999' ) ) ){                // Todos
+                           document.all.dtInicial.disabled = false;
+                           document.all.dtFinal.disabled = false;
+                           document.all.dtInicial.className = "campo";
+                           document.all.dtFinal.className = "campo";
+                      }
+                      else {
+                           document.all.dtInicial.disabled = true;
+                           document.all.dtFinal.disabled = true;
+                           document.all.dtInicial.value = "00/00/0000";
+                           document.all.dtFinal.value = "99/99/9999";
+                           document.all.dtInicial.className = "clsDisabled";
+                           document.all.dtFinal.className = "clsDisabled";
+                      }
+                      return true;
+                   }
+     //            Verifica Tipo de Documento para habilitar/desabilitar filtro por Data do Comodato
+                   function ItemExistente2( cod ){
+                      for( i = 0; i < document.all.cdTpDocumentoLista.length; i++ ){
+                          if( document.all.cdTpDocumentoLista[i].value == cod ){
+                              return true;
+                          }
+                      }
+                   }
+     //            Habilita/Desabilita filtro por Cliente
+     //            Se "Toda a Geografia" for selecionado, desabilita o filtro
+                   function ClickTodaGeo(){
+                      if( document.all.idTodaGeo.checked == false ){
+                           document.all.cdClienteInicial.disabled = false;
+                           document.all.cdClienteFinal.disabled = false;
+                           document.all.cdClienteInicial.className = "campo";
+                           document.all.cdClienteFinal.className = "campo";
+                      }
+                      else {
+                           document.all.cdClienteInicial.disabled = true;
+                           document.all.cdClienteFinal.disabled = true;
+                           document.all.cdClienteInicial.className = "clsDisabled";
+                           document.all.cdClienteFinal.className = "clsDisabled";
+                           document.all.cdClienteInicial.value = "0";
+                           document.all.cdClienteFinal.value = "9999999";
+                      }
+                      return true;
+                   }
+               </SCRIPT>
+               <INPUT type=hidden name=opcaorelat>
+               <INPUT type=hidden name=listaTpDocumento>
+               <TABLE width=100%>
+                  <TR>
+                     <TD>
+               <table rules=none  width="100%" border=1 cellspacing=1 cellpadding=20 bordercolor=White bordercolordark=White bordercolorlight=DimGray class=WindowScreen>
+                  <TR>
+                     <TD valign=top width=45%>
+                        <FIELDSET disabled><LEGEND><LABEL class=titulocampo>&nbsp;Opções&nbsp;</LABEL></LEGEND>
+                           <TABLE height=30px border=0 rules=none align=center cellspacing=1 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 5px 2px 7px">
+                              <TR>
+                                  <TD colspan=2>&nbsp;
+                            </TABLE>
+                        </FIELDSET>
+                     </TD>
+                     <TD rowspan=2 nowrap valign=top width=55%>
+                        <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Seleções&nbsp;</LABEL></LEGEND>
+                           <TABLE valign=center border=0 width=99% rules=none align=center cellspacing=1 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 5px 2px 7px">
+                              <TR>
+                                 <TD width=33%>&nbsp;</TD>
+                                 <TD width=18% class=titulocampo><div align=center>Inicial</div></TD>
+                                 <TD width=18% class=titulocampo><div align=center>Final</div></TD>
+                                 <TD width=31%>&nbsp;</TD>
+                              <TR>
+                                 <TD class=titulocampo>Cliente&nbsp;
+                                 <TD><INPUT tabIndex=10 class="campo" name=cdClienteInicial size=7 maxlength=7 value=0 onkeypress="return SomenteNumeros()">&nbsp;
+                                 <TD><INPUT tabIndex=11 class="campo" name=cdClienteFinal size=7 maxlength=7 value=9999999 onkeypress="return SomenteNumeros()" obrigatorio=1>
+                                 <TD>&nbsp;</TD>
+                              <TR>
+                                 <TD class='titulocampo'>Tipo de Documento&nbsp;
+                                 <TD colspan=3>
+                                    <SELECT name=cdTpDocumento class=combo tabIndex=12 style="width:215;">
+                                       <OPTION value="999">Todos</OPTION>
+                                    </SELECT>&nbsp;
+                                    <BUTTON name=BotAdic style="height:20;" tabIndex=13 onClick="AdicionaTpDocumento();"
+                                    onKeyDown="VerificaTeclaPress( '13', 'AdicionaTpDocumento()' );" title="Adiciona TpDocumento"><LABEL>&nbsp;>&nbsp;</LABEL></BUTTON>
+                              <TR>
+                                 <TD>&nbsp;
+                                 <TD colspan=3 valign=top rowspan=5>
+                                    <SELECT name=cdTpDocumentoLista class=combo tabIndex=14 multiple style="height:120px; width:215;" onKeyDown="VerificaTeclaPress( '46', 'RemoverTpDocumento()' ); VerificaTeclaPress( 13,'event.keyCode=9;' )">
+                                    </SELECT>
+                              <TR>
+                                 <TD colspan=4>&nbsp;
+                              <TR>
+                                 <TD colspan=4>&nbsp;
+                              <TR>
+                                 <TD colspan=4>&nbsp;
+                              <TR>
+                                 <td colspan=4>&nbsp;
+                              <TR>
+                                 <TD class=titulocampo>Data do Comodato*&nbsp;
+                                 <TD><INPUT tabIndex=15 class="clsDisabled" name=dtInicial size=8 maxlength=10
+                                            onKeyPress="return SomenteNumeros( '/' );" onBlur="FormataCampo( this, '99/99/9999' );" value="00/00/0000" obrigatorio=1 data=1 IniFim=1 disabled>
+                                 <TD><INPUT tabIndex=16 class="clsDisabled" name=dtFinal size=8 maxlength=10
+                                            onKeyPress="return SomenteNumeros( '/' );" onBlur="FormataCampo( this, '99/99/9999' );" value="99/99/9999" obrigatorio=1 data=1 IniFim=1 disabled>
+                                 <TD>&nbsp;
+                              <TR>
+                                 <TD colspan=4>&nbsp;
+                              <TR>
+                                 <TD colspan=4>&nbsp;
+                              <TR>
+                                 <TD colspan=4>&nbsp;
+                              <TR>
+                                 <TD colspan=4>&nbsp;
+                              <TR>
+                                 <TD colspan=4>&nbsp;
+                              <TR>
+                                 <TD colspan=4 height=44px>
+                           </TABLE>
+                        </FIELDSET>
+                  <TR>
+                     <TD valign=bottom>
+                        <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Preferências&nbsp;</LABEL></LEGEND>
+                           <TABLE border=0 rules=none align=center cellspacing=1 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 5px 2px 7px">
+                              <TR>
+                                 <TD colspan=3 height=10px>
+                              <TR>
+                                 <TD>&nbsp;
+                                 <TD><INPUT tabIndex=1 class='checkbox' type=checkbox name=idTodaGeo value="S" onClick="ClickTodaGeo();">
+                                 <TD class='titulocampo2'>&nbsp;Toda a Geografia
+                              <TR>
+                                 <TD colspan=3 height=10px>
+                              <TR>
+                                 <TD class=titulocampo>Documentos&nbsp;
+                                 <TD><INPUT tabIndex=1 class='checkbox' type=checkbox name=idFaltantes value="S">
+                                 <TD class='titulocampo2'>&nbsp;Faltantes
+                              <TR>
+                                 <TD>&nbsp;
+                                 <TD><INPUT tabIndex=2 class='checkbox' type=checkbox name=idExistentes value="S" checked>
+                                 <TD class='titulocampo2'>&nbsp;Existentes
+                              <TR>
+                                 <TD colspan=3 height=10px>
+                              <TR>
+                                 <TD class=titulocampo>Situação do Cliente&nbsp;
+                                 <TD><INPUT tabIndex=3 class='checkbox' type=checkbox name=idTodos value="S" onClick="VerificaOpcao();" bloco1=1>
+                                 <TD class='titulocampo2'>&nbsp;Todos
+                              <TR>
+                                 <TD>&nbsp;
+                                 <TD><INPUT tabIndex=4 class='checkbox' type=checkbox name=idAtivos value="S" onClick="VerificaOpcao();" bloco2=1 checked>
+                                 <TD class='titulocampo2'>&nbsp;Ativos
+                              <TR>
+                                 <TD>&nbsp;
+                                 <TD><INPUT tabIndex=5 class='checkbox' type=checkbox name=idBloqueados value="S" onClick="VerificaOpcao();" bloco2=1>
+                                 <TD class='titulocampo2'>&nbsp;Bloqueados
+                              <TR>
+                                 <TD>&nbsp;
+                                 <TD><INPUT tabIndex=6 class='checkbox' type=checkbox name=idDuplicados value="S" onClick="VerificaOpcao();" bloco2=1>
+                                 <TD class='titulocampo2'>&nbsp;Duplicados
+                              <TR>
+                                 <TD>&nbsp;
+                                 <TD><INPUT tabIndex=7 class='checkbox' type=checkbox name=idInativos value="S" onClick="VerificaOpcao();" bloco2=1>
+                                 <TD class='titulocampo2'>&nbsp;Inativos
+                              <TR>
+                                 <TD>&nbsp;
+                                 <TD><INPUT tabIndex=8 class='checkbox' type=checkbox name=idTemporarios value="S" onClick="VerificaOpcao();" bloco2=1>
+                                 <TD class='titulocampo2'>&nbsp;Temporários
+                              <TR>
+                                 <TD>&nbsp;
+                                 <TD><INPUT tabIndex=9 class='checkbox' type=checkbox name=idEmCadastramento value="S" onClick="VerificaOpcao();" bloco2=1>
+                                 <TD class='titulocampo2'>&nbsp;em Cadastramento
+                              <TR>
+                                 <TD colspan=3 height=1px>
+                            </TABLE>
+                        </FIELDSET>
+                  </TR>
+               </TABLE>
+               </TABLE>
+               <TABLE width=100%>
+               <TR>
+                  <TD width=100% class=titulocampo2>&nbsp;* Válida somente para os documentos CC, CNF, NP, ASDOK, ASNOK e AD.
+                  <TD nowrap><BUTTON name=BotVisualizar AccessKey="V" tabIndex=99 onclick="return Visualizar()" class=botao title="Visualizar Impressão"><LABEL><U>V</U>isualizar</LABEL></BUTTON>
+                  <TD><DIV id=DivBtReservado></DIV>
+                  <input type=hidden name=GeraExcel value=1>
+               </TABLE>&nbsp;
+               <script>
+                   document.all.opcaorelat.value = "0";
+                   document.all.cdClienteInicial.value = "0";
+                   document.all.cdClienteFinal.value = "9999999";
+                   document.all.dtInicial.value = "00/00/0000";
+                   document.all.dtFinal.value = "99/99/9999";
+                   document.all.idTodaGeo.focus();
+               </script>
+            <SCRIPT>
+                  function ValidaParRel(){
+                     if( document.all.dtInicial.value == '00/00/0000' ){
+                         document.all.dtInicial.IniFim = 1;
+                     }
+                     else{
+                         document.all.dtInicial.IniFim = 0;
+                     }
+                     if( document.all.dtFinal.value == '99/99/9999' ){
+                         document.all.dtFinal.IniFim = 1;
+                     }
+                     else{
+                         document.all.dtFinal.IniFim = 0;
+                     }
+                     if( !ValidaCampos() ){
+                         return false;
+                     }
+                     if( document.all.idFaltantes.checked == false
+                     &&  document.all.idExistentes.checked == false ){
+                         alert( "Pelo menos um tipo de documento deve ser marcado" );
+                         document.all.idFaltantes.focus();
+                         return false;
+                     }
+                     if( document.all.idTodos.checked == false
+                     &&  document.all.idAtivos.checked == false
+                     &&  document.all.idBloqueados.checked == false
+                     &&  document.all.idDuplicados.checked == false
+                     &&  document.all.idInativos.checked == false
+                     &&  document.all.idTemporarios.checked == false
+                     &&  document.all.idEmCadastramento.checked == false ){
+                         alert( "Pelo menos uma situação do cliente deve ser marcada" );
+                         document.all.idTodos.focus();
+                         return false;
+                     }
+                     if( !ComparaValor( 'cdClienteInicial', 'cdClienteFinal', 'Cliente' ) ){
+                         return false;
+                     }
+                     if( DataMaior( document.all.dtInicial.value, document.all.dtFinal.value ) ){
+                         alert( 'Data inicial maior que data final' );
+                         document.all.dtInicial.select();
+                         return false;
+                     }
+                     SalvaItem( 'TpDocumento' );
+                     if( document.all.listaTpDocumento.value == "" ){
+                         alert( "Pelo menos um tipo de documento deve ser selecionado" );
+                         document.all.cdTpDocumento.focus();
+                         return false;
+                     }
+                     return true;
+                  }
+            </SCRIPT>
+                    <INPUT type=hidden id=hiddencdTpDocumento>
+                    <SCRIPT>
+                        if( document.parentWindow.parent.rotina.document.all ( 'cdTpDocumento' ).options[0] == null ){
+                            document.all ( 'hiddencdTpDocumento' ).value = 'NaoExisteOpcaoInicial';
+                            oOption = document.createElement( "OPTION" );
+                            oOption.value = 'CCC';
+                            oOption.text = ' Carregando ... ';
+                            document.parentWindow.parent.rotina.document.all ( 'cdTpDocumento' ).add( oOption );
+                            oOption = null;
+                        }
+                        else {
+                            document.all ( 'hiddencdTpDocumento' ).value = document.parentWindow.parent.rotina.document.all ( 'cdTpDocumento' ).options[0].text;
+                            document.parentWindow.parent.rotina.document.all ( 'cdTpDocumento' ).options[0].text = ' Carregando ... ';
+                        }
+                    </SCRIPT>
+               <SCRIPT>
+                   function CCmbcdTpDocumento(vlrCmb,txtCmb){oOpt=document.createElement("OPTION");oOpt.value=vlrCmb;oOpt.text=txtCmb;parent.frames['rotina'].document.all ('cdTpDocumento').add(oOpt);oOpt=null;}CCmbcdTpDocumento("001","CS - Contrato Social");CCmbcdTpDocumento("002","PR - Procuração");CCmbcdTpDocumento("003","CPF - Número CPF");CCmbcdTpDocumento("004","RG - Identidade");CCmbcdTpDocumento("005","CR - Comprovante Residência");CCmbcdTpDocumento("006","CC - Contrato Comodato Assinado");CCmbcdTpDocumento("007","CNF - Canhoto NF Assinado");CCmbcdTpDocumento("008","NP - Nota Promissória");CCmbcdTpDocumento("009","AD - Aditivo");CCmbcdTpDocumento("011","CPFC - CPF Contato");CCmbcdTpDocumento("012","RGC - RG Contato");CCmbcdTpDocumento("013","CRC - Comprovante Residência Contato");CCmbcdTpDocumento("014","IRPF - Declaração de Imposto de Renda PF");CCmbcdTpDocumento("015","PROC - Proprietário");CCmbcdTpDocumento("016","FAC - Fachada");CCmbcdTpDocumento("017","OUT - Outros");CCmbcdTpDocumento("018","IE - Inscrição Estadual");CCmbcdTpDocumento("019","FC - Ficha Cadastro");CCmbcdTpDocumento("020","CNH - Habilitação");CCmbcdTpDocumento("021","CRE - Documento de Crédito");CCmbcdTpDocumento("022","INAT - Imagem de Inativação");CCmbcdTpDocumento("023","PRZ - Contrato Adesão Prazão 100");CCmbcdTpDocumento("024","RR - Recibo Recolha");CCmbcdTpDocumento("027","REC - Recibo de Recolha Digital");CCmbcdTpDocumento("028","ASNOK - Assinatura Digital Não OK");CCmbcdTpDocumento("029","ASDOK - Assinatura Digital OK");
+               </SCRIPT>
+                    <script>
+                        document.parentWindow.parent.rotina.document.all ( 'cdTpDocumento' ).value = '';
+                    </script>
+                    <SCRIPT>
+                        if( document.all ( 'hiddencdTpDocumento' ).value == 'NaoExisteOpcaoInicial' ){
+                            document.parentWindow.parent.rotina.document.all ( 'cdTpDocumento' ).remove( 0 );
+                        }
+                        else {
+                            document.parentWindow.parent.rotina.document.all ( 'cdTpDocumento' ).options[0].text = document.all ( 'hiddencdTpDocumento' ).value;
+                        }
+                        document.parentWindow.parent.rotina.document.all ( 'cdTpDocumento' ).disabled = false;
+                    </SCRIPT>
+               <SCRIPT>
+                   document.all.cdTpDocumento.value = "999";
+               </SCRIPT>
+               <script>
+                   if( document.all.imgWait != null ){
+                       document.all.imgWait.style.display = 'none';
+                   }
+                   try{
+                       if( 'S' == 'S' ){
+                           document.parentWindow.parent.top_rotina.document.all.unidade.disabled = false;
+                       }
+                   }
+                   catch( e ){}
+               </script>

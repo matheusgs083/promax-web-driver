@@ -1,0 +1,480 @@
+
+<html>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HEAD>
+<meta http-equiv="Expires" content="Mon, 01 Jan 1996 12:12:00 GMT">
+<meta http-equiv="Pragma" content="no-cache">
+<META content="text/html; charset=windows-1252" http-equiv=Content-Type>
+<HEAD> <TITLE></TITLE> </HEAD>
+<link rel="stylesheet" href="../scripts/acao.css" type="text/css"></link>
+<script src="../scripts/funcoes.js" language="JavaScript"></script>
+<script src="../scripts/funcoes.vbs" language="VbScript"></script>
+               <script FOR="document" EVENT="onhelp" Language="javaScript">
+                   MostraHelp( 'PW04420R', '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&ppopcao=6' )
+                   return false;
+               </script>
+               <script>
+                   var aJanelas = new Array();
+                   var relatorio = 0;
+               </script>
+               <script FOR="window" EVENT="onunload" Language="JavaScript">
+                   if( relatorio > 0 ){
+                       window.open( "../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=l5Ew0L74174049&ppopcao=10", "fim", "top=3000,left=0,height=40,width=200,status=no,toolbar=no,menubar=no,location=no,resizable=no,scrollbars=no,channelmode=no" );
+                   }
+                   for( var i=0; i < aJanelas.length; i++ ){
+                       aJanelas[i].close();
+                   }
+               </script>
+<BODY leftMargin=0 topMargin=0 marginheight="0" marginwidth="0">
+<FORM name=form1 method=post>
+<DIV id=divRotinaGenerico></DIV>
+<INPUT type=hidden name=SessionID    value=w0Lb1a54659813>
+<INPUT type=hidden name=SubSessionID value=l5Ew0L74174049>
+<input type=hidden name=opcao        value=00>
+<INPUT type=hidden name=ppopcao      value=00>
+<INPUT type=hidden name=call         value=PW04420R>
+                <table width=100% cellspacing=0 cellpadding=0 border=0>
+                   <tr>
+                      <td height=20 nowrap>
+                          <div id=imgWait><img src="../icons/Process.gif" border=0></img></div>
+                      </td>
+                   </tr>
+                </table>
+                <script>
+                    try{
+                        if( document.parentWindow.parent.document.title == '' ){
+                            document.parentWindow.parent.document.title = '';
+                        }
+                    }
+                    catch( e ){}
+                    try{
+                        document.parentWindow.parent.top_rotina.document.all.versaoprg.outerText = 'a';
+                    }
+                    catch( e ){}
+                </script>
+               <XML id=dsXML name=dsXML></xml>
+               <script>
+                   function DisplayLoopXML(){
+                       var arqXML = "../tmp/work/F7367_221_0003_l5Ew0L74174049"+".xml";
+                       document.all.dsXML.async = false;
+                       if( ! document.all.dsXML.load( arqXML ) ){
+                           var codErroXML = document.all.dsXML.parseError.errorCode;
+                           if( codErroXML == -2146697210 ){    //Arquivo ainda não existe
+                               return( "Aguardando..." );
+                           }
+                           if( codErroXML == -2146697208||codErroXML == -1072896680){    //Qdo o load-XML ocorre exatamente qdo o sistema gera o arquivo (LOCK)
+                               return( "..." );
+                           }
+                           return( "Erro [status: " + codErroXML + "] ao carregar 'F7367_221_0003_l5Ew0L74174049"+".xml'" );
+                       }
+                       if( document.all.dsXML.selectSingleNode( "processo" ) == null ){
+                           return( "Nenhum processo foi encontrado" );
+                       }
+                       var oItensProcesso = document.all.dsXML.documentElement.getElementsByTagName( "ITEM" );
+                       var oItem = oItensProcesso.nextNode;
+                       return( oItem.getAttributeNode( "chave" ).value );
+                   }
+                   function DisplayLoop(){
+                       var objDsp = document.all.displayLoop;
+                       if( objDsp.value == '' ){
+                           objDsp.value = 'Iniciando...';
+                           setTimeout( 'DisplayLoop();', 2000 );
+                           return;
+                       }
+                       if( objDsp.value == 'FIM' ){
+                           objDsp.value = '';
+                           return;
+                       }
+                       objDsp.value = DisplayPlus( objDsp, DisplayLoopXML() );
+                       setTimeout( 'DisplayLoop();', 5000 );
+                   }
+                   function DisplayPlus( objDsp, strDsp ){
+                       var nCount = parseInt( ( objDsp.value ).substr( 0, 1 ), 10 );
+                       if( isNaN( nCount ) ){ nCount = 0; }
+                       nCount += 1;
+                       return( nCount + "-" + strDsp );
+                   }
+               </script>
+               <SCRIPT>
+                   var timeOutCtrl = 3600;
+                   var relatorio = 1;  //jw111203 7694
+                   function Exportar(){
+                       if( !ValidaCampos() ){
+                           return false;
+                       }
+                       if( !ComparaValor( 'portadorInicial', 'portadorFinal', 'Portador' ) ){
+                           return false;
+                       }
+                       if( !ComparaValor( 'clienteInicial', 'clienteFinal', 'Cliente' ) ){
+                           return false;
+                       }
+                       if( !ComparaValor( 'cdRedeInicial', 'cdRedeFinal', 'Rede' ) ){
+                           return false;
+                       }
+                       if( !ComparaValor( 'tituloInicial', 'tituloFinal', 'Título' ) ){
+                           return false;
+                       }
+                       if( !ComparaValor( 'parcelaInicial', 'parcelaFinal', 'Parcela' ) ){
+                           return false;
+                       }
+                       if( !ValidaDataRel( 'emissao' ) ){
+                           return false;
+                       }
+                       EmissaoFinal( ContinuaExportar );
+                   }
+                   function ContinuaExportar(){
+                       document.all.BotExportar.disabled = true;
+                       document.all.BotImprimir.disabled = true;
+                       document.all.BotGerarPdf.disabled = true;
+                       document.all.cdImpressora.disabled = true;
+                       document.all.opcao.value = 2;
+                       EnviarFormulario();
+                       DisplayLoop();
+                   }
+                   function Imprimir(){
+                       if( !ValidaCampos() ){
+                           return false;
+                       }
+                       if( !ComparaValor( 'portadorInicial', 'portadorFinal', 'Portador' ) ){
+                           return false;
+                       }
+                       if( !ComparaValor( 'clienteInicial', 'clienteFinal', 'Cliente' ) ){
+                           return false;
+                       }
+                       if( !ComparaValor( 'cdRedeInicial', 'cdRedeFinal', 'Rede' ) ){
+                           return false;
+                       }
+                       if( !ComparaValor( 'tituloInicial', 'tituloFinal', 'Título' ) ){
+                           return false;
+                       }
+                       if( !ComparaValor( 'parcelaInicial', 'parcelaFinal', 'Parcela' ) ){
+                           return false;
+                       }
+                       if( !ValidaDataRel( 'emissao' ) ){
+                           return false;
+                       }
+                       EmissaoFinal(ContinuaImprimir);
+                   }
+                   function ContinuaImprimir(){
+                       if( document.all.cdImpressora.selectedIndex == 0 ){
+                           alert( 'Informação inválida' );
+                           document.all.cdImpressora.focus();
+                           return false;
+                       }
+                       document.all.BotExportar.disabled = true;
+                       document.all.BotImprimir.disabled = true;
+                       document.all.BotGerarPdf.disabled = true;
+                       document.all.cdImpressora.disabled = true;
+                       document.all.opcao.value = 3;
+                       EnviarFormulario();
+                       DisplayLoop();
+                   }
+                   function EmissaoFinal( fnCallback ){
+                       diaM = '17';
+                       mesM = '11';
+                       anoM = '2026';
+                       diaF = document.all.emissaoFinal.value.substring(0,2);
+                       mesF = document.all.emissaoFinal.value.substring(3,5);
+                       anoF = document.all.emissaoFinal.value.substring(6,10);
+                       dataMovimento = anoM + mesM + diaM;
+                       dataFinal = anoF + mesF + diaF;
+                       if( dataFinal > dataMovimento ){
+                           msgbxSimNao( 'PW04420R' , 'Emissão final maior que data do movimento. Confirma?',
+                           function(){ //Sim
+                               fnCallback();
+                           }
+                           ,
+                           function() { //Nao
+                           });
+                           return false;
+                       }
+                       fnCallback();
+                   }
+                   function ValidaDataRel( item ){
+                       if( document.all ( item + 'inicial' ).value == '00/00/0000' && document.all ( item + 'final' ).value == '99/99/9999' ){
+                           return true;
+                       }
+                       if( document.all ( item + 'inicial' ).value != '00/00/0000' ){
+                           if( !ValidaData( document.all ( item + 'inicial' ).value, "DD/MM/YYYY" ) ){
+                               document.all ( item + 'inicial' ).select();
+                               document.all ( item + 'inicial' ).focus();
+                               return false;
+                           }
+                       }
+                       if( document.all ( item + 'final' ).value != '99/99/9999' ){
+                           if( !ValidaData( document.all ( item + 'final' ).value, "DD/MM/YYYY" ) ){
+                               document.all ( item + 'final' ).select();
+                               document.all ( item + 'final' ).focus();
+                               return false;
+                           }
+                       }
+                       dataI = document.all ( item + 'inicial' ).value;
+                       dataF = document.all ( item + 'final' ).value;
+                       diaI = dataI.substring(0,2);
+                       mesI = dataI.substring(3,5);
+                       anoI = dataI.substring(6,10);
+                       diaF = dataF.substring(0,2);
+                       mesF = dataF.substring(3,5);
+                       anoF = dataF.substring(6,10);
+                       dataInicial = anoI + mesI + diaI;
+                       dataFinal = anoF + mesF + diaF;
+                       if( dataInicial > dataFinal ){
+                           alert( 'Emissão inicial maior que final' );
+                           document.all ( item + 'inicial' ).select();
+                           document.all ( item + 'inicial' ).focus();
+                           return false;
+                       }
+                       return true;
+                   }
+                   function VerificaBanco(){
+                       if( document.all.banco.value == "" ){
+                           document.all.BotExportar.disabled = true;
+                           document.all.BotImprimir.disabled = true;
+                           document.all.BotGerarPdf.disabled = true;
+                           document.all.cdImpressora.disabled = true;
+                           document.all.cdImpressora.selectedIndex = 0;
+                       }
+                       else{
+                           if( document.all.banco.value == "001"
+                           ||  document.all.banco.value == "033"
+                           ||  document.all.banco.value == "041"
+                           ||  document.all.banco.value == "104"
+                           ||  document.all.banco.value == "237"
+                           ||  document.all.banco.value == "341"
+                           ||  document.all.banco.value == "389"
+                           ||  document.all.banco.value == "422"
+                           ||  document.all.banco.value == "509"
+                           ||  document.all.banco.value == "637"
+                           ||  document.all.banco.value == "707"
+                           ||  document.all.banco.value == "748"
+                           ||  document.all.banco.value == "756" ){
+                               document.all.BotExportar.disabled = false;
+                               document.all.BotImprimir.disabled = false;
+                               document.all.cdImpressora.disabled = false;
+                               if( document.all.banco.value == "001" || "R" == "R" ){
+                                   document.all.BotGerarPdf.disabled = false;
+                               }
+                           }
+                           else{
+                               document.all.BotExportar.disabled = false;
+                               document.all.BotImprimir.disabled = true;
+                               document.all.BotGerarPdf.disabled = true;
+                               document.all.cdImpressora.disabled = true;
+                               document.all.cdImpressora.selectedIndex = 0;
+                           }
+                       }
+                   }
+                   function AlterarData(){
+                       if( document.all.idDtVencto.checked == true ){
+                           document.all.tpData.innerHTML = "Vencimento";
+                       }
+                       else{
+                           document.all.tpData.innerHTML = "Emissão";
+                       }
+                   }
+                   function GerarPdf(){
+                       if( !ValidaCampos() ){
+                           return false;
+                       }
+                       if( !ComparaValor( 'portadorInicial', 'portadorFinal', 'Portador' ) ){
+                           return false;
+                       }
+                       if( !ComparaValor( 'clienteInicial', 'clienteFinal', 'Cliente' ) ){
+                           return false;
+                       }
+                       if( !ComparaValor( 'cdRedeInicial', 'cdRedeFinal', 'Rede' ) ){
+                           return false;
+                       }
+                       if( !ComparaValor( 'tituloInicial', 'tituloFinal', 'Título' ) ){
+                           return false;
+                       }
+                       if( !ComparaValor( 'parcelaInicial', 'parcelaFinal', 'Parcela' ) ){
+                           return false;
+                       }
+                       if( !ValidaDataRel( 'emissao' ) ){
+                           return false;
+                       }
+                       EmissaoFinal( ContinuaGerarPdf );
+                   }
+                   function ContinuaGerarPdf(){
+                       if( document.all.emissaoInicial.value != document.all.emissaoFinal.value){
+                           alert("Para geração de PDF data de emissão inicial e final devem ser iguais")
+                           return false;
+                       }
+                       document.all.BotExportar.disabled = true;
+                       document.all.BotImprimir.disabled = true;
+                       document.all.BotGerarPdf.disabled = true;
+                       document.all.cdImpressora.disabled = true;
+                       document.all.opcao.value = 4;
+                       EnviarFormulario();
+                       DisplayLoop();
+                   }
+               </SCRIPT>
+               <INPUT type=hidden name=filaimpressao value=0>
+               <INPUT type=hidden name=mensagemNN value="">
+               <TABLE width=100%>
+                  <TR>
+                     <TD>
+                        <TABLE rules=none width=100% border=1 cellspacing=1 cellpadding=0 bordercolor=White bordercolordark=White bordercolorlight=DimGray class=WindowScreen>
+                           <TR>
+                              <TD colspan=2>&nbsp;
+                           <TR>
+                              <TD class=titulocampo>Banco&nbsp;
+                              <TD><SELECT tabindex=1 name=banco class="combo" obrigatorio=1 onKeyDown="DigitaCombo( this )" onChange="VerificaBanco();">
+                                     <OPTION value="">-- Selecionar --          </OPTION>
+                                     <OPTION value=001>001 - Banco do Brasil    </OPTION>
+                                     <OPTION value=004>004 - Banco do Nordeste  </OPTION>
+                                     <OPTION value=008>008 - Santander          </OPTION>
+                                     <OPTION value=021>021 - Banestes           </OPTION>
+                                     <OPTION value=027>027 - BESC               </OPTION>
+                                     <OPTION value=033>033 - Santander S.A.     </OPTION>
+                                     <OPTION value=041>041 - Banrisul           </OPTION>
+                                     <OPTION value=104>104 - CEF                </OPTION>
+                                     <OPTION value=237>237 - Bradesco           </OPTION>
+                                     <OPTION value=275>275 - Banco Real S.A.    </OPTION>
+                                     <OPTION value=341>341 - Itaú               </OPTION>
+                                     <OPTION value=347>347 - Sudameris          </OPTION>
+                                     <OPTION value=353>353 - Santander          </OPTION>
+                                     <OPTION value=356>356 - ABN Anro Bank      </OPTION>
+                                     <OPTION value=389>389 - Mercantil do Brasil</OPTION>
+                                     <OPTION value=399>399 - HSBC               </OPTION>
+                                     <OPTION value=409>409 - Unibanco           </OPTION>
+                                     <OPTION value=422>422 - Safra              </OPTION>
+                                     <OPTION value=479>479 - Banco de Boston    </OPTION>
+                                     <OPTION value=509>509 - Celcoin IP         </OPTION>
+                                     <OPTION value=637>637 - Banco Sofisa S.A.  </OPTION>
+                                     <OPTION value=707>707 - Banco Daycoval     </OPTION>
+                                     <OPTION value=745>745 - Banco Citibank     </OPTION>
+                                     <OPTION value=748>748 - Banco Sicredi      </OPTION>
+                                     <OPTION value=756>756 - Banco Bancoob      </OPTION>
+                                  </SELECT>
+                           <TR>
+                              <TD class=titulocampo>Armazém&nbsp;
+                              <TD><SELECT tabindex=2 name=cdArmazem class="combo" onKeyDown="DigitaCombo( this )">
+                                     <OPTION value="">-- Selecionar -- </OPTION>
+                                  </SELECT>
+                           <TR>
+                              <TD colspan=2>
+                                 <FIELDSET style="margin: 21"><LEGEND><LABEL class=titulocampo>&nbsp;Limites&nbsp;</LABEL></LEGEND>
+                                    <TABLE width=98% border=0 rules=none align=left cellspacing=1 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen
+                                    style="margin-top: 10; margin-left: 2; margin-right: 2; margin-bottom: 10;">
+                                       <TR>
+                                          <TD width=16%>&nbsp;
+                                          <TD width=15% class=titulocampo><div align=center>Inicial</div>
+                                          <TD width=15% class=titulocampo><div align=center>Final</div>
+                                          <TD width=11%>&nbsp;
+                                          <TD colspan=2 rowspan=3>
+                                             <FIELDSET style="margin-left: 20; margin-right: 20;">
+                                                <LEGEND class=titulocampo>&nbsp;Boletos&nbsp;</LEGEND>
+                                                   <TABLE border=0 width=100% cellspacing=0 cellpadding=0 style="MARGIN: 5px 0px 7px">
+                                                      <TR>
+                                                         <TD width=13% align=right><INPUT tabIndex=16 class=radio type=radio name=idBoletoAvulso id=radio1 value="S" checked>
+                                                         <TD width=25% class=titulocampo2>&nbsp;Normais
+                                                         <TD width=12% align=right><INPUT tabIndex=16 class=radio type=radio name=idBoletoAvulso id=radio1 value="A">
+                                                         <TD class=titulocampo2>&nbsp;Somente Avulsos
+                                                      <TR>
+                                                         <TD align=right><INPUT tabIndex=16 class=radio type=radio name=idBoletoAvulso id=radio1 value="R">
+                                                         <TD class=titulocampo2>&nbsp;PRAZÃO/C.A.
+                                                         <TD align=right><INPUT tabIndex=16 class=radio type=radio name=idBoletoAvulso id=radio1 value="C">
+                                                         <TD class=titulocampo2>&nbsp;Somente Carnês
+                                                   </TABLE>
+                                       <TR>
+                                          <TD class=titulocampo>Portador&nbsp;
+                                          <TD><input name=portadorInicial size=14 maxlength=3 tabindex=4 onKeyPress="return SomenteNumeros();" class=campo>
+                                          <TD><input name=portadorFinal   size=14 maxlength=3 tabindex=5 onKeyPress="return SomenteNumeros();" class=campo>
+                                          <TD>&nbsp;
+                                       <TR>
+                                          <TD class=titulocampo>Cliente&nbsp;
+                                          <TD><input name=clienteInicial size=14 maxlength=6 tabindex=6 onKeyPress="return SomenteNumeros();" class=campo>
+                                          <TD><input name=clienteFinal   size=14 maxlength=6 tabindex=7 onKeyPress="return SomenteNumeros();" class=campo>
+                                          <TD>&nbsp;
+                                       <TR>
+                                          <TD class=titulocampo>Rede&nbsp;
+                                          <TD><input name=cdRedeInicial size=14 maxlength=4 tabindex=8 onKeyPress="return SomenteNumeros();" class=campo>
+                                          <TD><input name=cdRedeFinal size=14 maxlength=4 tabindex=9 onKeyPress="return SomenteNumeros();" class=campo>
+                                          <TD>&nbsp;
+                                          <TD width=16% class=titulocampo>Impressora&nbsp;
+                                          <TD width=27%><SELECT tabindex=17 name=cdImpressora class="combo" onKeyDown="DigitaCombo( this )">
+                                                           <OPTION value="">-- Selecionar -- </OPTION>
+                                                        </SELECT>
+                                       <TR>
+                                          <TD class=titulocampo>Título / Parcela&nbsp;
+                                          <TD nowrap><input name=tituloInicial tabIndex=10 size=5 maxlength=6 onKeyPress="return SomenteNumeros();" class="campo">
+                                                     <label class=titulocampo><b>/</b></label>
+                                                     <input name=parcelaInicial maxlength=2 tabIndex=11 size=1 class="campo" onKeyPress="return SomenteNumeros();">
+                                          <TD nowrap><input name=tituloFinal tabIndex=12 size=5 maxlength=6 onKeyPress="return SomenteNumeros();" class="campo">
+                                                     <label class=titulocampo><b>/</b></label>
+                                                     <input name=parcelaFinal maxlength=2 tabIndex=13 size=1 class="campo" onKeyPress="return SomenteNumeros();">
+                                          <TD>&nbsp;
+                                          <TD align=right><INPUT tabIndex=18 class=radio type=checkBox name=idTituloAceite value="A" disabled>
+                                          <TD class=titulocampo2>&nbsp;Títulos com Aceite
+                                       <TR>
+                                          <TD class=titulocampo><LABEL id=tpData class=titulocampo>Emissão</LABEL>&nbsp;
+                                          <TD><input name=emissaoInicial size=14 maxlength=10 tabindex=14 data=1 onKeyPress="return SomenteNumeros('/');" onBlur="FormataCampo(this, '99/99/9999')" class=campo>
+                                          <TD><input name=emissaoFinal   size=14 maxlength=10 tabindex=15 data=1 onKeyPress="return SomenteNumeros('/');" onBlur="FormataCampo(this, '99/99/9999')" class=campo>
+                                          <TD>&nbsp;
+                                          <TD align=right><INPUT tabIndex=19 class=checkbox type=checkBox name=idDtVencto value='S' onClick="AlterarData();">
+                                          <TD class=titulocampo2>&nbsp;Data de Vencimento
+                                       <TR>
+                                          <TD colspan=6>&nbsp;
+                                    </TABLE>
+                                 </FIELDSET>
+                           <TR>
+                              <TD width=18% class=titulocampo>Arquivos&nbsp;
+                              <TD><input name=nomeArquivo1 size=60 DISABLED class="clsDisabled">
+                           <TR>
+                              <TD>&nbsp;
+                              <TD><input name=nomeArquivo2 size=60 DISABLED class="clsDisabled">
+                           <TR>
+                              <TD colspan=2>&nbsp;
+                           <TR>
+                              <TD class=titulocampo>Etapa&nbsp;
+                              <TD><INPUT type=text name=etapa size=50 class=clsDisabled DISABLED>
+                           <TR>
+                              <TD width=15% class=titulocampo>Processo&nbsp;
+                              <TD><INPUT type=text name=displayLoop size=30 class=clsDisabled DISABLED>
+                           <TR>
+                              <TD colspan=2>&nbsp;
+                        </TABLE>
+               </TABLE>
+               <TABLE border=0 width=100%>
+                  <TR>
+                     <TD width=100%>&nbsp;
+                     <TD><div id=DivBtGerarPdf><BUTTON name=BotGerarPdf AccessKEY="P" tabIndex=100 onClick="GerarPdf();" class="botao" disabled><LABEL>Gerar <U>P</U>DF</LABEL></BUTTON></div></TD>
+                     <TD><div id=DivBtImprimir><BUTTON name=BotImprimir AccessKEY="I" tabIndex=101 onClick="Imprimir();" class="botao" disabled><LABEL><U>I</U>mprimir</LABEL></BUTTON></div></TD>
+                     <TD><div id=DivBtExportar><BUTTON name=BotExportar AccessKEY="E" tabIndex=102 onClick="Exportar();" class="botao" disabled><LABEL><U>E</U>xportar</LABEL></BUTTON></div></TD>
+                  </TR>
+               </TABLE>
+                   </FORM>
+               </HTML>
+
+               <script>
+                   function ChamaBuscaErros(){
+                       document.parentWindow.parent.top_rotina.BuscaErros();
+                   }
+                   function ZeraTimeOutCtrl(){
+                       document.parentWindow.parent.top_rotina.timeOut = 0;
+                   }
+               </script>
+               <script for=imgWait event=onpropertychange>
+                   try{
+                       if( document.all.imgWait.style.display != 'none' ){
+                           ChamaBuscaErros();
+                       }
+                   }
+                   catch( e ){
+                       setTimeout( 'ChamaBuscaErros()', 1000 );
+                   }
+               </script>
+               <script> document.parentWindow.parent.bottom_rotina.document.location.href = "../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=l5Ew0L74174049&ppopcao=00&call=PW04420R&frame=9&opcao=1&"; </script>
+               <script>
+                   if( document.all.imgWait != null ){
+                       document.all.imgWait.style.display = 'none';
+                   }
+                   try{
+                       if( 'S' == 'S' ){
+                           document.parentWindow.parent.top_rotina.document.all.unidade.disabled = false;
+                       }
+                   }
+                   catch( e ){}
+               </script>

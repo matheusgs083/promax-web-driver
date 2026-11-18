@@ -1,0 +1,180 @@
+
+                    <input type="hidden" id="hiddenopArmazem">
+                    <script>
+                        if( $('#opArmazem option').length == 0 ){
+                            document.getElementById('hiddenopArmazem').value = 'NaoExisteOpcaoInicial';
+                            option = document.createElement('option');
+                            option.setAttribute('value','CCC');
+                            option.appendChild(document.createTextNode(' Carregando ... '));
+                            document.getElementById ( "opArmazem" ).appendChild(option);
+                            oOption = null;
+                        }
+                        else {
+                            document.getElementById('hiddenopArmazem').value = $('#opArmazem option').first().text()
+                            $('#opArmazem option').first().text(' Carregando ... ');
+                        }
+                    </script>
+               <SCRIPT>
+                   function CCmbopArmazem(vlrCmb,txtCmb){oOpt=document.createElement("option");oOpt.setAttribute("value", vlrCmb);oOpt.appendChild(document.createTextNode(txtCmb));document.getElementById('opArmazem').appendChild(oOpt);oOpt=null;}CCmbopArmazem("01","01 - ARMAZEM CENTRAL");CCmbopArmazem("02","02 - DEPOSITO ITAPORANGA");CCmbopArmazem("03","03 - DEPOSITO PATOS");
+               </SCRIPT>
+                    <script>
+                        document.getElementById('opArmazem').value = '';
+                    </script>
+                    <SCRIPT>
+                        if( document.getElementById('hiddenopArmazem').value == 'NaoExisteOpcaoInicial' ){
+                            document.getElementById('opArmazem').remove( 0 );
+                        }
+                        else {
+                            $('#opArmazem option').first().text(document.getElementById('hiddenopArmazem').value);
+                        }
+                        document.getElementById('opArmazem').disabled = false;
+                    </SCRIPT>
+                   <script type="text/javascript" src="../scripts/PH050158.js"></script>
+                   <script>
+                       $(document).ready(function(){
+                           PH050158 = new PH050158();
+                           PH050158.init('18112026', '18112026', '../cgi-bin/PP00100.exe?SessionID=z0Kg2o21982392&ppopcao=6');
+                       });
+                   </script>
+               <form id="formPH050158" name="formPH050158" method="post w100 h100">
+                   <div class="filtro" style="height: 180px;">
+                      <div class="left w30">
+                         <div class="left w100">
+                            <fieldset style="width: 70%">
+                               <legend> Op&ccedil;&atilde;o &nbsp;</legend>
+                                  <div class="linha-separador w100">&nbsp;</div>
+                                  <div class="left w100 alinhamento-campo">
+                                     <label>Classifica&ccedil;&atilde;o</label>
+                                     <select id=opClassificacao name=opClassificacao class="select-padrao w50" tabindex=1>
+                                        <option value=0>Mapa</option>
+                                        <option value=1>PDV</option>
+                                        <option value=2>Ocupa&ccedil;&atilde;o</option>
+                                     </select>
+                                  </div>
+                                  <div class="left w100 alinhamento-campo" style="margin-left: -88px;">
+                                     <label>CSV Qlikview</label>
+                                     <input id=checkQlik  name=checkQlik type='checkbox' onClick="PH050158.bloqueiaVisualizar();" value=1 tabindex=10>
+                                  </div>
+                            </fieldset>
+                         </div>
+                      </div>
+                      <div class="left w30">
+                         <div class="left w100">
+                            <fieldset style="width: 80%">
+                               <legend> Prefer&ecirc;ncia &nbsp;</legend>
+                               <div class="linha-separador w100">&nbsp;</div>
+                               <div class="left w100">
+                                  <label>Tipo de Mapa:</label>
+                               </div>
+                               <div class="left w100">
+                                  <input id=checkRota  name=checkRota type='checkbox' value=1 checked tabindex=10>
+                                  <label>Rota</label>
+                               </div>
+                               <div class="left w100">
+                                  <input id=checkAs name=checkAs type='checkbox' value=1 checked tabindex=11>
+                                  <label>AS</label>
+                               </div>
+                               <div class="left w100">
+                                  <input id=checkTodasOper name=checkTodasOper type='checkbox' value="S" tabindex=12>
+                                  <label>Todas Opera&ccedil;&otilde;es</label>
+                               </div>
+                               <div class="linha-separador w100">&nbsp;</div>
+                            </fieldset>
+                         </div>
+                         <div class="left w100">
+                            <fieldset style="width: 80%">
+                               <legend> Tipo de Mapa &nbsp;</legend>
+                               <div class="linha-separador w100">&nbsp;</div>
+                               <div class="left w100">
+                                  <input id=idRoteirizadoA   name=idRoteirizado type='radio'  value=1 checked tabindex=13>
+                                  <label nowrap>Mapas Roteirizados (Original)</label>
+                                  </br>
+                                  <input id=idRoteirizadoB    name=idRoteirizado type='radio' value=0 tabindex=14>
+                                  <label >Todos os Mapas (Situa&ccedil;&atilde;o Atual)</label>
+                               </div>
+                            </fieldset>
+                         </div>
+                      </div>
+                      <div class="left w40" style="margin-left: -15px;">
+                         <div class="left w100">
+                            <fieldset style="width: 100%">
+                               <legend> Sele&ccedil;&atilde;o &nbsp;</legend>
+                               <div class="linha-separador w100">&nbsp;</div>
+                               <div class="left w100">
+                                  <div class="left w33">&nbsp;</div>
+                                  <div class="left w15">
+                                     <label>Inicial&nbsp;</label>
+                                  </div>
+                                  <div class="left w20">
+                                     <label>&nbsp;</label>
+                                  </div>
+                                  <div class="left w15">
+                                     <label>Final&nbsp;</label>
+                                  </div>
+                               </div>
+                               <div class="left w100">
+                                  <div class="left w25 alinhamento-campo mr3r">
+                                      <label>Mapa</label>
+                                  </div>
+                                  <div class="left w30">
+                                      <input id=mapaInicial name=mapaInicial class="input-padrao w100" maxlength=7 tabindex=20>
+                                  </div>
+                                  <div class="left w30" style="margin-left: 10px;">
+                                      <input id=mapaFinal name=mapaFinal class="input-padrao w100" maxlength=7 tabindex=21>
+                                  </div>
+                               </div>
+                               <div class="left w100">
+                                  <div class="left w25 alinhamento-campo mr3r">
+                                      <label>Data Entrega</label>
+                                  </div>
+                                  <div class="left w30">
+                                     <input id=dataInicial name=dataInicial class="input-padrao w100" data=1 tabindex=22>
+                                  </div>
+                                  <div class="left w30" style="margin-left: 10px;">
+                                     <input id=dataFinal name=dataFinal class="input-padrao w100" data=1 tabindex=23>
+                                  </div>
+                               </div>
+                               <div class="left w100">
+                                  <div nowrap class="left w25 alinhamento-campo mr3r">
+                                      <label>RoadShow</label>
+                                  </div>
+                                  <div class="left w30">
+                                     <input id=roadInicial name=roadInicial class="input-padrao w100" tabindex=24>
+                                  </div>
+                                  <div class="left w30" style="margin-left: 10px;">
+                                     <input id=roadFinal name=roadFinal class="input-padrao w100" maxlength=7 tabindex=25>
+                                  </div>
+                               </div>
+                               <div class="linha-separador w100">&nbsp;</div>
+                               <div class="left w100">
+                                  <div class="left w25 alinhamento-campo mr3r">
+                                      <label>Transportadora</label>
+                                  </div>
+                                  <div class="left w30">
+                                      <input id=cdTransportadoraInicial name=cdTransportadoraInicial class="input-padrao w100" maxlength=6 tabindex=26>
+                                  </div>
+                                  <div class="left w30" style="margin-left: 10px;">
+                                      <input id=cdTransportadoraFinal name=cdTransportadoraFinal class="input-padrao w100" maxlength=6 tabindex=27>
+                                  </div>
+                               </div>
+                               <div class="linha-separador w100">&nbsp;</div>
+                               <div class="left w100">
+                                  <div nowrap class="left w25 alinhamento-campo mr3r">
+                                      <label>Armaz&eacute;m</label>
+                                  </div>
+                                  <select id=opArmazem name=opArmazem  class="select-padrao w43" tabindex=28>
+                                     <option value=0>Todos</option>
+                                  </select>
+                               </div>
+                            </fieldset>
+                         </div>
+                      </div>
+                      <div class="linha-separador w100">&nbsp;</div>
+                   </div>
+                   <div class="botoes" style="margin-bottom: 1%;">
+                        <input tabindex=100 type="button" class="botaoEscuro" value="Gerar CSV Geo" id="botGerarCSV" onClick="PH050158.gerarCSVGeo();"/>
+                        <input tabindex=101 type="button" class="botaoEscuro" value="Gerar CSV"  id="botGerarCSV" onClick="PH050158.gerarCSV();"/>
+                        <input tabindex=102 type="button" class="botaoEscuro" value="Visualizar" id="botVisualizar" onClick="PH050158.abreTelaVisualizar();"/>
+                   </div>
+                 </form>
+               <div id='dialogmodal'></div>

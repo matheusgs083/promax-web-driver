@@ -118,12 +118,16 @@ class ClientePromax:
             self.session_id = None
 
     # ---------------------------------------------------------------- rotinas
-    def abrir_rotina(self, codigo: str, *, menu_id: str | None = None) -> Rotina:
+    def abrir_rotina(
+        self, codigo: str, *, menu_id: str | None = None, sub_session_id: str | None = None
+    ) -> Rotina:
+        """Abre a rotina numa sub-sessao nova, ou numa existente (ex.: a sub-sessao em
+        que a tela PH acabou de trocar de unidade; a unidade fica presa a ela)."""
         self._exigir_sessao()
         self._log("Procurando a rotina %s no menu ...", codigo)
         menu_id, programa = self._localizar_rotina(codigo, menu_id)
         self._log("Abrindo a rotina %s (programa %s) ...", codigo, programa)
-        sub = gerar_session_id()
+        sub = sub_session_id or gerar_session_id()
         url = f"{self.base}?SessionID={self.session_id}&ppopcao=7&call={menu_id}&SubSessionID={sub}"
         return self._carregar_frames(codigo, menu_id, programa, sub, self.http.get(url))
 
@@ -133,6 +137,17 @@ class ClientePromax:
             self._log("Unidade %s ja ativa na rotina.", codigo)
             return rotina
         self._log("Trocando a unidade da rotina para %s ...", codigo)
+        nova = self.reabrir_em_unidade(rotina, codigo)
+        if nova.unidade_ativa != codigo:
+            raise PromaxHttpErro(
+                f"Unidade nao trocou: pedida {codigo}, ativa {nova.unidade_ativa}. Veja o rastro."
+            )
+        return nova
+
+    def reabrir_em_unidade(self, rotina: Rotina, codigo: str) -> Rotina:
+        """Pede a rotina de novo ja na unidade (changeUNB=A), como o combo de unidade
+        do topo faz. O Promax responde com um SessionID novo, preso a essa unidade.
+        Serve tambem para as telas PH. Quem chama confere a unidade da tela devolvida."""
         resposta = self.http.post(
             self.base,
             {
@@ -144,12 +159,7 @@ class ClientePromax:
         falha = classificar.contem(html.alertas(resposta.texto), classificar.SEM_PERMISSAO)
         if falha:
             raise SemPermissao(f"Troca para a unidade {codigo} recusada: {falha}")
-        nova = self._carregar_frames(rotina.codigo, rotina.menu_id, rotina.programa, rotina.sub_session_id, resposta)
-        if nova.unidade_ativa != codigo:
-            raise PromaxHttpErro(
-                f"Unidade nao trocou: pedida {codigo}, ativa {nova.unidade_ativa}. Veja o rastro."
-            )
-        return nova
+        return self._carregar_frames(rotina.codigo, rotina.menu_id, rotina.programa, rotina.sub_session_id, resposta)
 
     def fechar_rotina(self, rotina: Rotina) -> None:
         self.http.get(f"{self.base}?SessionID={self.session_id}&SubSessionID={rotina.sub_session_id}&ppopcao=10")
@@ -195,11 +205,7 @@ class ClientePromax:
                 },
             )
 
-        self._log("Visualizando o relatorio (o Promax pode demorar) ...")
-        inicio = time.time()
-        tela = self.http.post(rotina.url_rotina, {**valores, "opcao": opcao_visualizar})
-        self._log("Promax gerou o relatorio em %.0fs.", time.time() - inicio)
-        self._falhar_por_alerta(tela)
+        tela = self._visualizar(rotina, valores, opcao_visualizar)
         form_resultado = _form_de_exportacao(tela.texto)
         if form_resultado is None:
             raise ExportacaoNaoEntendida(
@@ -209,6 +215,21 @@ class ClientePromax:
         return ExportacaoPreparada(
             url=url, campos={**form_resultado.campos, "opcao": OPCAO_EXPORTAR, "opcaorelat": OPCAO_RELAT_CSV}
         )
+
+    def visualizar(self, rotina: Rotina, campos: dict[str, str | None]) -> Resposta:
+        """So o Visualizar, para rotinas cujo resultado nao e a tela de exportacao
+        (ex.: 03.08.05 e 17.06 gravam um arquivo no DVS do servidor)."""
+        valores = {k: v for k, v in {**rotina.form.campos, **campos}.items() if v is not None}
+        opcao = _opcao_do_botao(rotina.html_rotina, rotina.form, "BotVisualizar") or "1"
+        return self._visualizar(rotina, valores, opcao)
+
+    def _visualizar(self, rotina: Rotina, valores: dict[str, str], opcao: str) -> Resposta:
+        self._log("Visualizando o relatorio (o Promax pode demorar) ...")
+        inicio = time.time()
+        tela = self.http.post(rotina.url_rotina, {**valores, "opcao": opcao})
+        self._log("Promax gerou o relatorio em %.0fs.", time.time() - inicio)
+        self._falhar_por_alerta(tela)
+        return tela
 
     def concluir_exportacao(self, exportacao: "ExportacaoPreparada", destino: Path) -> Path:
         """Pede o CSV e baixa. Nao usa a janela da rotina: pode rodar em paralelo."""
@@ -221,6 +242,54 @@ class ClientePromax:
         raise ExportacaoNaoEntendida(
             f"A exportacao nao devolveu arquivo. Alertas: {html.alertas(resposta.texto)}. Envie a pasta de rastro."
         )
+
+    def gerar_pdf_frame9(
+        self,
+        rotina: Rotina,
+        campos: dict[str, str | None],
+        *,
+        opcao: str,
+        destino: Path,
+        espera: float = 600,
+        intervalo: float = 5,
+    ) -> Path:
+        """Rotinas que geram PDF pelo frame 9 (ex.: 03.02.06 com opcao=4).
+
+        Repete o EnviarFormulario() da tela e procura o link tmp/rels/*.pdf na
+        resposta. Se o Promax so devolver o "processando", acompanha o XML de
+        progresso que a tela consulta (DisplayLoopXML) ate o link aparecer.
+        """
+        valores = {k: v for k, v in {**rotina.form.campos, **campos}.items() if v is not None}
+        self._log("Gerando o PDF da rotina %s (opcao=%s; o Promax pode demorar) ...", rotina.codigo, opcao)
+        inicio = time.time()
+        resposta = self._enviar_frame9(rotina, {**valores, "opcao": opcao})
+        self._falhar_por_alerta(resposta)
+        arquivo = self._baixar_pdf_citado(resposta, destino)
+        if arquivo is None and _processo_terminou(resposta.texto):
+            # displayLoop = 'FIM': o Promax ja encerrou e nao citou PDF nenhum.
+            raise ExportacaoNaoEntendida(
+                f"O Promax terminou a {rotina.codigo} sem gerar PDF. Alertas: {html.alertas(resposta.texto)}"
+            )
+        url_xml = _url_xml_progresso(rotina)
+        while arquivo is None and url_xml and time.time() - inicio < espera:
+            time.sleep(intervalo)
+            progresso = self.http.get(url_xml)
+            self._log("... PDF da %s: %s (%.0fs)", rotina.codigo, _chave_progresso(progresso.texto), time.time() - inicio)
+            arquivo = self._baixar_pdf_citado(progresso, destino)
+        if arquivo is None:
+            raise ExportacaoNaoEntendida(
+                f"O Promax nao entregou o PDF da {rotina.codigo} em {time.time() - inicio:.0f}s. "
+                f"Alertas: {html.alertas(resposta.texto)}. Envie a pasta de rastro."
+            )
+        return arquivo
+
+    def _baixar_pdf_citado(self, resposta: Resposta, destino: Path) -> Path | None:
+        for url in reversed(html.urls_relatorio(resposta.texto, resposta.url)):
+            if ".pdf" in url.lower():
+                arquivo = self.baixar_arquivo(url, destino, tipo="pdf")
+                if arquivo:
+                    return arquivo
+        return None
 
     # --------------------------------------------------------------- internos
     def _localizar_rotina(self, codigo: str, menu_id: str | None) -> tuple[str, str]:
@@ -250,7 +319,12 @@ class ClientePromax:
             self.session_id = session_id
         mapa = html.frames(texto, frameset.url)
         if "rotina" not in mapa and _eh_tela_ph(texto):
-            return _rotina_ph(codigo, menu_id, sub, frameset)
+            rotina = _rotina_ph(codigo, menu_id, sub, frameset)
+            sessao_ph = rotina.form.campos.get("SessionID")
+            if sessao_ph and sessao_ph != self.session_id:
+                self._log("Promax trocou o SessionID: %s -> %s", self.session_id, sessao_ph)
+                self.session_id = sessao_ph
+            return rotina
         if "rotina" not in mapa:
             falha = classificar.contem(html.alertas(texto), classificar.SEM_PERMISSAO)
             if falha:
@@ -265,13 +339,16 @@ class ClientePromax:
         url_frame9 = html.url_frame_inferior(pagina.texto, pagina.url)
         if "bottom_rotina" in mapa:
             self.http.get(mapa["bottom_rotina"])
+        carga_frame9 = ""
         if url_frame9:
-            self.http.get(url_frame9)
+            carga_frame9 = self.http.get(url_frame9).texto
         else:
             url_frame9 = _montar_url_frame9(self.base, self.session_id, sub, pagina.texto)
 
         form = html.formulario(pagina.texto, "form1")
         html.aplicar_valores_de_carga(form, pagina.texto)
+        # O frame 9 tambem preenche campos ao carregar (ex.: faixas da 03.02.06).
+        html.aplicar_valores_do_frame9(form, carga_frame9)
         unidades = []
         for f in html.ler_formularios(topo):
             unidades = f.opcoes.get("unidade", []) or unidades
@@ -293,22 +370,31 @@ class ClientePromax:
             return _gravar(destino, resposta.corpo)
         for url in reversed(html.urls_relatorio(resposta.texto, resposta.url)):
             # O link "<nome>.csv.inf" que o Promax abre e o proprio CSV.
-            nome = url.rsplit("/", 1)[-1]
-            self._log("Baixando arquivo gerado: %s", nome)
-            status, content_type, total = self.http.baixar(
-                url,
-                destino,
-                ao_progredir=lambda baixado, segundos: self._log(
-                    "... %s: %.1f MB em %.0fs", nome, baixado / 1_048_576, segundos
-                ),
-            )
-            parcial = destino.with_suffix(destino.suffix + ".parcial")
-            if status == 200 and _arquivo_parece_csv(parcial, content_type):
-                parcial.replace(destino)
-                self._log("Arquivo salvo: %s (%.1f MB)", destino.name, total / 1_048_576)
-                return destino
-            parcial.unlink(missing_ok=True)
-            self._log("Arquivo nao veio (HTTP %s, %d bytes).", status, total)
+            arquivo = self.baixar_arquivo(url, destino)
+            if arquivo:
+                return arquivo
+        return None
+
+    def baixar_arquivo(self, url: str, destino: Path, *, tipo: str = "csv") -> Path | None:
+        """Baixa o arquivo gerado pelo Promax em partes, com progresso no log.
+        Devolve None quando o servidor nao entrega um arquivo do tipo esperado (csv ou pdf)."""
+        nome = url.split("?")[0].rsplit("/", 1)[-1]
+        self._log("Baixando arquivo gerado: %s", nome)
+        status, content_type, total = self.http.baixar(
+            url,
+            destino,
+            ao_progredir=lambda baixado, segundos: self._log(
+                "... %s: %.1f MB em %.0fs", nome, baixado / 1_048_576, segundos
+            ),
+        )
+        parcial = destino.with_suffix(destino.suffix + ".parcial")
+        confere = _arquivo_parece_pdf if tipo == "pdf" else _arquivo_parece_csv
+        if status == 200 and confere(parcial, content_type):
+            parcial.replace(destino)
+            self._log("Arquivo salvo: %s (%.1f MB)", destino.name, total / 1_048_576)
+            return destino
+        parcial.unlink(missing_ok=True)
+        self._log("Arquivo nao veio (HTTP %s, %d bytes).", status, total)
         return None
 
     def _falhar_por_alerta(self, resposta: Resposta) -> None:
@@ -417,6 +503,31 @@ def _parece_csv(resposta: Resposta) -> bool:
     if "html" in resposta.content_type.lower() or inicio.startswith((b"<html", b"<!doctype", b"<script", b"<")):
         return False
     return b";" in inicio or b"," in inicio or b"\t" in inicio
+
+
+def _arquivo_parece_pdf(caminho: Path, content_type: str) -> bool:
+    if not caminho.is_file():
+        return False
+    with caminho.open("rb") as arquivo:
+        return arquivo.read(5) == b"%PDF-"
+
+
+_XML_PROGRESSO_RE = re.compile(r'"(\.\./tmp/work/[^"]+)"\s*\+\s*"\.xml"')
+
+
+def _url_xml_progresso(rotina: Rotina) -> str | None:
+    """DisplayLoopXML(): arqXML = "../tmp/work/<usuario>_<unidade>_<sub>" + ".xml"."""
+    achado = _XML_PROGRESSO_RE.search(rotina.html_rotina)
+    return urljoin(rotina.url_rotina, achado.group(1) + ".xml") if achado else None
+
+
+def _processo_terminou(texto: str) -> bool:
+    return bool(re.search(r"""all\s*\(\s*'displayLoop'\s*\)\.value\s*=\s*'FIM'""", texto or ""))
+
+
+def _chave_progresso(texto: str) -> str:
+    achado = re.search(r'chave\s*=\s*"([^"]*)"', texto or "")
+    return achado.group(1) if achado else "aguardando"
 
 
 def _arquivo_parece_csv(caminho: Path, content_type: str) -> bool:

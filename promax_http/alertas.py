@@ -16,6 +16,9 @@ SEM_CONTEUDO = (
     "nao houve movimento",
     "nao ha notas",
     "para listar",
+    "nenhum registro",
+    "nao existem titulos",
+    "nao ha movimento",
 )
 FALHA_GERACAO = ("erro ao gerar arquivo",)
 SEM_PERMISSAO = ("sem permissao", "nao autoriz", "acesso negado", "sem acesso")

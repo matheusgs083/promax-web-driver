@@ -1,0 +1,142 @@
+
+                <!--<script type="text/javascript" src="PH050094.js"></script>-->
+                <script type="text/javascript" src="../scripts/PH050094.js"></script>
+                <script>
+                    $(document).ready(function(){
+                        PH050094 = new PH050094();
+                        PH050094.init("../cgi-bin/PP00100.exe?SessionID=j4Af2i31443760&ppopcao=6");
+                    });
+                </script>
+               <div id="aguardeProcesso" class="h100 w100" style="display: none; background-image: url(../icons/transparent.png); z-index: 9999999999; position: fixed; text-align: center;" >
+                   <div style="color: #ffffff; position: relative; top: 35%; margin-top: -45px">
+                       <h2> Aguarde </h2>
+                       <h2> Processando... </h2>
+                   </div>
+               </div>
+               <form id="formPH050094" name="formPH050094" method="post" class="w100">
+                     <div class="filtro" style="padding-top: 5;height: 230px;" >
+                          <div class="left w100">
+                            <div class="w40 left" style="margin: 4px">
+                                 <fieldset style="height: 175px;">
+                                      <legend>Prefer&ecirc;ncias</legend>
+                                      <div class="listaCheck mr4t w95 h83" style="margin-left: 5px;">
+                                           <div id="dvLstPreferencias" ></div>
+                                      </div>
+                                 </fieldset>
+                            </div>
+                            <div class="w58 left" style="margin: 5px">
+                                 <fieldset style="height: 175px;">
+                                     <legend>Sele&ccedil;&otilde;es</legend>
+                                    <div class="w60 left mr4t">
+                                          <div class="w100 left" >
+                                               <div class="left w25" >
+                                                    <label>&nbsp;</label>
+                                               </div>
+                                               <div class="left w32" >
+                                                    <label style="margin-left: 32%">Inicial&nbsp;</label>
+                                               </div>
+                                               <div class="right w35" >
+                                                    <label style="margin-left: 35%">Final&nbsp;</label>
+                                               </div>
+                                          </div>
+                                          <div class="w100 left mr4t">
+                                               <div class="left w22 alinhamento-campo">
+                                                    <label>Cliente</label>
+                                               </div>
+                                               <div class="left w1" >
+                                                    <label>&nbsp;</label>
+                                               </div>
+                                               <div class="left w35" >
+                                                    <input id="cdClienteIni" name="cdClienteIni" type="text" class="input-padrao w98" style="text-align: right" tabindex=01>
+                                               </div>
+                                               <div class="left w5" >
+                                                    <label>&nbsp;</label>
+                                               </div>
+                                               <div class="left w36" >
+                                                    <input id="cdClienteFim" name="cdClienteFim" type="text" class="input-padrao w98" style="text-align: right" tabindex=02>
+                                               </div>
+                                          </div>
+                                          <div class="w100 left mr4t">
+                                               <div class="left w22 alinhamento-campo">
+                                                    <label>Setor</label>
+                                               </div>
+                                               <div class="left w1" >
+                                                    <label>&nbsp;</label>
+                                               </div>
+                                               <div class="left w35">
+                                                    <input id="cdSetorIni" name="cdSetorIni" type="text" class="left input-padrao w98 FiltroConsulta" style="text-align: right" tabindex=3>
+                                               </div>
+                                               <div class="left w5" >
+                                                    <label>&nbsp;</label>
+                                               </div>
+                                               <div class="left w36" >
+                                                    <input id="cdSetorFim" name="cdSetorFim" type="text" class="left input-padrao w98 FiltroConsulta" style="text-align: right" tabindex=4>
+                                               </div>
+                                          </div>
+                                          <div class="w100 left mr4t">
+                                               <div class="left w22 alinhamento-campo">
+                                                    <label>Corporativo</label>
+                                               </div>
+                                               <div class="left w1" >
+                                                    <label>&nbsp;</label>
+                                               </div>
+                                               <div class="left w35">
+                                                    <input id="cdCorporativoIni" name="cdCorporativoIni" type="text" class="left input-padrao w98 FiltroConsulta" style="text-align: right" tabindex=5>
+                                               </div>
+                                               <div class="left w5" >
+                                                    <label>&nbsp;</label>
+                                               </div>
+                                               <div>
+                                                    <div class="left w36" >
+                                                         <input id="cdCorporativoFim" name="cdCorporativoFim" type="text" class="left input-padrao w98 FiltroConsulta" style="text-align: right" tabindex=6>
+                                                    </div>
+                                               </div>
+                                          </div>
+                                    </div>
+
+                                    <div class="right w35">
+                                         <div class="left w70">
+                                              <fieldset>
+                                                   <legend>Cliente</legend>
+                                                        <div class="left w100">
+                                                            <div class="left w20">
+                                                                <input type="checkbox" id="idRota" name="idRota" value="S" tabindex=7 checked>
+                                                            </div>
+                                                            <div class="left w50 mr2l mr2t">
+                                                                <label class="left">Rota</label>
+                                                            </div>
+                                                        </div>
+                                                        <div class="left w100">
+                                                            <div class="left w20">
+                                                                <input type="checkbox" id="idAS" name="idAS" value="S" tabindex=8>
+                                                            </div>
+                                                            <div class="left w75 mr2l mr2t">
+                                                                <label class="left">AS</label>
+                                                            </div>
+                                                        </div>
+                                              </fieldset>
+                                              <label>&nbsp;</label>
+                                         </div>
+                                         <div class="w100 left ">
+                                              <div class="left w4">
+                                                  <label>&nbsp;</label>
+                                              </div>
+                                              <div class="left w10">
+                                                  <input type="checkbox" id="idGeo" name="idGeo" value="S" tabindex=9>
+                                              </div>
+                                              <div class="left w65 mr2l mr2t">
+                                                  <label class="left">Gerar Toda Geo</label>
+                                              </div>
+                                         </div>
+                                    </div>
+                                 </fieldset>
+                            </div>
+                          </div>
+                     </div>
+                          <div class="botoes" style="margin-bottom: 1%;">
+                               <input tabindex=10 id="btnGerarCSV" type="button" class="botaoEscuro" value="Gerar CSV" onClick="PH050094.GerarCSV();"/>
+                          </div>
+               </form>
+                   <div class="tabela h85" ; style="overflow-x: hidden; overflow-y: auto;">
+                        <div style="display: none;" id="imgProcessBar" align="center"><img align="center" src="../icons/sivProcessBar.gif" style="width: 200px;"/></div>
+                   </div>

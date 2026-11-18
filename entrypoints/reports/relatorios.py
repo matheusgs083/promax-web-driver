@@ -22,20 +22,45 @@ from core.observability.relatorio_execucao import tracker
 from core.services.report_orchestration_service import ReportOrchestrationService, RoutineTask
 from core.services.report_post_processing_service import encontrar_primeira_planilha_excel
 from core.config.settings import get_settings
-from promax_http.integracao import PedidoRelatorio, SessaoHttp, gerar_relatorio_http, rotinas_em_http
+from promax_http.integracao import (
+    PedidoArquivoDvs,
+    PedidoRelatorio,
+    PedidoRelatorioPdf,
+    PedidoRelatorioPh,
+    SessaoHttp,
+    gerar_arquivo_dvs_http,
+    gerar_pdf_http,
+    gerar_relatorio_http,
+    gerar_relatorio_ph_http,
+    rotinas_em_http,
+)
 from promax_http.receitas import (
+    OPCAO_PDF_030206,
+    PREFIXO_DVS_1706,
     PASSOS_150501,
     campos_020220,
+    campos_020304,
     campos_020502,
+    campos_030224,
+    campos_030206,
+    campos_030111,
     campos_030237,
+    campos_031120,
+    campos_031129,
+    campos_031702,
     campos_0512,
     campos_0513,
+    campos_030805,
     campos_120601,
     campos_120606,
     campos_120616,
     campos_140501,
     campos_140506,
     campos_150501,
+    campos_1706,
+    nome_dvs_030805,
+    pedido_csv_0105070402,
+    pedido_csv_03114902,
 )
 
 from pages.reports.relatorio_030224_page import Relatorio030224Page
@@ -610,7 +635,13 @@ def main(
     
 
     # --- Versoes HTTP (sem navegador), ligadas por PROMAX_HTTP_GRUPOS ---
-    sessao_http = SessaoHttp(settings=settings, logger=logger, pasta_rastro=LOGS_DIR / "promax_http")
+    # Entra na mesma unidade que o login do Edge (PROMAX_REPORT_UNIT).
+    sessao_http = SessaoHttp(
+        settings=settings,
+        logger=logger,
+        pasta_rastro=LOGS_DIR / "promax_http",
+        unidade_login=settings.unidade_relatorios,
+    )
 
     def _gerar_http(pedido, unidades_alvo):
         return gerar_relatorio_http(
@@ -620,6 +651,353 @@ def main(
             pasta_base=Path(settings.download_dir),
             tracker=tracker,
             logger=logger,
+        )
+
+    def _gerar_ph_http(pedido):
+        return gerar_relatorio_ph_http(
+            sessao_http,
+            pedido,
+            pasta_base=Path(settings.download_dir),
+            tracker=tracker,
+            logger=logger,
+        )
+
+    def tarefa_0105070402_bot_http(unidades_alvo=None):
+        # Como no Edge: uma geracao so, na unidade da sessao (o relatorio nao e por unidade).
+        return _gerar_ph_http(
+            PedidoRelatorioPh(
+                rotina="0105070402",
+                tracker_name="Rotina 0105070402 Bot",
+                subpasta="0105070402 bot",
+                nome_arquivo="0105070402 bot - dClientes.csv",
+                csv=pedido_csv_0105070402(),
+                marca_tela="btnGerarCSV",
+            )
+        )
+
+    def _pedido_03114902_liga(unidade, tracker_name, subpasta, periodo):
+        inicio_mensal, fim_mensal = periodo
+        return PedidoRelatorioPh(
+            rotina="03114902",
+            tracker_name=tracker_name,
+            subpasta=subpasta,
+            nome_arquivo=_liga_nome_mensal("03.11.49.02", unidade, liga_mes_referencia),
+            csv=pedido_csv_03114902(
+                classificacao="Mapa",
+                tipo_mapa_rota=True,
+                tipo_mapa_as=True,
+                todas_operacoes=True,
+                mapas_roteirizados=True,
+                data_inicial=inicio_mensal,
+                data_final=fim_mensal,
+                roadshow_inicial="0",
+                roadshow_final="99",
+                transportadora_inicial="0",
+                transportadora_final="999999",
+                armazem="01 - ARMAZEM CENTRAL",
+                csv_geo=False,
+            ),
+            marca_tela="botGerarCSV",
+            unidade=unidade,
+        )
+
+    def _gerar_03114902_liga_http(unidades_alvo, tracker_name, subpasta, periodo, rotulo):
+        unidades = _normalize_list(unidades_alvo) or list(LIGA_UNIDADE_NOMES)
+        resultados = [
+            _gerar_ph_http(_pedido_03114902_liga(unidade, tracker_name, subpasta, periodo))
+            for unidade in unidades
+        ]
+        falhas = [r for r in resultados if r.status is not ExecutionStatus.SUCCESS]
+        if falhas:
+            return False, f"Falha em uma ou mais unidades da {rotulo}: {[r.message for r in falhas]}"
+        return True, f"{rotulo} gerada para {len(resultados)} unidade(s)."
+
+    def tarefa_03114902_bot_http(unidades_alvo=None):
+        if is_liga_entrega:
+            periodo = periodo_mensal_liga() if is_liga_fechamento else periodo_atual_03114902()
+            return _gerar_03114902_liga_http(
+                unidades_alvo, "Rotina 03114902 Liga Entrega", "03.11.49.02", periodo, "03114902 Liga Entrega"
+            )
+        unidade_base = unidades_alvo[0] if isinstance(unidades_alvo, list) and unidades_alvo else unidades_alvo
+        return _gerar_ph_http(
+            PedidoRelatorioPh(
+                rotina="03114902",
+                tracker_name="Rotina 03114902 Geo Bot",
+                subpasta="03114902 bot",
+                nome_arquivo="03114902 bot - geo.csv",
+                csv=pedido_csv_03114902(
+                    classificacao="Mapa",
+                    tipo_mapa_rota=True,
+                    tipo_mapa_as=True,
+                    todas_operacoes=True,
+                    mapas_roteirizados=True,
+                    data_inicial=report_start_text or data_duas_semanas_atras_formatada,
+                    data_final=report_end_text or data_hoje_formatada,
+                    roadshow_inicial="0",
+                    roadshow_final="99",
+                    transportadora_inicial="0",
+                    transportadora_final="999999",
+                    armazem="Todos",
+                    csv_geo=True,
+                ),
+                marca_tela="botGerarCSV",
+                unidade=unidade_base,
+            )
+        )
+
+    def tarefa_03114902_mensal_liga_http(unidades_alvo=None):
+        if not is_liga_fechamento:
+            return False, "A 03114902 mensal deve ser executada pelo Fechamento da Liga."
+        return _gerar_03114902_liga_http(
+            unidades_alvo,
+            "Rotina 03114902 Mensal Fechamento Liga",
+            "03.11.49.02 Mensal",
+            periodo_mensal_liga(),
+            "03114902 mensal",
+        )
+
+    def tarefa_030206_bot_http(unidades_alvo=None):
+        # PDF de boletos, uma unidade por vez, com o nome do loop_unidades (03,02,06_<codigo>.pdf).
+        return gerar_pdf_http(
+            sessao_http,
+            PedidoRelatorioPdf(
+                rotina="030206",
+                tracker_name="Rotina 030206 Bot",
+                subpasta="030206 bot",
+                nome_arquivo="03,02,06.pdf",
+                campos=campos_030206(
+                    banco="237",
+                    armazem="01",
+                    emissao_inicial=report_start_text or primeiro_dia_mes_passado,
+                    emissao_final=report_end_text or data_hoje_formatada,
+                ),
+                opcao=OPCAO_PDF_030206,
+            ),
+            unidades_alvo=unidades_alvo,
+            pasta_base=Path(settings.download_dir),
+            tracker=tracker,
+            logger=logger,
+        )
+
+    def tarefa_120601_bot_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="120601",
+                tracker_name="Rotina 120601 Bot",
+                subpasta="120601 bot",
+                nome_arquivo=f"{primeiro_dia_mes_atual_traco} 120601_nomeUnidade120601",
+                campos=campos_120601(
+                    opcao_rel="01",
+                    notas_tit_nao_atualizados=False,
+                    especie_inicial=4,
+                    especie_final=4,
+                ),
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_020220_bot_http(unidades_alvo=None):
+        # Como no Edge: so a primeira unidade (Geo), com a visao 2 consolidada.
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="020220",
+                tracker_name="Rotina 020220 Bot",
+                subpasta="020220 bot",
+                nome_arquivo="020220 bot - nomeUnidade020220",
+                campos=campos_020220(opcao_rel="01", selecao="T", cd_visao="2"),
+            ),
+            [_primeira_unidade_geo(unidades_alvo)],
+        )
+
+    def tarefa_030111_bot_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="030111",
+                tracker_name="Rotina 030111 Bot",
+                subpasta="030111 bot",
+                nome_arquivo="030111 bot - nomeUnidade030111",
+                campos=campos_030111(),
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_031702_bot_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="031702",
+                tracker_name="Rotina 031702 Bot",
+                subpasta="031702 bot",
+                nome_arquivo="031702 bot - nomeUnidade031702",
+                campos=campos_031702(
+                    tipos_documento=("001", "003", "004", "005", "016", "019"),
+                    toda_geografia=True,
+                    documentos_faltantes=True,
+                    situacao_todos=True,
+                ),
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_020304_bot_http(unidades_alvo=None):
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="020304",
+                tracker_name="Rotina 020304 Bot",
+                subpasta="020304 bot",
+                nome_arquivo="020304 bot - nomeUnidade020304",
+                campos=campos_020304(),
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_031120_bot_http(unidades_alvo=None):
+        if is_liga_entrega:
+            inicio_liga, fim_liga = periodo_mensal_liga()
+            return _gerar_http(
+                PedidoRelatorio(
+                    rotina="031120",
+                    tracker_name="Rotina 031120 Liga Entrega",
+                    subpasta="03.11.20",
+                    nome_arquivo="03.11.20",
+                    campos=campos_031120(data_inicial=inicio_liga, data_final=fim_liga, cod_armazem="01"),
+                    nome_por_unidade=lambda codigo: _liga_nome_mensal("03.11.20", codigo, liga_mes_referencia),
+                ),
+                unidades_alvo,
+            )
+        return _gerar_http(
+            PedidoRelatorio(
+                rotina="031120",
+                tracker_name="Rotina 031120 Bot",
+                subpasta="031120 bot",
+                nome_arquivo="031120 bot - nomeUnidade031120",
+                campos=campos_031120(
+                    data_inicial=report_start_text or data_duas_semanas_atras_formatada,
+                    data_final=report_end_text or data_hoje_formatada,
+                    cod_armazem="01",
+                ),
+            ),
+            unidades_alvo,
+        )
+
+    def _pedido_liga_mensal(rotina, prefixo, tracker_name, subpasta, campos):
+        """Liga: um arquivo mensal por unidade, <prefixo>_<PATOS|SUME>_<MES>.csv."""
+        return PedidoRelatorio(
+            rotina=rotina,
+            tracker_name=tracker_name,
+            subpasta=subpasta,
+            nome_arquivo=prefixo,
+            campos=campos,
+            nome_por_unidade=lambda codigo: _liga_nome_mensal(prefixo, codigo, liga_mes_referencia),
+        )
+
+    def _gerar_030224_liga_http(unidades_alvo, *, opcao_rel, subpasta, tracker_name, **receita):
+        inicio_liga, fim_liga = periodo_mensal_liga()
+        return _gerar_http(
+            _pedido_liga_mensal(
+                "030224", "03.02.24", tracker_name, subpasta,
+                campos_030224(opcao_rel=opcao_rel, data_inicial=inicio_liga, data_final=fim_liga, **receita),
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_030224_resumo_liga_http(unidades_alvo=None):
+        return _gerar_030224_liga_http(
+            unidades_alvo, opcao_rel="03", subpasta="03.02.24/Resumo",
+            tracker_name="Rotina 030224 Resumo Liga Entrega", somente_resumo=True, resumo_visao="P",
+        )
+
+    def tarefa_030224_motorista_liga_http(unidades_alvo=None):
+        return _gerar_030224_liga_http(
+            unidades_alvo, opcao_rel="08", subpasta="03.02.24/Motorista",
+            tracker_name="Rotina 030224 Motorista Liga Entrega",
+        )
+
+    def tarefa_030224_ajudante_liga_http(unidades_alvo=None):
+        return _gerar_030224_liga_http(
+            unidades_alvo, opcao_rel="10", subpasta="03.02.24/Ajudante",
+            tracker_name="Rotina 030224 Ajudante Liga Entrega",
+        )
+
+    def tarefa_031129_liga_http(unidades_alvo=None):
+        inicio_liga, fim_liga = periodo_mensal_liga()
+        return _gerar_http(
+            _pedido_liga_mensal(
+                "031129", "03.11.29", "Rotina 031129 Liga Entrega", "03.11.29",
+                campos_031129(data_inicial=inicio_liga, data_final=fim_liga),
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_030237_liga_http(unidades_alvo=None):
+        inicio_liga, fim_liga = periodo_mensal_liga()
+        return _gerar_http(
+            _pedido_liga_mensal(
+                "030237", "03.02.37", "Rotina 030237", "03.02.37 - Entregas",
+                campos_030237(quebra1="25", quebra2="36", quebra3="37", data_inicial=inicio_liga, data_final=fim_liga),
+            ),
+            unidades_alvo,
+        )
+
+    def _gerar_dvs_http(pedido, unidades_alvo):
+        return gerar_arquivo_dvs_http(
+            sessao_http,
+            pedido,
+            unidades_alvo=unidades_alvo,
+            pasta_base=Path(settings.download_dir),
+            tracker=tracker,
+            logger=logger,
+        )
+
+    def tarefa_030805_liga_http(unidades_alvo=None):
+        # Igual ao Edge: uma geracao por data de entrega anterior e por unidade;
+        # Barra e Caculé ficam de fora (sem permissao na 03.08.05).
+        dias = list(liga_030805_datas_entrega)
+        if not dias:
+            return False, f"Nenhuma data de entrega para a 030805 no periodo {liga_030805_base_start} a {liga_030805_base_end}"
+        resultados = []
+        for data_ref in dias:
+            data_texto = data_ref.strftime("%d/%m/%Y")
+            resultados.append(_gerar_dvs_http(
+                PedidoArquivoDvs(
+                    rotina="030805",
+                    tracker_name="Rotina 030805 Liga Entrega",
+                    subpasta="03.08.05",
+                    campos_da_unidade=lambda codigo, data_texto=data_texto: campos_030805(data=data_texto),
+                    nome_final_da_unidade=lambda codigo, data_ref=data_ref: _liga_nome_diario(codigo, data_ref),
+                    localizar=lambda busca, codigo, instante, data_texto=data_texto: busca.por_nome(
+                        nome_dvs_030805(data=data_texto, unidade=codigo), instante
+                    ),
+                    unidade_permitida=lambda codigo: codigo not in {"3610006", "3610008"},
+                ),
+                unidades_alvo,
+            ))
+        falhas = [r.message for r in resultados if r.status is not ExecutionStatus.SUCCESS]
+        if falhas:
+            return False, f"Falha em uma ou mais datas da 030805: {falhas}"
+        return True, f"030805 gerada para {len(dias)} data(s) de entrega."
+
+    def tarefa_1706_bi_indicadores_http(unidades_alvo=None):
+        if report_start_text and report_end_text:
+            inicio_1706, fim_1706 = report_start_text, report_end_text
+        else:
+            referencia_1706 = requested_end or requested_start or (hoje.date() - timedelta(days=1))
+            inicio_1706 = referencia_1706.replace(day=1).strftime("%d/%m/%Y")
+            fim_1706 = referencia_1706.strftime("%d/%m/%Y")
+        ano_mes = f"{inicio_1706[6:10]}_{inicio_1706[3:5]}"
+        return _gerar_dvs_http(
+            PedidoArquivoDvs(
+                rotina="1706",
+                tracker_name="Rotina 17.06 Indicadores BI",
+                subpasta="17.06",
+                campos_da_unidade=lambda codigo: campos_1706(
+                    unidade=codigo, data_inicial=inicio_1706, data_final=fim_1706
+                ),
+                nome_final_da_unidade=lambda codigo: f"17.06_{_liga_nome_unidade(codigo)}_{ano_mes}.inf",
+                localizar=lambda busca, codigo, instante: busca.por_prefixo(PREFIXO_DVS_1706[codigo], instante),
+                # Como no Edge: so as unidades com arquivo DVS conhecido (Patos e Sumé).
+                unidade_permitida=lambda codigo: codigo in PREFIXO_DVS_1706,
+            ),
+            unidades_alvo,
         )
 
     def tarefa_030237_estoque_http(unidades_alvo=None):
@@ -921,6 +1299,22 @@ def main(
         )
 
     rotinas_http = {
+        "0105070402_BOT": tarefa_0105070402_bot_http,
+        "030206_BOT": tarefa_030206_bot_http,
+        "120601_BOT": tarefa_120601_bot_http,
+        "020220_BOT": tarefa_020220_bot_http,
+        "030111_BOT": tarefa_030111_bot_http,
+        "031702_BOT": tarefa_031702_bot_http,
+        "020304_BOT": tarefa_020304_bot_http,
+        "031120_BOT": tarefa_031120_bot_http,
+        "030224_RESUMO_LIGA": tarefa_030224_resumo_liga_http,
+        "030224_MOTORISTA_LIGA": tarefa_030224_motorista_liga_http,
+        "030224_AJUDANTE_LIGA": tarefa_030224_ajudante_liga_http,
+        "031129_LIGA": tarefa_031129_liga_http,
+        "030805_LIGA": tarefa_030805_liga_http,
+        "1706_BI_INDICADORES": tarefa_1706_bi_indicadores_http,
+        "03114902_BOT": tarefa_03114902_bot_http,
+        "03114902_MENSAL_LIGA": tarefa_03114902_mensal_liga_http,
         "0513": tarefa_0513_http,
         "120616": tarefa_120616_http,
         "120601": tarefa_120601_http,
@@ -939,9 +1333,8 @@ def main(
         "020220_GIRO": tarefa_020220_giro_http,
         "020220_RECOLHAS": tarefa_020220_recolhas_http,
     }
-    if not is_liga_entrega:
-        # A 030237 da Liga tem outro fluxo (mensal, por unidade); segue no Edge.
-        rotinas_http["030237"] = tarefa_030237_http
+    # A 030237 da Liga e outro relatorio (motorista/ajudantes, mensal por unidade).
+    rotinas_http["030237"] = tarefa_030237_liga_http if is_liga_entrega else tarefa_030237_http
 
     def tarefa_020502(unidades_alvo=None):
         janela = menu_page.acessar_rotina("020502")

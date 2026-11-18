@@ -432,3 +432,197 @@ def test_120601_envia_vencimento_especie_e_so_titulos_atualizados(cliente, proma
     assert (enviado["idNotasTitAtu"], enviado["idPendRoyalties"], enviado["titulo"]) == ("S", "S", "T")
     assert "idNotasTitNaoAtu" not in enviado and "diaVisitaInicial" not in enviado
     assert (enviado["iniLiberacao"], enviado["fimLiberacao"]) == ("00/00/0000", "99/99/9999")
+
+
+def test_030111_mapa_envia_faixas_do_habilita_e_nao_envia_data_do_pedido(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_030111
+
+    enviado = _visualizar_com(cliente, promax, tmp_path, "rotina_030111.html", campos_030111())
+
+    assert (enviado["call"], enviado["opcaoRel"], enviado["campo2Final"], enviado["resumo"]) == ("PW02041R", "6", "999999", "P")
+    assert enviado["listaPedidos"] == "S" and enviado["idPedAgenHoje"] == "S"
+    assert "dtPedido" not in enviado and "somenteResumo" not in enviado
+
+
+def test_031702_junta_os_tipos_e_nao_envia_campos_desabilitados(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_031702
+
+    enviado = _visualizar_com(
+        cliente, promax, tmp_path, "rotina_031702.html",
+        campos_031702(tipos_documento=("001", "3", "004"), toda_geografia=True),
+    )
+
+    assert (enviado["call"], enviado["listaTpDocumento"], enviado["idTodos"]) == ("PW02523R", "001003004", "S")
+    for ausente in ("cdClienteInicial", "dtInicial", "idAtivos"):
+        assert ausente not in enviado, ausente
+
+
+def test_020304_usa_so_os_valores_da_tela(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_020304
+
+    enviado = _visualizar_com(cliente, promax, tmp_path, "rotina_020304.html", campos_020304())
+
+    assert (enviado["call"], enviado["gradeInicial"], enviado["gradeFinal"]) == ("PW03060R", "1", "99")
+    assert enviado["data"]
+
+
+def test_031120_mapa_monta_rt_de_20_digitos_e_armazem(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_031120
+
+    enviado = _visualizar_com(
+        cliente, promax, tmp_path, "rotina_031120.html",
+        campos_031120(data_inicial="04/11/2026", data_final="18/11/2026", cod_armazem="01"),
+    )
+
+    assert (enviado["call"], enviado["opcaoRel"], enviado["codArmazem"]) == ("PW02227R", "1", "01")
+    assert (enviado["rtInicialh"], enviado["rtFinalh"]) == ("0" * 20, "9" * 20)
+    assert "rtInicial" not in enviado
+
+
+def test_020220_geral_envia_consolidacao_1_e_visao(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_020220
+
+    enviado = _visualizar_com(
+        cliente, promax, tmp_path, "rotina_020220.html", campos_020220(opcao_rel="01", selecao="T", cd_visao="2")
+    )
+
+    assert (enviado["tpConsolidacao"], enviado["cdVisao"], enviado["todos"]) == ("1", "2", "X")
+
+
+def test_120601_bot_mantem_vencimento_aberto_da_tela(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_120601
+
+    enviado = _visualizar_com(
+        cliente, promax, tmp_path, "rotina_120601.html",
+        campos_120601(opcao_rel="01", especie_inicial=4, especie_final=4, notas_tit_nao_atualizados=False),
+    )
+
+    assert (enviado["iniVencimento"], enviado["fimVencimento"], enviado["iniEspecie"]) == ("00/00/0000", "99/99/9999", "4")
+
+
+def _rotina_030206(cliente, promax):
+    promax.pagina_rotina = "rotina_030206.html"
+    cliente.login("F7367", "segredo")
+    return cliente.abrir_rotina("03030718")
+
+
+def _campos_030206():
+    from promax_http.receitas import campos_030206
+
+    return campos_030206(banco="237", armazem="01", emissao_inicial="01/10/2026", emissao_final="18/11/2026")
+
+
+def test_030206_gera_pdf_pelo_frame9_com_opcao_4(cliente, promax, tmp_path):
+    rotina = _rotina_030206(cliente, promax)
+    promax.resposta_frame9 = "<script>window.open('../tmp/rels/F7367_PW04420R.pdf');</script>"
+    promax.arquivos["F7367_PW04420R.pdf"] = b"%PDF-1.4 boletos"
+
+    arquivo = cliente.gerar_pdf_frame9(rotina, _campos_030206(), opcao="4", destino=tmp_path / "03,02,06_2210003.pdf")
+
+    enviado = [c for m, u, c in promax.chamadas if m == "POST" and c.get("frame") == "9"][-1]
+    assert (enviado["opcao"], enviado["banco"], enviado["cdArmazem"], enviado["call"]) == ("4", "237", "01", "PW04420R")
+    assert (enviado["emissaoInicial"], enviado["emissaoFinal"]) == ("01/10/2026", "18/11/2026")
+    assert "idDtVencto" not in enviado
+    assert arquivo.read_bytes() == b"%PDF-1.4 boletos"
+
+
+def test_030206_acompanha_o_xml_de_progresso_ate_o_pdf_aparecer(cliente, promax, tmp_path):
+    rotina = _rotina_030206(cliente, promax)
+    promax.resposta_frame9 = "<script>DisplayLoop();</script>"
+    promax.arquivos["F7367_PW04420R.pdf"] = b"%PDF-1.4 boletos"
+    respostas_xml = iter([
+        '<processo><ITEM chave="Gerando boletos"/></processo>',
+        '<processo><ITEM chave="FIM ../tmp/rels/F7367_PW04420R.pdf"/></processo>',
+    ])
+    get_original = promax.get
+    promax.get = lambda url: (
+        Resposta(url, 200, "text/xml", next(respostas_xml).encode()) if "/tmp/work/" in url else get_original(url)
+    )
+
+    arquivo = cliente.gerar_pdf_frame9(
+        rotina, _campos_030206(), opcao="4", destino=tmp_path / "x.pdf", intervalo=0
+    )
+
+    assert arquivo.read_bytes().startswith(b"%PDF")
+
+
+def test_030206_falha_quando_o_arquivo_nao_e_pdf(cliente, promax, tmp_path):
+    from promax_http.erros import ExportacaoNaoEntendida
+
+    rotina = _rotina_030206(cliente, promax)
+    promax.resposta_frame9 = "<script>window.open('../tmp/rels/F7367_PW04420R.pdf');</script>"
+    promax.arquivos["F7367_PW04420R.pdf"] = b"<html>erro</html>"
+
+    with pytest.raises(ExportacaoNaoEntendida, match="nao entregou o PDF"):
+        cliente.gerar_pdf_frame9(rotina, _campos_030206(), opcao="4", destino=tmp_path / "x.pdf", espera=0)
+
+
+def test_030206_sem_titulos_para_remessa_vira_sem_conteudo_sem_esperar(cliente, promax, tmp_path):
+    rotina = _rotina_030206(cliente, promax)
+    promax.resposta_frame9 = (
+        "<script>alert( 'Não existem títulos para remessa' );</script>"
+        "<script>document.parentWindow.parent.rotina.document.all ( 'displayLoop' ).value = 'FIM';</script>"
+    )
+
+    with pytest.raises(RelatorioSemConteudo):
+        cliente.gerar_pdf_frame9(rotina, _campos_030206(), opcao="4", destino=tmp_path / "x.pdf")
+
+
+def test_valores_que_o_frame9_grava_na_carga():
+    from promax_http import html
+
+    carga = (
+        "document.parentWindow.parent.rotina.document.all ( 'portadorFinal' ).value = 999;\n"
+        "document.parentWindow.parent.rotina.document.all ( 'emissaoInicial' ).value = '18' + '/' + '11' + '/' + '2026';\n"
+        "document.parentWindow.parent.rotina.document.all ( 'hiddencdArmazem' ).value = 'NaoExisteOpcaoInicial';\n"
+        "document.parentWindow.parent.rotina.document.all ( 'hiddencdArmazem' ).value = document.all.x.text;\n"
+    )
+
+    assert html.valores_do_frame9(carga) == {"portadorFinal": "999", "emissaoInicial": "18/11/2026"}
+
+
+def test_030224_resumo_da_liga(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_030224
+
+    enviado = _visualizar_com(
+        cliente, promax, tmp_path, "rotina_030224.html",
+        campos_030224(opcao_rel="03", data_inicial="01/10/2026", data_final="31/10/2026", somente_resumo=True, resumo_visao="P"),
+    )
+
+    assert (enviado["call"], enviado["opcaoRel"], enviado["somenteResumo"], enviado["resumoVisao"]) == ("PW02084R", "03", "S", "P")
+    assert (enviado["dataInicial"], enviado["dataFinal"], enviado["campoFinal"]) == ("01/10/2026", "31/10/2026", "999999")
+    assert (enviado["classeInicial"], enviado["classeFinal"]) == ("", "z")
+    assert "tpConsolidacao" not in enviado
+
+
+def test_030224_motorista_mantem_resumo_padrao_da_tela(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_030224
+
+    enviado = _visualizar_com(
+        cliente, promax, tmp_path, "rotina_030224.html",
+        campos_030224(opcao_rel="08", data_inicial="01/10/2026", data_final="31/10/2026"),
+    )
+
+    assert (enviado["opcaoRel"], enviado["resumoVisao"], enviado["selecionouROTA"]) == ("08", "N", "S")
+    assert "somenteResumo" not in enviado
+
+
+def test_031129_geral_envia_so_o_periodo(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_031129
+
+    enviado = _visualizar_com(
+        cliente, promax, tmp_path, "rotina_031129.html", campos_031129(data_inicial="01/10/2026", data_final="31/10/2026")
+    )
+
+    assert (enviado["call"], enviado["opcaoRel"], enviado["dataFinal"]) == ("PW02225R", "3", "31/10/2026")
+    for ausente in ("mapaInicial", "placaFinal", "regiaoInicial", "campoFinal"):
+        assert ausente not in enviado, ausente
+
+
+def test_visualizar_sem_movimento_vira_sem_conteudo(cliente, promax):
+    promax.tela_resultado = "<script>alert('Não há movimento para listar');</script>"
+    cliente.login("F7367", "segredo")
+    rotina = cliente.abrir_rotina("03030718")
+
+    with pytest.raises(RelatorioSemConteudo):
+        cliente.visualizar(rotina, {"nrMapa": "1"})

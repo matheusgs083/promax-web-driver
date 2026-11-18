@@ -27,6 +27,20 @@ from pages.reports.relatorio_020220_page import Relatorio020220Page
 from pages.reports.relatorio_020502_page import Relatorio020502Page
 from pages.reports.relatorio_120606_page import Relatorio120606Page
 from pages.reports.relatorio_140506_page import Relatorio140506Page
+from promax_http.integracao import PedidoRelatorio, SessaoHttp, gerar_relatorio_http, rotinas_em_http
+from promax_http.receitas import (
+    PASSOS_150501,
+    campos_020220,
+    campos_020502,
+    campos_030237,
+    campos_0512,
+    campos_0513,
+    campos_120601,
+    campos_120606,
+    campos_120616,
+    campos_140506,
+    campos_150501,
+)
 
 dotenv.load_dotenv()
 logger = get_logger("MAIN_PROMAX_FECHAMENTO")
@@ -288,6 +302,150 @@ def main(
         page.fechar_e_voltar()
         return resultado
 
+
+    # ------------------------------------------------------------------ HTTP
+    # Mesmas tarefas acima, pelo cliente HTTP (sem Edge). Valem quando o grupo
+    # botzapfechamento esta em PROMAX_HTTP_GRUPOS. Pastas, nomes e trackers
+    # seguem os da versao Edge deste fechamento.
+    # Entra na mesma unidade que o login do Edge (PROMAX_REPORT_UNIT).
+    sessao_http = SessaoHttp(
+        settings=settings,
+        logger=logger,
+        pasta_rastro=LOGS_DIR / "promax_http",
+        unidade_login=settings.unidade_relatorios,
+    )
+
+    def _gerar_http(pedido, unidades_alvo):
+        return gerar_relatorio_http(
+            sessao_http,
+            pedido,
+            unidades_alvo=unidades_alvo,
+            pasta_base=Path(settings.download_dir),
+            tracker=tracker,
+            logger=logger,
+        )
+
+    def _pedido(rotina, tracker_name, subpasta, nome_arquivo, campos, **extras):
+        return PedidoRelatorio(
+            rotina=rotina, tracker_name=tracker_name, subpasta=subpasta,
+            nome_arquivo=nome_arquivo, campos=campos, **extras,
+        )
+
+    def tarefa_0513_http(unidades_alvo=None):
+        return _gerar_http(_pedido(
+            "0513", "Rotina 0513", "",
+            f"{ultimo_dia_mes_passado.replace('/','-')} (nUnidade) nomeUnidade0513",
+            campos_0513(
+                opcao_rel="12", volume_fin="F", tp_equipe="E",
+                mes_ano_inicial=mes_ano_passado, mes_ano_final=mes_ano_passado, quantos_clientes="99999",
+            ),
+        ), unidades_alvo)
+
+    def tarefa_120616_http(unidades_alvo=None):
+        return _gerar_http(_pedido(
+            "120616", "Rotina 120616", "",
+            f"{ultimo_dia_mes_passado.replace('/','-')} (nUnidade) 120616_nomeUnidade120616",
+            campos_120616(opcao_rel="3", mes_ano=mes_ano_passado),
+        ), unidades_alvo)
+
+    def tarefa_120601_http(unidades_alvo=None):
+        return _gerar_http(_pedido(
+            "120601", "Rotina 120601", "",
+            f"{ultimo_dia_mes_passado.replace('/','-')} 120601_nomeUnidade120601",
+            campos_120601(
+                opcao_rel="01", notas_tit_nao_atualizados=False,
+                vencimento_inicial=primeiro_dia_mes_retrasado, vencimento_final=ultimo_dia_mes_passado,
+                especie_inicial=4, especie_final=4,
+            ),
+        ), unidades_alvo)
+
+    def tarefa_0512_http(unidades_alvo=None):
+        return _gerar_http(_pedido(
+            "0512", "Rotina 0512", "", f"0512 {ano_atual} nomeUnidade0512",
+            campos_0512(opcao_rel="11", ano=ano_atual, converte_hecto=True),
+        ), unidades_alvo)
+
+    def tarefa_150501_http(unidades_alvo=["3610006", "3610007", "3610008"]):
+        return _gerar_http(_pedido(
+            "150501", "Rotina 150501", "", f"{ano_mes_passado}-{mes_passado} nomeUnidade150501",
+            campos_150501(visao="02", periodo="M", mes_ano=mes_ano_passado, totaliza_periodo=True),
+            passos_previos=PASSOS_150501, opcao_visualizar="1",
+        ), unidades_alvo)
+
+    def tarefa_030237_http(unidades_alvo=None):
+        return _gerar_http(_pedido(
+            "030237", "Rotina 030237", "030237", f"{mes_passado}-{ano_mes_passado} nomeUnidade030237",
+            campos_030237(
+                quebra1="14", quebra2="12", quebra3="16",
+                data_inicial=primeiro_dia_mes_passado, data_final=ultimo_dia_mes_passado,
+            ),
+        ), unidades_alvo)
+
+    def tarefa_030237_giro_http(unidades_alvo=None):
+        # O nome com "nomeUnidade150501" e o mesmo da versao Edge deste fechamento.
+        return _gerar_http(_pedido(
+            "030237", "Rotina 030237", "030237 Giro", f"{mes_passado}-{ano_mes_passado} nomeUnidade150501",
+            campos_030237(
+                quebra1="14", itens="S",
+                data_inicial=primeiro_dia_mes_passado, data_final=ultimo_dia_mes_passado,
+            ),
+        ), unidades_alvo)
+
+    def tarefa_020220_http(unidades_alvo=None):
+        return _gerar_http(_pedido(
+            "020220", "Rotina 020220", "", "020220 - nomeUnidade020220",
+            campos_020220(opcao_rel="01", mercadorias={"garrafeira", "vasilhame"}, selecao="T"),
+        ), unidades_alvo)
+
+    def tarefa_140506_http(unidades_alvo=None):
+        return _gerar_http(_pedido(
+            "140506", "Rotina 140506", "140506", "14,05,06_nUnidade",
+            campos_140506(
+                opcao_rel="01", tipo_data="C",
+                data_inicial=primeiro_dia_mes_passado, data_final=ultimo_dia_mes_passado,
+            ),
+        ), unidades_alvo)
+
+    def tarefa_120606_http(unidades_alvo=None):
+        return _gerar_http(_pedido(
+            "120606", "Rotina 120606", "120606", "12,06,06_nUnidade",
+            campos_120606(
+                opcao_rel="01", tipo_data="C",
+                data_inicial=primeiro_dia_mes_passado, data_final=ultimo_dia_mes_passado,
+                titulos={"normais": True},
+            ),
+        ), unidades_alvo)
+
+    def tarefa_020502_fluxodecaixa_http(unidades_alvo=None):
+        return _gerar_http(_pedido(
+            "020502", "Rotina 020502", "020502 fluxo de caixa", "02,05,02_nUnidade",
+            campos_020502(
+                opcao_rel="1", listar_produtos=True, listar_vasilhames_garrafeiras=False,
+                tipo_data="E", periodo_inicial=data_ontem_formatada, periodo_final=data_ontem_formatada,
+            ),
+        ), unidades_alvo)
+
+    def tarefa_150501_fluxodecaixa_http(unidades_alvo=None):
+        return _gerar_http(_pedido(
+            "150501", "Rotina 150501", "150501 fluxo de caixa", f"{ano_mes_passado}-{mes_passado} nomeUnidade150501",
+            campos_150501(visao="01", periodo="M", mes_ano=mes_ano_passado, totaliza_periodo=True),
+            passos_previos=PASSOS_150501, opcao_visualizar="1",
+        ), unidades_alvo)
+
+    rotinas_http = {
+        "0513": tarefa_0513_http,
+        "120616": tarefa_120616_http,
+        "120601": tarefa_120601_http,
+        "0512": tarefa_0512_http,
+        "150501": tarefa_150501_http,
+        "030237": tarefa_030237_http,
+        "030237_GIRO": tarefa_030237_giro_http,
+        "020220": tarefa_020220_http,
+        "140506": tarefa_140506_http,
+        "120606": tarefa_120606_http,
+        "020502_FLUXO_DE_CAIXA": tarefa_020502_fluxodecaixa_http,
+        "150501_FLUXO_DE_CAIXA": tarefa_150501_fluxodecaixa_http,
+    }
     tarefas = {
         "0513": RoutineTask(key="0513", name="Rotina 0513", runner=tarefa_0513),
         "120616": RoutineTask(key="120616", name="Rotina 120616", runner=tarefa_120616),
@@ -313,6 +471,20 @@ def main(
             )
         tarefas = {routine: tarefas[routine] for routine in selected_routines}
 
+
+    rotinas_http_ativas = rotinas_em_http("botzapfechamento", list(tarefas), set(rotinas_http))
+    somente_http = bool(rotinas_http_ativas) and len(rotinas_http_ativas) == len(tarefas)
+    if rotinas_http_ativas:
+        logger.info(
+            "Rotinas em modo HTTP (sem Edge): %s%s",
+            ", ".join(sorted(rotinas_http_ativas)),
+            "" if somente_http else ". As demais seguem no Edge.",
+        )
+        tarefas = {
+            key: RoutineTask(key=task.key, name=task.name, runner=rotinas_http[key])
+            if key in rotinas_http_ativas else task
+            for key, task in tarefas.items()
+        }
     selected_units = _normalizar_lista_identificadores(units)
     if selected_units:
         tarefas = {
@@ -368,12 +540,26 @@ def main(
         technical_prefix="Movimentação finalizada com falha técnica de publicação.",
     ) if publish else None
 
+    def executar_tarefa_com_retry_http(nome_tarefa, funcao_logica, tentativas=3, espera_segundos=3):
+        return executar_tarefa_com_retry_base(
+            nome_tarefa,
+            funcao_logica,
+            logger=logger,
+            iniciar_sessao=sessao_http.iniciar,
+            tentativas=tentativas,
+            espera_segundos=espera_segundos,
+        )
+
+    def encerrar_sessoes():
+        sessao_http.encerrar()
+        encerrar_sessao()
+
     orchestrator = ReportOrchestrationService(
         logger=logger,
         tracker=tracker,
-        iniciar_sessao=iniciar_sessao,
-        executar_tarefa_com_retry=executar_tarefa_com_retry,
-        encerrar_sessao=encerrar_sessao,
+        iniciar_sessao=sessao_http.iniciar if somente_http else iniciar_sessao,
+        executar_tarefa_com_retry=executar_tarefa_com_retry_http if somente_http else executar_tarefa_com_retry,
+        encerrar_sessao=encerrar_sessoes,
     )
     return orchestrator.run(
         tasks=tarefas,

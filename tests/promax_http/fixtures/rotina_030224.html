@@ -1,0 +1,503 @@
+
+<html>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HEAD>
+<meta http-equiv="Expires" content="Mon, 01 Jan 1996 12:12:00 GMT">
+<meta http-equiv="Pragma" content="no-cache">
+<META content="text/html; charset=windows-1252" http-equiv=Content-Type>
+<HEAD> <TITLE></TITLE> </HEAD>
+<link rel="stylesheet" href="../scripts/acao.css" type="text/css"></link>
+<script src="../scripts/funcoes.js" language="JavaScript"></script>
+<script src="../scripts/funcoes.vbs" language="VbScript"></script>
+               <script FOR="document" EVENT="onhelp" Language="javaScript">
+                   MostraHelp( 'PW02084R', '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&ppopcao=6' )
+                   return false;
+               </script>
+               <script>
+                   var aJanelas = new Array();
+                   var relatorio = 0;
+               </script>
+               <script FOR="window" EVENT="onunload" Language="JavaScript">
+                   if( relatorio > 0 ){
+                       window.open( "../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=r7Cc1a53457688&ppopcao=10", "fim", "top=3000,left=0,height=40,width=200,status=no,toolbar=no,menubar=no,location=no,resizable=no,scrollbars=no,channelmode=no" );
+                   }
+                   for( var i=0; i < aJanelas.length; i++ ){
+                       aJanelas[i].close();
+                   }
+               </script>
+<BODY leftMargin=0 topMargin=0 marginheight="0" marginwidth="0">
+<FORM name=form1 method=post>
+<DIV id=divRotinaGenerico></DIV>
+<INPUT type=hidden name=SessionID    value=w0Lb1a54659813>
+<INPUT type=hidden name=SubSessionID value=r7Cc1a53457688>
+<input type=hidden name=opcao        value=00>
+<INPUT type=hidden name=ppopcao      value=00>
+<INPUT type=hidden name=call         value=PW02084R>
+                <table width=100% cellspacing=0 cellpadding=0 border=0>
+                   <tr>
+                      <td height=20 nowrap>
+                          <div id=imgWait><img src="../icons/Process.gif" border=0></img></div>
+                      </td>
+                   </tr>
+                </table>
+                <script>
+                    try{
+                        if( document.parentWindow.parent.document.title == '' ){
+                            document.parentWindow.parent.document.title = '';
+                        }
+                    }
+                    catch( e ){}
+                    try{
+                        document.parentWindow.parent.top_rotina.document.all.versaoprg.outerText = 'r';
+                    }
+                    catch( e ){}
+                </script>
+               <script>
+                         ExecucaoBackground = false;
+                  var btnCancelar = 1;
+                  function Visualizar(){
+                      if( !ValidaParRel() ){
+                          return false;
+                      }
+                      document.parentWindow.parent.top_rotina.document.all.unidade.disabled = true;
+                      AbreProgressBar(btnCancelar);
+                      document.form1.opcao.value = 1;
+                      document.form1.submit();
+                      return true;
+                  }
+                  function AbreProgressBar(Cancelar){
+                      if( Cancelar == undefined || Cancelar != "0" ){
+                          Cancelar = "1"; // Habilita cancelamento do processo
+                      }
+                      var strURL = '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=r7Cc1a53457688&ppopcao=6&opcaomenu=3&btnCancelar=' + Cancelar;
+                      ProgressBar = window.open( strURL, 'r7Cc1a53457688' , "top=230, left=220, width=350, height=10, scrollbars=no, status=no, toolbar=no, menubar=no, location=no");
+                      ProgressBar.focus();
+                      return false;
+                  }
+                  function Confirmar(){
+                     if( !ValidaParRel() ){
+                         return false;
+                     }
+                     query="";
+                     var field = document.forms[0];
+                     for (i = 0; i < field.length; i++) {
+                          if ((field.elements[i].type == "text") ||
+                              (field.elements[i].type == "textarea") ||
+                              (field.elements[i].type == "checkbox") ||
+                              (field.elements[i].type == "radio") ||
+                              (field.elements[i].tagName == "SELECT")  ||
+                              (field.elements[i].type == "hidden" && field.elements[i].OcultoRotina == "1" )
+                             )
+                             {
+                              if ((field.elements[i].type == "radio") || (field.elements[i].type == "checkbox"))
+                                 {
+                                  if (field.elements[i].checked == true)
+                                     query = query + field.elements[i].name + "=" + field.elements[i].value + "&"
+                                 }
+                              else
+                                 {
+                                  query = query + field.elements[i].name + "=" + field.elements[i].value + "&"
+                                 }
+                             }
+                     }
+                     parent.window.returnValue = query;
+                     window.parent.parent.close();
+                  }
+               </script>
+               <SCRIPT>
+                  function ValidaParRel(){
+                     FormataCampo( document.all.dataInicial, '99/99/9999' );
+                     FormataCampo( document.all.dataFinal, '99/99/9999' );
+                     if( document.all.campoInicial.disabled == false && document.all.campoInicial.value == '' ){
+                         document.all.campoInicial.value = '0';
+                     }
+                     if( document.all.nrRoadInicial.value == '' ){
+                         document.all.nrRoadInicial.value = '0';
+                     }
+                     if( !ValidaCampos() ){
+                         return false;
+                     }
+                     if( DataMaior( document.all.dataInicial.value, document.all.dataFinal.value ) ){
+                         alert( 'Data inicial maior que data final' );
+                         document.all.dataInicial.select();
+                         return false;
+                     }
+                     if( document.all.dataInicial.value.substring(3) != document.all.dataFinal.value.substring(3)
+                       && '0302240000' == '0914000000' ) {
+                         alert( 'O período escolhido deve estar dentro de apenas um mês' );
+                         document.all.dataInicial.select();
+                         return false;
+                     }
+                     if( !ComparaValor( 'campoInicial', 'campoFinal', document.all.opcaoRel[document.all.opcaoRel.selectedIndex].text ) ){
+                         return false;
+                     }
+                     if( !ComparaValor( 'nrRoadInicial', 'nrRoadFinal', 'Nr.Road' ) ){
+                         return false;
+                     }
+                     if( document.all.selecionouAS.checked == false && document.all.selecionouROTA.checked == false ){
+                         alert( 'É obrigatorio informar uma Área de Roterização' );
+                         document.all.selecionouROTA.focus();
+                         return false;
+                     }
+                     var classeIni = document.all.classeInicial.value.charCodeAt( 0 );
+                     var classeFim = document.all.classeFinal.value.charCodeAt( 0 );
+                     if( classeIni > classeFim ){
+                         alert( 'Classe inicial maior que final' );
+                         document.all.classeInicial.select();
+                         return false;
+                     }
+                     Disabled( "blocoConsolidacao", false );
+                     return true;
+                  }
+               </SCRIPT>
+               <SCRIPT>
+                  function Habilita(){
+                      ControleConsolidacao();
+                      if( document.all.opcaoRel.selectedIndex == 1 ){
+                          document.all.selecao.innerHTML = "Área";
+                      }
+                      else{
+                          if( document.all.opcaoRel.selectedIndex == 5 ){
+                              document.all.selecao.innerHTML = "Transp.";
+                          }
+                          else{
+                              if( document.all.opcaoRel.selectedIndex == 10 ){
+                                  document.all.selecao.innerHTML = "Ajudante 1/2";
+                              }
+                              else{
+                                  if( document.all.opcaoRel.selectedIndex == 0 ){
+                                      document.all.selecao.innerHTML = "";
+                                      document.all.campoInicial.disabled = true;
+                                      document.all.campoFinal.disabled = true;
+                                      document.all.campoInicial.value = '';
+                                      document.all.campoFinal.value = '';
+                                      document.all.campoInicial.className = 'clsDisabled'
+                                      document.all.campoFinal.className = 'clsDisabled';
+                                      return false;
+                                  }
+                                  else{
+                                      document.all.selecao.innerHTML = document.all.opcaoRel[document.all.opcaoRel.selectedIndex].text;
+                                  }
+                              }
+                          }
+                      }
+                      document.all.campoInicial.disabled = false;
+                      document.all.campoFinal.disabled = false;
+                      document.all.campoInicial.value = '0';
+                      document.all.campoFinal.value = '999999';
+                      document.all.campoInicial.className = 'campo'
+                      document.all.campoFinal.className = 'campo';
+                  }
+                  function TestaSomenteResumo(){
+                      if( document.all.somenteResumo.checked == true ){
+                          document.all.enderecoCliente.disabled = true;
+                          document.all.enderecoCliente.checked = false;
+                      }
+                      else{
+                          document.all.enderecoCliente.disabled = false;
+                      }
+                  }
+                  function PesquisaVisao() {
+                      if( document.all.cdVisao.disabled ) {
+                          return false;
+                      }
+                      AbrirPesquisa( '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&ppopcao=6', 'PW01271P', 100, 177, 500, 420, [ 'SUBMIT-FRAME', 'CarregaVisao()' ], [ 'cdVisao' ], 'no', '', '', '', '', '', 'MULTI-FRAME' );
+                  }
+                  function CarregaVisao() {
+                      if( parseInt( "0" + document.all.cdVisao.value, 10 ) == 0 ){
+                          return false;
+                      }
+                      document.all.BotCarregaVisao.focus();
+                      document.all.opcao.value = 9;
+                      EnviarFormulario();
+                  }
+                  function ControleConsolidacao() {
+                      if( document.all.opcaoRel[document.all.opcaoRel.selectedIndex].Consolida == "S"
+                      &&  "03" != "09" ) {
+                          document.all.fsConsolidacao.disabled = false;
+                          document.all.cdVisao.value = '';
+                          document.all.cdVisao.disabled = false;
+                          document.all.cdVisao.className = 'campo';
+                          document.all.tpConsolidacao[0].disabled = true;
+                          document.all.tpConsolidacao[1].disabled = true;
+                          document.all.tpConsolidacao[2].disabled = true;
+                          document.all.tpConsolidacao[3].disabled = true;
+                          document.all.tpConsolidacao[0].checked = true;
+                          document.all.tpConsolidacao[1].checked = false;
+                          document.all.tpConsolidacao[2].checked = false;
+                          document.all.tpConsolidacao[3].checked = false;
+                      }
+                      else {
+                          document.all.fsConsolidacao.disabled = true;
+                          document.all.cdVisao.value = '';
+                          document.all.cdVisao.disabled = true;
+                          document.all.cdVisao.className = 'clsDisabled';
+                          document.all.tpConsolidacao[0].disabled = true;
+                          document.all.tpConsolidacao[1].disabled = true;
+                          document.all.tpConsolidacao[2].disabled = true;
+                          document.all.tpConsolidacao[3].disabled = true;
+                          document.all.tpConsolidacao[0].checked = false;
+                          document.all.tpConsolidacao[1].checked = false;
+                          document.all.tpConsolidacao[2].checked = false;
+                          document.all.tpConsolidacao[3].checked = false;
+                      }
+                  }
+                  function VoltaTelaConsolidacao() {
+                      document.all.cdVisao.value = FormataCampo( "000" , "999" , "valor" );
+                      document.all.tpConsolidacao[0].checked = true;
+                      document.all.tpConsolidacao[1].checked = false;
+                      document.all.tpConsolidacao[2].checked = false;
+                      document.all.tpConsolidacao[3].checked = false;
+                  }
+               </SCRIPT>
+               <INPUT type=hidden name="visaoConsolidadora" value="">
+               <TABLE width="100%"  style="overflow: hidden;">
+               <TR><TD>
+                  <TABLE border=1 cellspacing=1 cellpadding=20 bordercolor=White bordercolordark=White bordercolorlight=DimGray class=WindowScreen rules=none width="100%">
+                  <TR><TD>
+                     <TABLE border=0 width=100% height=100%>
+                     <TR>
+                        <TD>
+                           <FIELDSET style="LEFT: 19px; TOP: 29px"><LEGEND><LABEL class=titulocampo>&nbsp;Opções&nbsp;</LABEL></LEGEND>
+                              <TABLE border=0 rules=none align=center cellspacing=1 cellpadding=2 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 5px 2px 7px">
+                                 <TR>
+                                    <TD colspan=4 height=10>
+                                 <TR>
+                                    <TD class=titulocampo>Classificação
+                                    <TD><SELECT tabIndex=1 class='combo' name=opcaoRel onKeyDown="DigitaCombo( this );" onChange="Habilita();" obrigatorio=1>
+                                           <OPTION Consolida="N" value=00>--Selecionar--   </OPTION>
+                                           <OPTION Consolida="N" value=01>Area / Setor     </OPTION>
+                                           <OPTION Consolida="N" value=02>Setor            </OPTION>
+                                           <OPTION Consolida="N" value=03>Mapa             </OPTION>
+                                           <OPTION Consolida="N" value=04>Vendedor         </OPTION>
+                                           <OPTION Consolida="N" value=05>Transportadora / Mapa </OPTION>
+                                           <OPTION Consolida="S" value=06>Gte de Vendas    </OPTION>
+                                           <OPTION Consolida="S" value=07>Comercial        </OPTION>
+                                           <OPTION Consolida="N" value=08>Motorista        </OPTION>
+                                           <OPTION Consolida="S" value=09>Distrital        </OPTION>
+                                           <OPTION Consolida="N" value=10>Ajudante 1 / Ajudante 2 </OPTION>
+                                           <OPTION Consolida="N" value=11>Representante de Negocio</OPTION>
+                                        </SELECT>
+                                 <TR>
+                                    <TD colspan=4 height=10>
+                              </TABLE>
+                           </FIELDSET>
+                     <TR><TD height=15px>
+                     <TR>
+                        <TD>
+                           <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Preferências&nbsp;</LABEL></LEGEND>
+                              <TABLE border=0 rules=none align=center cellspacing=1 cellpadding=2 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 5px 2px 2px">
+                                <TR>
+                                   <TD>
+                                      <div width=49% height=100%>
+                                         <table>
+                                            <TR>
+                                               <TD class='titulocampo'><div align=left><INPUT tabIndex=2 class='checkbox' type=checkbox name=quebraPagina value="S">&nbsp;Quebra Página&nbsp;&nbsp;</div>
+                                            </TR>
+                                            <TR>
+                                               <TD class='titulocampo'><div align=left><INPUT tabIndex=3 class='checkbox' type=checkbox name=listaItens value="S">&nbsp;Lista Itens</div>
+                                            </TR>
+                                            <TR>
+                                               <TD class='titulocampo'><div align=left><INPUT tabIndex=4 class='checkbox' type=checkbox name=somenteResumo value="S" onClick="TestaSomenteResumo();">&nbsp;Somente Resumo</div>
+                                            </TR>
+                                            <TR>
+                                               <TD class='titulocampo'><div align=left><INPUT tabIndex=5 class='checkbox' type=checkbox name=enderecoCliente value="S">&nbsp;Endereço Cliente</div>
+                                            </TR>
+                                            <TR>
+                                               <TD class='titulocampo'><div align=left><INPUT tabIndex=6 class='checkbox' type=checkbox name=setoresInativos value="S" checked>&nbsp;Setores Inativos</div>
+                                            </TR>
+                                            <TR>
+                                                <TD valign=top>
+                                                   <FIELDSET id=fildConverte><LEGEND><LABEL class=titulocampo>&nbsp;Volume&nbsp;</LABEL></LEGEND>    <!--MP11150-300903-->
+                                                       <TABLE border=0 rules=none align=center style="margin-bottom:1; margin-top:1;" cellspacing=1 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen
+                                                       style="MARGIN: 5px 2px 7px;">
+                                                          <TR>
+                                                             <TD height=5 class=titulocampo><INPUT tabIndex=7 class=radio type=radio name=converte value="C" >&nbsp;Caixas
+                                                             <TD height=5 class=titulocampo><INPUT tabIndex=8 class=radio type=radio name=converte value="H" checked>&nbsp;Hecto
+                                                          </TR>
+                                                       </TABLE>
+                                                   </FIELDSET>
+                                                </TD>
+                                            </TR>
+                                            <TR>
+                                                <TD valign=top>
+                                                   <FIELDSET id=fildConverte><LEGEND><LABEL class=titulocampo>&nbsp;Resumo&nbsp;</LABEL></LEGEND>
+                                                       <TABLE border=0 rules=none align=center style="margin-bottom:1; margin-top:1;" cellspacing=1 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen
+                                                       style="MARGIN: 5px 2px 7px;">
+                                                          <TR>
+                                                             <TD height=5 class=titulocampo><INPUT tabIndex=9 class=radio type=radio name=resumoVisao value="N" checked>&nbsp;Nfs
+                                                             <TD height=5 class=titulocampo><INPUT tabIndex=10 class=radio type=radio name=resumoVisao value="P">&nbsp;PDVs
+                                                          </TR>
+                                                       </TABLE>
+                                                   </FIELDSET>
+                                                </TD>
+                                            </TR>
+                                            <TR>
+                                               <TD height=10></TD>
+                                            </TR>
+                                         </table>
+                                      </div>
+                                    </TD>
+                                    <TD>
+                                       <div width=49% height=100%>
+                                          <table>
+                                             <TR>
+                                                <TD valign=top>
+                                                   <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Área de Roteirização&nbsp;</LABEL></LEGEND>
+                                                       <TABLE border=0 style='margin-top:1px; margin-bottom:5px; margin-left:4px; margin-right:8px;' rules=none align=center cellspacing=1 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen>
+                                                          <TR>
+                                                             <TD class='titulocampo2'><div align=left><INPUT tabIndex=11 class='checkbox' type=checkbox name=selecionouROTA value="S" checked>&nbsp;ROTA</div></TD>
+                                                          </TR>
+                                                          <TR>
+                                                             <TD class='titulocampo2'><div align=left><INPUT tabIndex=12 class='checkbox' type=checkbox name=selecionouAS value="S">&nbsp;AS</div></TD>
+                                                          </TR>
+                                                       </TABLE>
+                                                   </FIELDSET>
+                                             </TR>
+                                             <TR>
+                                                <TD class='titulocampo'><div align=left><INPUT tabIndex=13 class='checkbox' type=checkbox name=responsabProcesso value="S">&nbsp;Responsab. Processo</div>
+                                             </TR>
+                                             <TR>
+                                                <TD class='titulocampo'><div align=left><INPUT tabIndex=14 class='checkbox' type=checkbox name=todasOperacoes value="S">&nbsp;Todas as Operações</div>
+                                             </TR>
+                                             <TR>
+                                                <TD rowspan=1 valign=top>
+                                                   <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Resumo&nbsp;</LABEL></LEGEND>
+                                                       <TABLE border=0 style='margin-top:1px; margin-bottom:5px; margin-left:4px; margin-right:8px;' rules=none align=center cellspacing=1 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen>
+                                                          <TR>
+                                                             <TD class='titulocampo'><INPUT tabIndex=15 class='radio' type=radio name=resumo value="A">&nbsp;Analítico
+                                                             <TD class='titulocampo'><INPUT tabIndex=16 class='radio' type=radio name=resumo value="S" checked>&nbsp;Sintético
+                                                       </TABLE>
+                                                   </FIELDSET>
+                                             </TR>
+                                             <TR>
+       <!--MRG310807 -->
+                                                 <TD>
+                                                    <FIELDSET id=fildConverte><LEGEND><LABEL class=titulocampo>&nbsp;Visão Multi CDD&nbsp;</LABEL></LEGEND>
+                                                        <TABLE border=0 rules=none align=center style="margin-bottom:1; margin-top:1;" cellspacing=1 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen
+                                                        style="MARGIN: 5px 2px 7px;">
+                                                           <TR>
+                                                              <TD height=5 class=titulocampo><INPUT tabIndex=17 class=radio type=radio name=idVisaoMultiCdd value="C" checked>&nbsp;Contábil
+                                                              <TD height=5 class=titulocampo><INPUT tabIndex=18 class=radio type=radio name=idVisaoMultiCdd value="G" >&nbsp;Gerencial
+                                                           <TR>
+                                                              <TD colspan=2><SELECT tabIndex=19 class='combo' name=idSelecaoMultiCdd onKeyDown="DigitaCombo( this );"  obrigatorio=1>
+                                                                     <OPTION  value="T">Todas Movimentações </OPTION>
+                                                                     <OPTION  value="S">Sem Multi CDD       </OPTION>
+                                                                     <OPTION  value="M">Somente Multi CDD   </OPTION>
+                                                                  </SELECT>
+                                                        </TABLE>
+                                                    </FIELDSET>
+       <!--MRG310807 -->
+                                             </TR>
+                                          </table>
+                                       </div>
+                                    </TD>
+                                 </TR>
+                    <!--      ---------------------------    -->
+                    <!--      ----------------------------   -->
+                               </TABLE>
+                           </FIELDSET></TR>
+                     </TABLE>
+                     <TD>
+                     <TABLE border=0 width=100% height=100%>
+                     <TR>
+                        <TD nowrap valign=top height="50%" width=40%>
+                           <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Seleções&nbsp;</LABEL></LEGEND>
+                              <TABLE border=0 rules=none align=center cellspacing=1 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 5px 1px 7px">
+                                 <TR>
+                                    <TD>&nbsp;</TD>
+                                    <TD class='titulocampo'><div align=center>Inicial</div></TD>
+                                    <TD class='titulocampo'><div align=center>Final</div></TD>
+                                 <TR>
+                                    <TD class='titulocampo'> Data
+                                    <TD>&nbsp;<INPUT tabIndex=20 class='campo' name=dataInicial size=8 maxlength=10 onkeypress="return SomenteNumeros( '/' )" obrigatorio=1 data=1 onBlur="FormataCampo( this,'99/99/9999' );">
+                                    <TD>&nbsp;<INPUT tabIndex=21 class='campo' name=dataFinal size=8 maxlength=10 onkeypress="return SomenteNumeros( '/' )" obrigatorio=1 data=1 onBlur="FormataCampo( this,'99/99/9999' );">
+                                 <TR>
+                                    <TD width=90 class='titulocampo'> <label class='titulocampo' id=selecao>&nbsp;</label>
+                                    <TD>&nbsp;<INPUT tabIndex=22 class='clsDisabled' name=campoInicial size=8 maxlength=6 onKeyPress="return SomenteNumeros()" disabled>
+                                    <TD>&nbsp;<INPUT tabIndex=23 class='clsDisabled' name=campoFinal size=8 maxlength=6 onKeyPress="return SomenteNumeros()" disabled obrigatorio=1>
+                                 <TR>
+                                    <TD class='titulocampo'> Nr. Road
+                                    <TD>&nbsp;<INPUT tabIndex=24 class='campo' name=nrRoadInicial size=8 maxlength=2 onKeyPress="return SomenteNumeros()">
+                                    <TD>&nbsp;<INPUT tabIndex=25 class='campo' name=nrRoadFinal size=8 maxlength=2 onKeyPress="return SomenteNumeros()" obrigatorio=1>
+                                 <TR>
+                                    <TD class='titulocampo'> Classe
+                                    <TD>&nbsp;<INPUT tabIndex=26 class='campo' name=classeInicial size=8 maxlength=1>
+                                    <TD>&nbsp;<INPUT tabIndex=27 class='campo' name=classeFinal size=8 maxlength=1 obrigatorio=1>
+                                 <TR>
+                                     <TD height=98> </TR>
+                              </TABLE>
+                           </FIELDSET>
+                     <TR><TD height=20px>
+                     <TR>
+                        <TD>
+                           <FIELDSET id=fsConsolidacao disabled><LEGEND><LABEL class=titulocampo>&nbsp;Consolidação&nbsp;</LABEL></LEGEND>
+                              <TABLE border=0 rules=none align=center cellspacing=1 cellpadding=2 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 5px 2px 7px">
+                                <TR>
+                                   <TD class=titulocampo width=17%>Visão&nbsp;
+                                   <TD><INPUT tabindex=60 type=text name=cdVisao size=3 maxLength=3 class="clsDisabled" onKeyPress="return SomenteNumeros();" onKeyDown="AltPesquisa( 'PesquisaVisao();' );" disabled blocoConsolidacao=1>
+                                      <IMG src=../icons/busca.gif name=BotPesquisaVisao title="Pesquisa Visão"         style="cursor:hand;" onClick="PesquisaVisao();">
+                                      <IMG src=../icons/check.gif name=BotCarregaVisao  title="Carregar Visão" tabIndex=61 style="cursor:hand;" onClick="CarregaVisao();" onKeyDown="VerificaTeclaPress( '13', 'CarregaVisao();' )">
+                                   <TD class=titulocampo><div align=left><INPUT tabIndex=62 class=radio type=radio name=tpConsolidacao id=radio1 value="1" disabled blocoConsolidacao=1>&nbsp;UNB
+                                   <TD class=titulocampo><div align=left><INPUT tabIndex=62 class=radio type=radio name=tpConsolidacao id=radio1 value="3" disabled blocoConsolidacao=1>&nbsp;GV
+                                <TR>
+                                   <TD colspan=2>&nbsp;
+                                   <TD class=titulocampo><div align=left><INPUT tabIndex=62 class=radio type=radio name=tpConsolidacao id=radio1 value="2" disabled blocoConsolidacao=1>&nbsp;GD
+                                   <TD class=titulocampo><div align=left><INPUT tabIndex=62 class=radio type=radio name=tpConsolidacao id=radio1 value="4" disabled blocoConsolidacao=1>&nbsp;SV
+                              </TABLE>
+                           </FIELDSET>
+                     </TABLE>
+                  </TABLE>
+               </TABLE>
+             <TABLE width=100%>
+               <TR>
+                    <TD width=100%>
+                    <TD nowrap><BUTTON name=BotVisualizar AccessKey="V" tabIndex=99 onclick="return Visualizar()" class=botao title="Visualizar Impressão"><LABEL><U>V</U>isualizar</LABEL></BUTTON>
+                    <TD><DIV id=DivBtReservado></DIV>
+                               <input type=hidden name=GeraExcel value=1>
+                </TABLE>&nbsp;
+               <SCRIPT>
+                  if( '03' == '09' ){
+                      document.all.dataInicial.value = '01' + '/' + '11' + '/' + '2026';
+                      document.all.dataFinal.value = '00' + '/' + '11' + '/' + '2026';
+                  }
+                  else{
+                      document.all.dataInicial.value = '17' + '/' + '11' + '/' + '2026';
+                      document.all.dataFinal.value = '17' + '/' + '11' + '/' + '2026';
+                  }
+                  document.all.classeInicial.value = '';
+                  document.all.classeFinal.value = 'z';
+                  document.all.nrRoadInicial.value = '0';
+                  document.all.nrRoadFinal.value = '99';
+               </SCRIPT>
+
+               <script>
+                   function ChamaBuscaErros(){
+                       document.parentWindow.parent.top_rotina.BuscaErros();
+                   }
+                   function ZeraTimeOutCtrl(){
+                       document.parentWindow.parent.top_rotina.timeOut = 0;
+                   }
+               </script>
+               <script for=imgWait event=onpropertychange>
+                   try{
+                       if( document.all.imgWait.style.display != 'none' ){
+                           ChamaBuscaErros();
+                       }
+                   }
+                   catch( e ){
+                       setTimeout( 'ChamaBuscaErros()', 1000 );
+                   }
+               </script>
+               <script> document.parentWindow.parent.bottom_rotina.document.location.href = "../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=r7Cc1a53457688&ppopcao=00&call=PW02084R&frame=9&opcao=1&"; </script>
+               <script>
+                   if( document.all.imgWait != null ){
+                       document.all.imgWait.style.display = 'none';
+                   }
+                   try{
+                       if( 'S' == 'S' ){
+                           document.parentWindow.parent.top_rotina.document.all.unidade.disabled = false;
+                       }
+                   }
+                   catch( e ){}
+               </script>

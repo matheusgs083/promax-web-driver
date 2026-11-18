@@ -191,6 +191,36 @@ def valores_de_carga(html: str) -> tuple[dict[str, str], dict[str, bool]]:
     return valores, marcados
 
 
+_FRAME9_VALOR_RE = re.compile(
+    r"""parent\.rotina\s*\.document\.all\s*\(\s*['"](\w+)['"]\s*\)\.value\s*=\s*([^;\n]+);"""
+)
+_LITERAL_RE = re.compile(r"""\s*(?:'[^']*'|"[^"]*"|-?\d+(?:[.,]\d+)?)\s*""")
+
+
+def valores_do_frame9(texto: str) -> dict[str, str]:
+    """Valores que a carga do frame 9 grava nos campos da rotina.
+
+    Ex.: na 03.02.06 o frame 9 preenche portador 0..999, cliente 0..999999 etc.
+    So valem atribuicoes feitas de literais ('18' + '/' + '11', 0, 999); um campo
+    que tambem recebe uma expressao calculada no navegador fica de fora.
+    """
+    valores: dict[str, str] = {}
+    calculados: set[str] = set()
+    for nome, expressao in _FRAME9_VALOR_RE.findall(texto or ""):
+        partes = expressao.split("+")
+        if not all(_LITERAL_RE.fullmatch(parte) for parte in partes):
+            calculados.add(nome)
+            continue
+        valores[nome] = "".join(parte.strip().strip("'\"") for parte in partes)
+    return {nome: valor for nome, valor in valores.items() if nome not in calculados}
+
+
+def aplicar_valores_do_frame9(form: Formulario, texto: str) -> None:
+    for nome, valor in valores_do_frame9(texto).items():
+        if nome in form.campos or nome in form.opcoes:
+            form.campos[nome] = valor
+
+
 def aplicar_valores_de_carga(form: Formulario, pagina: str) -> None:
     """Deixa o formulario como o navegador o deixaria depois de carregar a pagina."""
     valores, marcados = valores_de_carga(pagina)
