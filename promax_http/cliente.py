@@ -72,7 +72,12 @@ class ClientePromax:
         self.alertas_login: list[str] = []
 
     # ------------------------------------------------------------------ login
-    def login(self, usuario: str, senha: str, unidade: str | None = None) -> str:
+    def login(
+        self, usuario: str, senha: str, unidade: str | None = None, *, unidade_preferida: str | None = None
+    ) -> str:
+        """``unidade``: obrigatoria (erro se o usuario nao tiver). ``unidade_preferida``:
+        como o login do Edge, usa se existir e senao entra na primeira disponivel
+        (ex.: o usuario da Liga so enxerga Patos e Sume, e o padrao e SOUSA)."""
         self._log("Conectando ao Promax em %s ...", self.base)
         self.http.get(f"{self.base}?ppopcao=1")
         r1 = self.http.post(
@@ -91,7 +96,16 @@ class ClientePromax:
             recusa = classificar.contem(html.alertas(r1.texto), classificar.LOGIN_RECUSADO)
             raise LoginRecusado(recusa or f"Login nao avancou: {html.alertas(r1.texto) or 'sem alerta'}")
 
-        codigo_unidade = self._resolver_unidade(form.opcoes.get("unidade", []), unidade)
+        opcoes = form.opcoes.get("unidade", [])
+        if unidade is None and unidade_preferida:
+            try:
+                unidade = self._resolver_unidade(opcoes, unidade_preferida)
+            except PromaxHttpErro:
+                self._log(
+                    "Unidade de login %s nao existe para este usuario; entrando na primeira disponivel (%s).",
+                    unidade_preferida, opcoes[0].texto if opcoes else "-",
+                )
+        codigo_unidade = self._resolver_unidade(opcoes, unidade)
         self._log("Usuario aceito. Entrando na unidade %s ...", codigo_unidade)
         campos = dict(form.campos)
         self.session_id = gerar_session_id()

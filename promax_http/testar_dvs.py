@@ -77,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
     resumo: list[str] = []
 
     try:
-        cliente.login(settings.promax_user, settings.promax_pass, unidade=settings.unidade_relatorios)
+        cliente.login(settings.promax_user, settings.promax_pass, unidade_preferida=settings.unidade_relatorios)
         for codigo_rotina in rotinas:
             for unidade in unidades:
                 rotulo = f"{codigo_rotina} {unidade}"

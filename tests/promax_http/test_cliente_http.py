@@ -626,3 +626,21 @@ def test_visualizar_sem_movimento_vira_sem_conteudo(cliente, promax):
 
     with pytest.raises(RelatorioSemConteudo):
         cliente.visualizar(rotina, {"nrMapa": "1"})
+
+
+def test_login_com_unidade_preferida_inexistente_entra_na_primeira(cliente, promax):
+    # Visto em 18/11: usuario da Liga so enxerga Patos e Sume e PROMAX_REPORT_UNIT era SOUSA.
+    unidade = cliente.login("F7367", "segredo", unidade_preferida="SOUSA")
+
+    assert unidade == "2210003"
+
+
+def test_login_com_unidade_preferida_existente_usa_ela(cliente, promax):
+    assert cliente.login("F7367", "segredo", unidade_preferida="SUME") == "2210004"
+
+
+def test_login_com_unidade_obrigatoria_inexistente_falha(cliente, promax):
+    from promax_http.erros import PromaxHttpErro
+
+    with pytest.raises(PromaxHttpErro, match="nao existe"):
+        cliente.login("F7367", "segredo", unidade="SOUSA")

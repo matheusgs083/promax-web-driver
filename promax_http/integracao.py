@@ -51,7 +51,8 @@ class SessaoHttp:
             self.settings.promax_url, transporte=Transporte(pasta_rastro=rastro), logger=self.logger
         )
         self.logger.info(">>> Iniciando sessao HTTP no Promax (sem navegador)...")
-        self.cliente.login(self.settings.promax_user, self.settings.promax_pass, unidade=self.unidade_login)
+        # Como o login do Edge: a unidade configurada e so preferencia.
+        self.cliente.login(self.settings.promax_user, self.settings.promax_pass, unidade_preferida=self.unidade_login)
 
     def encerrar(self) -> None:
         if self.cliente is None:
