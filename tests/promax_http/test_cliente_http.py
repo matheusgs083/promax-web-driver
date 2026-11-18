@@ -644,3 +644,48 @@ def test_login_com_unidade_obrigatoria_inexistente_falha(cliente, promax):
 
     with pytest.raises(PromaxHttpErro, match="nao existe"):
         cliente.login("F7367", "segredo", unidade="SOUSA")
+
+
+def test_arquivo_aberto_no_excel_falha_so_com_erro_claro(tmp_path, monkeypatch):
+    # Visto em 18/11: 03.11.49.02_SUME_NOV.csv aberto travou o job inteiro com PermissionError.
+    from pathlib import Path
+
+    from promax_http.cliente import substituir
+    from promax_http.erros import ArquivoBloqueado
+
+    parcial = tmp_path / "x.csv.parcial"
+    parcial.write_bytes(b"A;B\n")
+    destino = tmp_path / "x.csv"
+
+    def bloqueado(self, alvo):
+        raise PermissionError("[WinError 5] Acesso negado")
+
+    monkeypatch.setattr(Path, "replace", bloqueado)
+
+    with pytest.raises(ArquivoBloqueado, match="aberto em outro programa"):
+        substituir(parcial, destino, tentativas=2, espera=0)
+    assert not parcial.exists()
+
+
+def test_arquivo_liberado_na_segunda_tentativa_grava(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from promax_http.cliente import substituir
+
+    parcial = tmp_path / "x.csv.parcial"
+    parcial.write_bytes(b"A;B\n")
+    destino = tmp_path / "x.csv"
+    original = Path.replace
+    chamadas = []
+
+    def uma_vez_bloqueado(self, alvo):
+        chamadas.append(1)
+        if len(chamadas) == 1:
+            raise PermissionError("[WinError 5] Acesso negado")
+        return original(self, alvo)
+
+    monkeypatch.setattr(Path, "replace", uma_vez_bloqueado)
+
+    substituir(parcial, destino, tentativas=3, espera=0)
+
+    assert destino.read_bytes() == b"A;B\n"

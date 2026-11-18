@@ -26,3 +26,8 @@ class ExportacaoNaoEntendida(PromaxHttpErro):
 
 class PromaxInacessivel(PromaxHttpErro):
     """Rede ou servidor do Promax nao respondeu."""
+
+
+class ArquivoBloqueado(PromaxHttpErro):
+    """O relatorio veio, mas o arquivo de destino esta aberto em outro programa
+    (ex.: Excel) e o Windows nao deixa substituir."""

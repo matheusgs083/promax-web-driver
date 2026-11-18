@@ -1050,11 +1050,14 @@ def main(
                 "030237",
                 "Rotina 030237",
                 f"{mes_atual}-{ano_atual} nomeUnidade030237",
-                quebra1="14",
-                quebra2="12",
-                quebra3="16",
+                quebra1="14",  # Operacao
+                quebra2="07",  # Cliente
+                itens="S",
+                notas="NS",
                 data_inicial=report_start_text or primeiro_dia_mes_atual,
                 data_final=report_end_text or data_ontem_formatada,
+                # Situacao Emitida, data Fiscal e PIS/COFINS marcado, como na tela do ADF.
+                extras={"statusNota": "E", "visao": "F", "pisCofins": "S"},
             ),
             unidades_alvo,
         )

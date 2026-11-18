@@ -23,6 +23,7 @@ from urllib.parse import urlencode, urljoin, urlsplit
 from promax_http import alertas as classificar
 from promax_http import html
 from promax_http.erros import (
+    ArquivoBloqueado,
     ExportacaoNaoEntendida,
     LoginRecusado,
     PromaxHttpErro,
@@ -381,7 +382,7 @@ class ClientePromax:
 
     def _salvar_se_for_relatorio(self, resposta: Resposta, destino: Path) -> Path | None:
         if _parece_csv(resposta):
-            return _gravar(destino, resposta.corpo)
+            return gravar_arquivo(destino, resposta.corpo)
         for url in reversed(html.urls_relatorio(resposta.texto, resposta.url)):
             # O link "<nome>.csv.inf" que o Promax abre e o proprio CSV.
             arquivo = self.baixar_arquivo(url, destino)
@@ -404,7 +405,7 @@ class ClientePromax:
         parcial = destino.with_suffix(destino.suffix + ".parcial")
         confere = _arquivo_parece_pdf if tipo == "pdf" else _arquivo_parece_csv
         if status == 200 and confere(parcial, content_type):
-            parcial.replace(destino)
+            substituir(parcial, destino)
             self._log("Arquivo salvo: %s (%.1f MB)", destino.name, total / 1_048_576)
             return destino
         parcial.unlink(missing_ok=True)
@@ -552,10 +553,27 @@ def _arquivo_parece_csv(caminho: Path, content_type: str) -> bool:
     return _parece_csv(Resposta(url="", status=200, content_type=content_type, corpo=inicio))
 
 
-def _gravar(destino: Path, conteudo: bytes) -> Path:
+def gravar_arquivo(destino: Path, conteudo: bytes) -> Path:
     destino.parent.mkdir(parents=True, exist_ok=True)
     temporario = destino.with_suffix(destino.suffix + ".parcial")
     temporario.write_bytes(conteudo)
-    temporario.replace(destino)
+    substituir(temporario, destino)
     return destino
+
+
+def substituir(parcial: Path, destino: Path, *, tentativas: int = 5, espera: float = 2.0) -> None:
+    """Troca o arquivo antigo pelo novo. Se o antigo estiver aberto (Excel), o
+    Windows recusa: tenta por alguns segundos e depois falha so esta unidade."""
+    for tentativa in range(1, tentativas + 1):
+        try:
+            parcial.replace(destino)
+            return
+        except PermissionError as exc:
+            if tentativa == tentativas:
+                parcial.unlink(missing_ok=True)
+                raise ArquivoBloqueado(
+                    f"Nao consegui gravar {destino}: o arquivo esta aberto em outro programa "
+                    f"(feche o Excel/visualizador e rode de novo). Detalhe: {exc}"
+                ) from exc
+            time.sleep(espera)
 

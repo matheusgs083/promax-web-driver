@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 from core.execution.execution_result import ExecutionResult, ExecutionStatus
-from promax_http.cliente import ClientePromax, Rotina
+from promax_http.cliente import ClientePromax, Rotina, gravar_arquivo
 from promax_http.erros import PromaxHttpErro, RelatorioSemConteudo
 from promax_http import ph
 from promax_http.dvs import BuscaDvs
@@ -396,8 +396,13 @@ def gerar_arquivo_dvs_http(
                 continue
             origem, conteudo = achado
             destino = pasta_base / pedido.subpasta / pedido.nome_final_da_unidade(codigo)
-            destino.parent.mkdir(parents=True, exist_ok=True)
-            destino.write_bytes(conteudo)
+            try:
+                gravar_arquivo(destino, conteudo)
+            except PromaxHttpErro as exc:
+                logger.error("Unidade %s falhou: %s", codigo, exc)
+                tracker.anotar(pedido.tracker_name, codigo, "ERRO SISTEMA", str(exc), time.time() - t0)
+                contagem["falha"] += 1
+                continue
             logger.info("Arquivo da %s (%s) salvo: %s <- %s", pedido.rotina, codigo, destino.name, origem)
             tracker.anotar(pedido.tracker_name, codigo, "SUCESSO", f"DVS {origem} ({len(conteudo)} bytes)", time.time() - t0)
             contagem["sucesso"] += 1
