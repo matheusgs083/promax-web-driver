@@ -15,6 +15,7 @@ from config import CoraSettings
 from browser import CoraBrowser
 from pages.welcome_page import CoraWelcomePage
 from pages.critica_page import CoraCriticaPage, next_delivery_date
+from cora_http import ClienteCora
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -45,6 +46,20 @@ def main() -> int:
             print(json.dumps({"event": "cora_job_result", "status": "success", "message": "Cora aberto como revenda."}), flush=True)
             return 0
         if operation in {"critica", "consulta_critica"}:
+            # Sem navegador: login no Keycloak e API do Cora direto por HTTP.
+            delivery_date = next_delivery_date(date.today(), settings.holidays)
+            cliente = ClienteCora(log=lambda msg: print(msg, flush=True))
+            cliente.login(settings.username, settings.password)
+            arquivo = cliente.baixar_critica(delivery_date, settings.download_dir)
+            print(json.dumps({
+                "event": "cora_job_result",
+                "status": "success",
+                "message": "Relatório Critica do Cora baixado (HTTP, sem navegador).",
+                "delivery_date": delivery_date.isoformat(),
+                "downloaded_files": [str(arquivo)],
+            }), flush=True)
+            return 0
+        if operation == "critica_navegador":
             with CoraBrowser(settings) as browser:
                 browser.start()
                 welcome = CoraWelcomePage(browser.driver)
