@@ -42,3 +42,43 @@ def test_020502_estoque_desmarca_vasilhames_e_mantem_faixa_de_item():
     assert campos["idListarVasGarraf"] is None
     assert (campos["cdMercadoriaInicial"], campos["cdMercadoriaFinal"]) == ("0", "9999999")
     assert "periodoInicial" not in campos
+
+
+def test_030237_entrada_usa_faixas_da_tarefa_e_nota_de_compra():
+    campos = campos_030237(
+        quebra1="14", quebra2="12", quebra3="39", notas="NE", itens="s",
+        faixas={1: ("251", "314"), 2: ("1", "2")}, lista_nota_compra=True,
+        data_inicial="28/08/2026", data_final="17/11/2026",
+    )
+
+    assert (campos["quebra1Inicial"], campos["quebra1Final"]) == ("251", "314")
+    assert (campos["quebra2Inicial"], campos["quebra2Final"]) == ("1", "2")
+    assert (campos["quebra3Inicial"], campos["quebra3Final"]) == ("0", "99999999")
+    assert campos["notas"] == "NE" and campos["listaNotaCompra"] == "S"
+
+
+def test_030237_nota_de_compra_so_vale_para_entrada():
+    campos = campos_030237(quebra1="14", notas="NS", lista_nota_compra=True, data_inicial="1", data_final="2")
+
+    assert campos["listaNotaCompra"] is None
+
+
+def test_020220_auditool_marca_so_as_mercadorias_pedidas():
+    from promax_http.receitas import campos_020220
+
+    campos = campos_020220(mercadorias={"garrafeira", "vasilhame", "sopi_visa"}, selecao="P", exibe_inf_documentos=True)
+
+    assert campos["todos"] is None
+    assert (campos["garrafeira"], campos["vasilhame"], campos["idSopiVisa"]) == ("X", "X", "X")
+    assert campos["idOutrosMat"] is None and campos["idPitStop"] is None
+    assert (campos["selecao"], campos["dataInicial"], campos["dataFinal"]) == ("P", "00/00/0000", "99/99/9999")
+    assert campos["idExibeInfDocumentos"] == "S"
+    assert campos["opcaoRel"] == "01"
+
+
+def test_020220_sem_mercadoria_ou_com_todas_vira_todos():
+    from promax_http.receitas import MERCADORIAS_020220, campos_020220
+
+    assert campos_020220()["todos"] == "X"
+    tudo = campos_020220(mercadorias=set(MERCADORIAS_020220))
+    assert tudo["todos"] == "X" and tudo["garrafeira"] is None

@@ -24,10 +24,12 @@ def campos_030237(
     quebra3: str = "00",
     itens: str | None = None,
     notas: str | None = None,
+    faixas: dict[int, tuple[str, str]] | None = None,
+    lista_nota_compra: bool | None = None,
     extras: dict[str, str] | None = None,
-) -> dict[str, str]:
+) -> dict[str, str | None]:
     quebras = [_codigo_quebra(q) for q in (quebra1, quebra2, quebra3)]
-    campos: dict[str, str] = {"dataInicial": data_inicial, "dataFinal": data_final}
+    campos: dict[str, str | None] = {"dataInicial": data_inicial, "dataFinal": data_final}
 
     if quebras[0] == "01":
         # Quebra "Geral": a tela zera as demais quebras e limpa as faixas.
@@ -56,8 +58,15 @@ def campos_030237(
             campos.update(
                 embalagemInicial="0", embalagemFinal="99999", mercadoriaInicial="0", mercadoriaFinal="9999999"
             )
+    # Faixas informadas pela tarefa substituem as da tela (o robo do Edge digita depois de escolher a quebra).
+    for numero, (inicial, final) in (faixas or {}).items():
+        campos[f"quebra{numero}Inicial"] = str(inicial)
+        campos[f"quebra{numero}Final"] = str(final)
     if notas:
         campos["notas"] = notas.strip().upper()
+    if lista_nota_compra is not None:
+        # TrataCampoCompra(): so existe com notas de Entrada (NE).
+        campos["listaNotaCompra"] = "S" if lista_nota_compra and campos.get("notas") == "NE" else None
     # A tela carrega 0,00 a 999.999.999,99 e ValidaParRel tira os pontos antes de enviar.
     campos.update(valorInicial="0,00", valorFinal="999999999,99")
     campos.update(extras or {})
@@ -100,4 +109,57 @@ def campos_020502(
         campos["periodoInicial"] = periodo_inicial
     if periodo_final:
         campos["periodoFinal"] = periodo_final
+    return campos
+
+
+# 02.02.20 (PW03004R) -- TipoMarca(), AlteraData() e script de carga da tela.
+MERCADORIAS_020220 = {
+    "vasilhame": "vasilhame",
+    "garrafeira": "garrafeira",
+    "sopi_visa": "idSopiVisa",
+    "outros_mat": "idOutrosMat",
+    "barril_cilindro": "idBarrilCilindro",
+    "chopp_post": "idChoppPost",
+    "outros_ref": "idOutrosRef",
+    "pit_stop": "idPitStop",
+}
+
+
+def campos_020220(
+    *,
+    opcao_rel: str = "01",
+    mercadorias: set[str] | None = None,
+    selecao: str = "T",
+    situacao: str | None = None,
+    exibe_inf_documentos: bool | None = None,
+    cd_visao: str | None = None,
+) -> dict[str, str | None]:
+    """Campos da 02.02.20. ``mercadorias=None`` marca "Todos".
+
+    As faixas (area, setor, rota, cliente, material, segmento, campo) e o
+    periodo 00/00/0000 a 99/99/9999 vem do script de carga da tela.
+    """
+    escolhidas = set(mercadorias or ())
+    desconhecidas = escolhidas - set(MERCADORIAS_020220)
+    if desconhecidas:
+        raise ValueError(f"Mercadorias desconhecidas na 02.02.20: {sorted(desconhecidas)}")
+    # TipoMarca(): marcar todas as especificas equivale a "Todos".
+    todos = not escolhidas or escolhidas == set(MERCADORIAS_020220)
+    campos: dict[str, str | None] = {"opcaoRel": str(opcao_rel).zfill(2), "todos": "X" if todos else None}
+    for chave, campo in MERCADORIAS_020220.items():
+        campos[campo] = "X" if (not todos and chave in escolhidas) else None
+
+    selecao = str(selecao).strip().upper()
+    campos["selecao"] = selecao
+    if selecao in {"T", "P"}:
+        # AlteraData(): Todos/Pendentes usam o periodo aberto.
+        campos.update(dataInicial="00/00/0000", dataFinal="99/99/9999")
+    elif selecao == "V":
+        campos.update(dataInicial="", dataFinal="")
+    if situacao:
+        campos["situacao"] = str(situacao).strip().upper()
+    if exibe_inf_documentos is not None:
+        campos["idExibeInfDocumentos"] = "S" if exibe_inf_documentos else None
+    if cd_visao is not None:
+        campos["cdVisao"] = str(cd_visao)
     return campos

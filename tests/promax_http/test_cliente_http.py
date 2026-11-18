@@ -33,6 +33,18 @@ class PromaxFalso:
     def get(self, url):
         return self._responder("GET", url, {})
 
+    def baixar(self, url, destino, *, ao_progredir=None):
+        self.chamadas.append(("GET", url, {}))
+        nome = url.rsplit("/", 1)[1]
+        if nome not in self.arquivos:
+            return 300, "text/html", 0
+        parcial = destino.with_suffix(destino.suffix + ".parcial")
+        parcial.parent.mkdir(parents=True, exist_ok=True)
+        parcial.write_bytes(self.arquivos[nome])
+        if ao_progredir:
+            ao_progredir(len(self.arquivos[nome]), 1.0)
+        return 200, "text/plain", len(self.arquivos[nome])
+
     def post(self, url, campos):
         return self._responder("POST", url, dict(campos))
 
@@ -212,15 +224,15 @@ def test_exportar_030237_segue_visualizar_e_depois_gera_excel(cliente, promax, t
     assert (exportar["opcao"], exportar["opcaorelat"], exportar["relatorio"]) == ("88", "3", "XYZ")
 
 
-def test_link_csv_inf_baixa_o_csv_sem_o_sufixo(cliente, promax, tmp_path):
+def test_link_csv_inf_e_o_proprio_csv(cliente, promax, tmp_path):
     promax.resposta_frame9 = '<script>window.open( "../tmp/rels/03.02.37_PW02099R_F7367_1.csv.inf", "relatorio" );</script>'
-    promax.arquivos["03.02.37_PW02099R_F7367_1.csv"] = b"A;B\n"
+    promax.arquivos["03.02.37_PW02099R_F7367_1.csv.inf"] = b"A;B\n"
     cliente.login("F7367", "segredo")
     rotina = cliente.abrir_rotina("03030718")
 
     assert cliente.exportar_csv(rotina, {}, tmp_path / "s.csv").read_bytes() == b"A;B\n"
     baixados = [u for m, u, c in promax.chamadas if "/tmp/rels/" in u]
-    assert baixados[0] == "http://paubrasil.promaxcloud.com.br/pw/tmp/rels/03.02.37_PW02099R_F7367_1.csv"
+    assert baixados == ["http://paubrasil.promaxcloud.com.br/pw/tmp/rels/03.02.37_PW02099R_F7367_1.csv.inf"]
 
 
 def test_nao_ha_notas_para_listar_vira_sem_conteudo(cliente, promax, tmp_path):
@@ -260,3 +272,58 @@ def test_020502_envia_valores_de_carga_da_tela_e_respeita_checkbox_desmarcado(cl
     assert (visualizar["cdArmazemInicial"], visualizar["cdArmazemFinal"]) == ("0", "99")
     assert visualizar["idListarProdutos"] == "S"
     assert "idListarVasGarraf" not in visualizar
+
+
+def test_download_grande_vai_em_partes_para_o_disco_com_progresso(tmp_path):
+    from promax_http import transporte as modulo
+
+    conteudo = b"A;B\n" + b"1;2\n" * 700_000  # ~2,8 MB
+
+    class RespostaHttp:
+        status = 200
+        headers = {"Content-Type": "text/plain"}
+
+        def __init__(self):
+            self.lido = 0
+
+        def read(self, n):
+            bloco = conteudo[self.lido:self.lido + n]
+            self.lido += len(bloco)
+            return bloco
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    t = modulo.Transporte()
+    t._opener = type("O", (), {"open": lambda self, req, timeout: RespostaHttp()})()
+    progresso = []
+
+    status, _, total = t.baixar(URL, tmp_path / "r.csv", ao_progredir=lambda b, s: progresso.append(b), intervalo_log=0)
+
+    assert (status, total) == (200, len(conteudo))
+    assert (tmp_path / "r.csv.parcial").read_bytes() == conteudo
+    assert progresso and progresso[-1] == len(conteudo)
+
+
+def test_020220_envia_faixas_de_carga_e_mercadorias_da_receita(cliente, promax, tmp_path):
+    from promax_http.receitas import campos_020220
+
+    promax.pagina_rotina = "rotina_020220.html"
+    promax.tela_resultado = "<form name=form1 method=post><input type=hidden name=GeraExcel value=1></form>"
+    promax.resposta_frame9 = "<script>window.open('../tmp/rels/F7367_020220.csv.inf');</script>"
+    promax.arquivos["F7367_020220.csv.inf"] = b"A;B\n"
+    cliente.login("F7367", "segredo")
+    rotina = cliente.abrir_rotina("03030718")
+
+    cliente.exportar_csv(rotina, campos_020220(mercadorias={"garrafeira", "sopi_visa"}), tmp_path / "s.csv")
+
+    visualizar = [c for m, u, c in promax.chamadas if "frame=0" in u and m == "POST"][0]
+    assert visualizar["call"] == "PW03004R" and visualizar["opcao"] == "1"
+    assert (visualizar["rotaInicial"], visualizar["rotaFinal"]) == ("1", "7")
+    assert (visualizar["clienteInicial"], visualizar["clienteFinal"]) == ("0", "99999")
+    assert (visualizar["garrafeira"], visualizar["idSopiVisa"]) == ("X", "X")
+    assert "todos" not in visualizar and "vasilhame" not in visualizar
+    assert (visualizar["idNpHistorico"], visualizar["omitirMapa"]) == ("S", "S")

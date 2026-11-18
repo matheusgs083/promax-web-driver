@@ -23,7 +23,7 @@ from core.services.report_orchestration_service import ReportOrchestrationServic
 from core.services.report_post_processing_service import encontrar_primeira_planilha_excel
 from core.config.settings import get_settings
 from promax_http.integracao import PedidoRelatorio, SessaoHttp, gerar_relatorio_http, rotinas_em_http
-from promax_http.receitas import campos_020502, campos_030237
+from promax_http.receitas import campos_020220, campos_020502, campos_030237
 
 from pages.reports.relatorio_030224_page import Relatorio030224Page
 from pages.reports.relatorio_030237_page import Relatorio030237Page
@@ -644,10 +644,124 @@ def main(
             unidades_alvo,
         )
 
+    def _pedido_030237(subpasta, tracker_name, nome_arquivo, **receita):
+        return PedidoRelatorio(
+            rotina="030237",
+            tracker_name=tracker_name,
+            subpasta=subpasta,
+            nome_arquivo=nome_arquivo,
+            campos=campos_030237(**receita),
+        )
+
+    def tarefa_030237_http(unidades_alvo=None):
+        return _gerar_http(
+            _pedido_030237(
+                "030237",
+                "Rotina 030237",
+                f"{mes_atual}-{ano_atual} nomeUnidade030237",
+                quebra1="14",
+                quebra2="12",
+                quebra3="16",
+                data_inicial=report_start_text or primeiro_dia_mes_atual,
+                data_final=report_end_text or data_ontem_formatada,
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_030237_giro_http(unidades_alvo=None):
+        return _gerar_http(
+            _pedido_030237(
+                "030237 Giro",
+                "Rotina 030237 Giro",
+                f"{mes_atual}-{ano_atual} nomeUnidade030237",
+                quebra1="14",
+                itens="S",
+                data_inicial=report_start_text or primeiro_dia_mes_atual,
+                data_final=report_end_text or data_hoje_formatada,
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_030237_entrada_http(unidades_alvo=None):
+        return _gerar_http(
+            _pedido_030237(
+                "030237 Entrada",
+                "Rotina 030237 Entrada",
+                f"{mes_atual}-{ano_atual} nomeUnidade030237",
+                quebra1="14",
+                quebra2="12",
+                quebra3="39",
+                notas="NE",
+                faixas={1: ("251", "314"), 2: ("1", "2")},
+                itens="S",
+                lista_nota_compra=True,
+                data_inicial=report_start_text or "28/08/2026",
+                data_final=report_end_text or data_hoje_formatada,
+            ),
+            unidades_alvo,
+        )
+
+    def _pedido_020220(subpasta, tracker_name, nome_arquivo, **receita):
+        return PedidoRelatorio(
+            rotina="020220",
+            tracker_name=tracker_name,
+            subpasta=subpasta,
+            nome_arquivo=nome_arquivo,
+            campos=campos_020220(**receita),
+        )
+
+    def tarefa_020220_auditool_http(unidades_alvo=None):
+        return _gerar_http(
+            _pedido_020220(
+                "020220 Auditool",
+                "Rotina 020220 Auditool",
+                "020220 Auditool - nomeUnidade020220",
+                opcao_rel="01",
+                mercadorias={"garrafeira", "vasilhame", "sopi_visa"},
+                exibe_inf_documentos=True,
+                selecao="P",
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_020220_giro_http(unidades_alvo=None):
+        return _gerar_http(
+            _pedido_020220(
+                "020220 Giro",
+                "Rotina 020220 Giro",
+                "02,02,20_nUnidade",
+                opcao_rel="01",
+                mercadorias={"garrafeira", "sopi_visa"},
+                selecao="T",
+            ),
+            unidades_alvo,
+        )
+
+    def tarefa_020220_recolhas_http(unidades_alvo=None):
+        return _gerar_http(
+            _pedido_020220(
+                "020220 Recolhas",
+                "Rotina 020220 Recolhas",
+                "020220 Recolhas - nomeUnidade020220",
+                opcao_rel="01",
+                mercadorias={"garrafeira", "vasilhame"},
+                selecao="T",
+            ),
+            unidades_alvo,
+        )
+
     rotinas_http = {
         "030237_ESTOQUE": tarefa_030237_estoque_http,
         "020502": tarefa_020502_http,
+        "030237_GIRO": tarefa_030237_giro_http,
+        "030237_ENTRADA": tarefa_030237_entrada_http,
+        "020220_AUDITOOL": tarefa_020220_auditool_http,
+        "020220_GIRO": tarefa_020220_giro_http,
+        "020220_RECOLHAS": tarefa_020220_recolhas_http,
     }
+    if not is_liga_entrega:
+        # A 030237 da Liga tem outro fluxo (mensal, por unidade); segue no Edge.
+        rotinas_http["030237"] = tarefa_030237_http
 
     def tarefa_020502(unidades_alvo=None):
         janela = menu_page.acessar_rotina("020502")

@@ -1,7 +1,7 @@
-from pathlib import Path
+import threading
 
 from core.execution.execution_result import ExecutionStatus
-from promax_http.cliente import Rotina
+from promax_http.cliente import ExportacaoPreparada, Rotina
 from promax_http.erros import PromaxHttpErro, RelatorioSemConteudo
 from promax_http.html import Formulario, Opcao
 from promax_http.integracao import PedidoRelatorio, gerar_relatorio_http, rotinas_em_http
@@ -14,25 +14,42 @@ class TrackerFalso:
     def anotar(self, rotina, unidade, status, detalhe, duracao=0):
         self.registros.append((rotina, unidade, status))
 
+    def por_unidade(self):
+        return {unidade: status for _, unidade, status in self.registros}
+
 
 class ClienteFalso:
-    def __init__(self, resultados):
+    """Janela unica: troca unidade e prepara; a conclusao (download) pode rodar em paralelo."""
+
+    def __init__(self, resultados, *, falha_ao_visualizar=()):
         self.resultados = resultados
+        self.falha_ao_visualizar = set(falha_ao_visualizar)
+        self.unidade = None
         self.fechou = False
-        self.campos_enviados = []
+        self.ordem = []
 
     def abrir_rotina(self, codigo):
         opcoes = [Opcao(valor=c, texto=c) for c in self.resultados]
         return Rotina(codigo, "m", "PW", "sub", "u", "u9", Formulario("form1", "", "POST"), "", "", opcoes)
 
     def trocar_unidade(self, rotina, codigo):
+        self.unidade = codigo
         return rotina
 
-    def exportar_csv(self, rotina, campos, destino):
-        self.campos_enviados.append(campos)
-        resultado = self.resultados[destino.stem.rsplit("_", 1)[1]]
+    def preparar_exportacao(self, rotina, campos):
+        self.ordem.append(("visualizar", self.unidade))
+        resultado = self.resultados[self.unidade]
+        if self.unidade in self.falha_ao_visualizar:
+            raise resultado
+        return ExportacaoPreparada(url=self.unidade, campos=dict(campos))
+
+    def concluir_exportacao(self, exportacao, destino):
+        resultado = self.resultados[exportacao.url]
+        if callable(resultado):
+            resultado = resultado()
         if isinstance(resultado, Exception):
             raise resultado
+        self.ordem.append(("baixou", exportacao.url))
         destino.parent.mkdir(parents=True, exist_ok=True)
         destino.write_bytes(resultado)
         return destino
@@ -56,41 +73,63 @@ class Logger:
 PEDIDO = PedidoRelatorio("030237", "Rotina 030237 Estoque", "030237 Estoque", "03,02,37_nomeUnidade030237estoque", {"a": "1"})
 
 
-def test_grava_com_o_mesmo_nome_da_versao_edge_e_anota_o_tracker(tmp_path):
-    cliente = ClienteFalso({"2210003": b"A;B\n", "2210004": RelatorioSemConteudo("Nao ha notas")})
-    tracker = TrackerFalso()
-
-    resultado = gerar_relatorio_http(
-        SessaoFalsa(cliente), PEDIDO, unidades_alvo=None, pasta_base=tmp_path, tracker=tracker, logger=Logger()
+def gerar(cliente, tmp_path, tracker=None, unidades=None):
+    return gerar_relatorio_http(
+        SessaoFalsa(cliente), PEDIDO, unidades_alvo=unidades, pasta_base=tmp_path, tracker=tracker or TrackerFalso(), logger=Logger()
     )
 
+
+def test_grava_com_o_mesmo_nome_da_versao_edge_e_anota_o_tracker(tmp_path):
+    cliente = ClienteFalso(
+        {"2210003": b"A;B\n", "2210004": RelatorioSemConteudo("Nao ha notas")}, falha_ao_visualizar={"2210004"}
+    )
+    tracker = TrackerFalso()
+
+    resultado = gerar(cliente, tmp_path, tracker)
+
     assert (tmp_path / "030237 Estoque" / "03,02,37_nomeUnidade030237estoque_2210003.csv").read_bytes() == b"A;B\n"
-    assert tracker.registros == [
-        ("Rotina 030237 Estoque", "2210003", "SUCESSO"),
-        ("Rotina 030237 Estoque", "2210004", "SEM CONTEUDO"),
-    ]
+    assert tracker.por_unidade() == {"2210003": "SUCESSO", "2210004": "SEM CONTEUDO"}
     assert resultado.status is ExecutionStatus.SUCCESS
     assert cliente.fechou
 
 
-def test_falha_de_uma_unidade_vira_sucesso_parcial_com_repescagem(tmp_path):
-    cliente = ClienteFalso({"2210003": b"A;B\n", "2210004": PromaxHttpErro("caiu")})
+def test_janela_segue_para_a_proxima_unidade_enquanto_o_download_roda(tmp_path):
+    liberar = threading.Event()
+
+    def download_lento():
+        assert liberar.wait(5), "a janela nao seguiu para a proxima unidade"
+        return b"A;B\n"
+
+    cliente = ClienteFalso({"2210003": download_lento, "2210004": b"C;D\n"})
+    original = cliente.preparar_exportacao
+
+    def preparar(rotina, campos):
+        if cliente.unidade == "2210004":
+            liberar.set()  # so libera o 1o download depois que a 2a unidade foi visualizada
+        return original(rotina, campos)
+
+    cliente.preparar_exportacao = preparar
+
+    resultado = gerar(cliente, tmp_path)
+
+    assert resultado.status is ExecutionStatus.SUCCESS
+    assert cliente.ordem.index(("visualizar", "2210004")) < cliente.ordem.index(("baixou", "2210003"))
+
+
+def test_sucesso_so_e_anotado_depois_do_download(tmp_path):
+    cliente = ClienteFalso({"2210003": b"A;B\n", "2210004": PromaxHttpErro("HTTP 300")})
     tracker = TrackerFalso()
 
-    resultado = gerar_relatorio_http(
-        SessaoFalsa(cliente), PEDIDO, unidades_alvo=None, pasta_base=tmp_path, tracker=tracker, logger=Logger()
-    )
+    resultado = gerar(cliente, tmp_path, tracker)
 
+    assert tracker.por_unidade() == {"2210003": "SUCESSO", "2210004": "ERRO SISTEMA"}
     assert resultado.status is ExecutionStatus.PARTIAL_SUCCESS and resultado.should_retry
-    assert tracker.registros[1][2] == "ERRO SISTEMA"
 
 
 def test_repescagem_roda_so_as_unidades_pedidas(tmp_path):
     cliente = ClienteFalso({"2210003": b"A;B\n", "2210004": b"C;D\n"})
 
-    gerar_relatorio_http(
-        SessaoFalsa(cliente), PEDIDO, unidades_alvo=["2210004"], pasta_base=tmp_path, tracker=TrackerFalso(), logger=Logger()
-    )
+    gerar(cliente, tmp_path, unidades=["2210004"])
 
     assert [p.name for p in (tmp_path / "030237 Estoque").iterdir()] == ["03,02,37_nomeUnidade030237estoque_2210004.csv"]
 

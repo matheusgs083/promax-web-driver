@@ -1,0 +1,826 @@
+
+<html>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HEAD>
+<meta http-equiv="Expires" content="Mon, 01 Jan 1996 12:12:00 GMT">
+<meta http-equiv="Pragma" content="no-cache">
+<META content="text/html; charset=windows-1252" http-equiv=Content-Type>
+<HEAD> <TITLE></TITLE> </HEAD>
+<link rel="stylesheet" href="../scripts/acao.css" type="text/css"></link>
+<script src="../scripts/funcoes.js" language="JavaScript"></script>
+<script src="../scripts/funcoes.vbs" language="VbScript"></script>
+               <script FOR="document" EVENT="onhelp" Language="javaScript">
+                   MostraHelp( 'PW03004R', '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&ppopcao=6' )
+                   return false;
+               </script>
+               <script>
+                   var aJanelas = new Array();
+                   var relatorio = 0;
+               </script>
+               <script FOR="window" EVENT="onunload" Language="JavaScript">
+                   if( relatorio > 0 ){
+                       window.open( "../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=t8Kt8K22927871&ppopcao=10", "fim", "top=3000,left=0,height=40,width=200,status=no,toolbar=no,menubar=no,location=no,resizable=no,scrollbars=no,channelmode=no" );
+                   }
+                   for( var i=0; i < aJanelas.length; i++ ){
+                       aJanelas[i].close();
+                   }
+               </script>
+<BODY leftMargin=0 topMargin=0 marginheight="0" marginwidth="0">
+<FORM name=form1 method=post>
+<DIV id=divRotinaGenerico></DIV>
+<INPUT type=hidden name=SessionID    value=w0Lb1a54659813>
+<INPUT type=hidden name=SubSessionID value=t8Kt8K22927871>
+<input type=hidden name=opcao        value=00>
+<INPUT type=hidden name=ppopcao      value=00>
+<INPUT type=hidden name=call         value=PW03004R>
+                <table width=100% cellspacing=0 cellpadding=0 border=0>
+                   <tr>
+                      <td height=20 nowrap>
+                          <div id=imgWait><img src="../icons/Process.gif" border=0></img></div>
+                      </td>
+                   </tr>
+                </table>
+                <script>
+                    try{
+                        if( document.parentWindow.parent.document.title == '' ){
+                            document.parentWindow.parent.document.title = '';
+                        }
+                    }
+                    catch( e ){}
+                    try{
+                        document.parentWindow.parent.top_rotina.document.all.versaoprg.outerText = 'w';
+                    }
+                    catch( e ){}
+                </script>
+               <script>
+                         ExecucaoBackground = false;
+                  var btnCancelar = 1;
+                  function Visualizar(){
+                      if( !ValidaParRel() ){
+                          return false;
+                      }
+                      document.parentWindow.parent.top_rotina.document.all.unidade.disabled = true;
+                      AbreProgressBar(btnCancelar);
+                      document.form1.opcao.value = 1;
+                      document.form1.submit();
+                      return true;
+                  }
+                  function AbreProgressBar(Cancelar){
+                      if( Cancelar == undefined || Cancelar != "0" ){
+                          Cancelar = "1"; // Habilita cancelamento do processo
+                      }
+                      var strURL = '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=t8Kt8K22927871&ppopcao=6&opcaomenu=3&btnCancelar=' + Cancelar;
+                      ProgressBar = window.open( strURL, 't8Kt8K22927871' , "top=230, left=220, width=350, height=10, scrollbars=no, status=no, toolbar=no, menubar=no, location=no");
+                      ProgressBar.focus();
+                      return false;
+                  }
+                  function Confirmar(){
+                     if( !ValidaParRel() ){
+                         return false;
+                     }
+                     query="";
+                     var field = document.forms[0];
+                     for (i = 0; i < field.length; i++) {
+                          if ((field.elements[i].type == "text") ||
+                              (field.elements[i].type == "textarea") ||
+                              (field.elements[i].type == "checkbox") ||
+                              (field.elements[i].type == "radio") ||
+                              (field.elements[i].tagName == "SELECT")  ||
+                              (field.elements[i].type == "hidden" && field.elements[i].OcultoRotina == "1" )
+                             )
+                             {
+                              if ((field.elements[i].type == "radio") || (field.elements[i].type == "checkbox"))
+                                 {
+                                  if (field.elements[i].checked == true)
+                                     query = query + field.elements[i].name + "=" + field.elements[i].value + "&"
+                                 }
+                              else
+                                 {
+                                  query = query + field.elements[i].name + "=" + field.elements[i].value + "&"
+                                 }
+                             }
+                     }
+                     parent.window.returnValue = query;
+                     window.parent.parent.close();
+                  }
+               </script>
+               <SCRIPT>
+                  function AlteraData(){
+                      if( document.all.selecao[0].checked ){
+                          document.all.labelData.innerHTML = 'Data de Emissão';
+                          document.all.dataFinal.style.display = '';
+                          document.all.dataInicial.value = '00/00/0000';
+                          document.all.dataFinal.value = '99/99/9999';
+                          document.all.dataInicial.obrigatorio = 1;
+                          document.all.dataFinal.obrigatorio = 1;
+                          document.all.dataInicial.data = 1;
+                          document.all.dataInicial.IniFim = 1;
+                          document.all.dataFinal.data = 1;
+                          document.all.dataFinal.IniFim = 1;
+                          return true;
+                      }
+                      if( document.all.selecao[1].checked ){
+                          document.all.labelData.innerHTML = 'Data de Emissão';
+                          document.all.dataFinal.style.display = '';
+                          document.all.dataInicial.value = '00/00/0000';
+                          document.all.dataFinal.value = '99/99/9999';
+                          document.all.dataInicial.obrigatorio = 1;
+                          document.all.dataFinal.obrigatorio = 1;
+                          document.all.dataInicial.data = 1;
+                          document.all.dataInicial.IniFim = 1;
+                          document.all.dataFinal.data = 1;
+                          document.all.dataFinal.IniFim = 1;
+                          return true;
+                      }
+                      if( document.all.selecao[2].checked ){
+                          document.all.labelData.innerHTML = 'Dias Vencidos';
+                          document.all.dataFinal.style.display = 'none';
+                          document.all.dataInicial.value = '';
+                          document.all.dataFinal.value = '';
+                          document.all.dataInicial.obrigatorio = 0;
+                          document.all.dataFinal.obrigatorio = 0;
+                          document.all.dataInicial.data = 0;
+                          document.all.dataInicial.IniFim = 0;
+                          document.all.dataFinal.data = 0;
+                          document.all.dataFinal.IniFim = 0;
+                          return true;
+                      }
+                      if( document.all.selecao[3].checked ){
+                          document.all.labelData.innerHTML = 'Data de Vencto';
+                          document.all.dataFinal.style.display = '';
+                          document.all.dataInicial.value = '17' + '/' + '11' + '/' + '2026';
+                          document.all.dataFinal.value = '17' + '/' + '11' + '/' + '2026';
+                          document.all.dataInicial.obrigatorio = 1;
+                          document.all.dataFinal.obrigatorio = 1;
+                          document.all.dataInicial.data = 1;
+                          document.all.dataInicial.IniFim = 1;
+                          document.all.dataFinal.data = 1;
+                          document.all.dataFinal.IniFim = 1;
+                          return true;
+                      }
+                      if( document.all.selecao[4].checked ){
+                          document.all.labelData.innerHTML = 'Data da Baixa';
+                          document.all.dataFinal.style.display = '';
+                          document.all.dataInicial.value = '00/00/0000';
+                          document.all.dataFinal.value = '99/99/9999';
+                          document.all.dataInicial.obrigatorio = 1;
+                          document.all.dataFinal.obrigatorio = 1;
+                          document.all.dataInicial.data = 1;
+                          document.all.dataInicial.IniFim = 1;
+                          document.all.dataFinal.data = 1;
+                          document.all.dataFinal.IniFim = 1;
+                          return true;
+                      }
+                  }
+                  function ControleSomenteNumeros(){
+                      if( document.all.selecao[2].checked ){
+                          return SomenteNumeros();
+                      }
+                      else{
+                          return SomenteNumeros( '/' );
+                      }
+                  }
+                  function ControleFormataCampo( objeto ){
+                      if( document.all.selecao[2].checked == false ){
+                          FormataCampo( objeto, '99/99/9999' );
+                      }
+                  }
+                  function Habilita( cod ) {
+                      document.all [ cod + 'Inicial' ].disabled = false;
+                      document.all [ cod + 'Inicial' ].className = "campo";
+                      document.all [ cod + 'Final' ].disabled = false;
+                      document.all [ cod + 'Final' ].className = "campo";
+                      if( cod == 'campo' ){                                      //*>MVF250204-11554
+                          document.all.nomeCampo.style.display = '';             //*>MVF250204-11554
+                      }                                                          //*>MVF250204-11554
+                  }
+                  function Desabilita( cod ) {
+                      document.all [ cod + 'Inicial' ].disabled = true;
+                      document.all [ cod + 'Inicial' ].className = "clsdisabled";
+                      document.all [ cod + 'Final' ].disabled = true;
+                      document.all [ cod + 'Final' ].className = "clsdisabled";
+                      if( cod != 'rota' ){
+                          document.all [ cod + 'Inicial' ].value = '0';
+                          document.all [ cod + 'Final' ].value = '';
+                          for( i=1; i <= document.all [ cod + 'Final' ].maxLength; i++ ){
+                              document.all [ cod + 'Final' ].value = '9' + document.all [ cod + 'Final' ].value;
+                          }
+                      }
+                      if( cod == 'campo' ){                                      //*>MVF250204-11554
+                          document.all.nomeCampo.style.display = 'none';         //*>MVF250204-11554
+                      }                                                          //*>MVF250204-11554
+                  }
+                  function Habilitar(){
+                      ControleConsolidacao();
+                      switch( parseInt( document.all.opcaoRel.value, 10) ){      //*>MVF250204-11554
+                          case 1:
+                              Habilita( 'segmento' );
+                              Desabilita( 'campo' );
+                              Desabilita( 'rota' );
+                              break;
+                          case 4:
+                              Habilita( 'segmento' );
+                              Desabilita( 'campo' );
+                              Desabilita( 'rota' );
+                              break;
+                          case 5:
+                              Habilita( 'segmento' );
+                              Desabilita( 'campo' );
+                              Desabilita( 'rota' );
+                              break;
+                          case 6:
+                              Desabilita( 'segmento' );
+                              Desabilita( 'rota' );
+                              Habilita( 'campo' );
+                              document.all.nomeCampo.innerHTML = "Gte de Vendas&nbsp;";//*>MVF250204-11554
+                              break;
+                          case 7:
+                              Habilita( 'segmento' );
+                              Habilita( 'campo' );
+                              Desabilita( 'rota' );
+                              document.all.nomeCampo.innerHTML = "Gte de Vendas&nbsp;";//*>MVF250204-11554
+                              break;
+                          case 8:                                                //*>MVF250204-11554
+                              Desabilita( 'segmento' );                          //*>MVF250204-11554
+                              Desabilita( 'rota' );                              //*>MVF250204-11554
+                              Habilita( 'campo' );                               //*>MVF250204-11554
+                              document.all.nomeCampo.innerHTML = "Gte Distrital&nbsp;";//*>MVF250204-11554
+                              break;                                             //*>MVF250204-11554
+                          case 9:                                                //*>MVF250204-11554
+                              Habilita( 'segmento' );                            //*>MVF250204-11554
+                              Habilita( 'campo' );                               //*>MVF250204-11554
+                              Desabilita( 'rota' );                              //*>MVF250204-11554
+                              document.all.nomeCampo.innerHTML = "Gte Distrital&nbsp;";//*>MVF250204-11554
+                              break;                                             //*>MVF250204-11554
+                          case 10:                                               //*>MVF250204-11554
+                              Desabilita( 'segmento' );
+                              Desabilita( 'campo' );
+                              Habilita( 'rota' );
+                              break;
+                      default:
+                          Desabilita( 'segmento' );
+                          Desabilita( 'campo' );
+                          Desabilita( 'rota' );
+                          break;
+                      }
+                  }
+                  function Selecao(){
+                      if( document.all.somenteResumo.checked == true ){
+                          document.all.selecao[0].disabled = true;
+                          document.all.selecao[1].checked = true;
+                      }
+                      else{
+                          document.all.selecao[0].disabled = false;
+                          document.all.selecao[0].checked = true;
+                      }
+                      AlteraData();
+                  }
+                  function TipoMarca(){
+                      if( ( document.all.todos.checked == true ) ||
+                        ( ( document.all.vasilhame.checked == true ) && ( document.all.garrafeira.checked == true ) && ( document.all.idSopiVisa.checked == true ) && ( document.all.idOutrosMat.checked == true ) &&
+                          ( document.all.idBarrilCilindro.checked == true ) && ( document.all.idChoppPost.checked == true ) && ( document.all.idOutrosRef.checked == true ) &&
+                          ( document.all.idOutrosRef.checked == true ) && ( document.all.idPitStop.checked == true ) ) ){
+                          document.all.todos.checked = true;
+                          document.all.vasilhame.checked = false;
+                          document.all.garrafeira.checked = false;
+                          document.all.idSopiVisa.checked = false;
+                          document.all.idOutrosMat.checked = false;
+                          document.all.vasilhame.disabled = true;
+                          document.all.garrafeira.disabled = true;
+                          document.all.idSopiVisa.disabled = true;
+                          document.all.idOutrosMat.disabled = true;
+                          if( ( "N" == "S" )
+                          ||( "S" == "S"
+                          &&  "R" == "R" )){
+                               document.all.idBarrilCilindro.checked = false;
+                               document.all.idChoppPost.checked = false;
+                               document.all.idOutrosRef.checked = false;
+                               document.all.idPitStop.checked = false;
+                               document.all.idBarrilCilindro.disabled = true;
+                               document.all.idChoppPost.disabled = true;
+                               document.all.idOutrosRef.disabled = true;
+                               document.all.idPitStop.disabled = true;
+                          }
+                      }
+                      else{
+                          document.all.todos.disabled = false;
+                          document.all.vasilhame.disabled = false;
+                          document.all.garrafeira.disabled = false;
+                          document.all.idSopiVisa.disabled = false;
+                          document.all.idOutrosMat.disabled = false;
+                          if( ( "N" == "S" )
+                          ||( "S" == "S"
+                          &&  "R" == "R" )){
+                               document.all.idBarrilCilindro.disabled = false;
+                               document.all.idChoppPost.disabled = false;
+                               document.all.idOutrosRef.disabled = false;
+                               document.all.idPitStop.disabled = false;
+                          }
+                      }
+                  }
+                  function VerifPerfil(){
+                      if( document.all.perfilVendas.value != '000' ){
+                          document.all.grupoPerfilVendas.value = '00';
+                          document.all.grupoPerfilVendas.disabled = true;
+                      }
+                      else{
+                          document.all.grupoPerfilVendas.disabled = false;
+                      }
+                  }
+                  function VerifPerfilGrpPerfil(){
+                      if( document.all.grupoPerfilVendas.value != '00' ){
+                          document.all.perfilVendas.value = '000';
+                          document.all.perfilVendas.disabled = true;
+                      }
+                      else{
+                          document.all.perfilVendas.disabled = false;
+                      }
+                  }
+                  function PesquisaVisao() {
+                      if( document.all.cdVisao.disabled ) {
+                          return false;
+                      }
+                      AbrirPesquisa( '../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&ppopcao=6', 'PW01271P', 100, 177, 500, 420, [ 'SUBMIT-FRAME', 'CarregaVisao()' ], [ 'cdVisao' ], 'no', '', '', '', '', '', 'MULTI-FRAME' );
+                  }
+                  function CarregaVisao() {
+                      if( parseInt( "0" + document.all.cdVisao.value, 10 ) == 0 ){
+                          return false;
+                      }
+                      document.all.BotCarregaVisao.focus();
+                      document.all.opcao.value = 9;
+                      EnviarFormulario();
+                  }
+                  function ControleConsolidacao() {
+                      if( document.all.opcaoRel[document.all.opcaoRel.selectedIndex].Consolida == "S" ){
+                          document.all.fsConsolidacao.disabled = false;
+                          document.all.cdVisao.value = '';
+                          document.all.cdVisao.disabled = false;
+                          document.all.cdVisao.className = 'campo';
+                          document.all.tpConsolidacao[0].disabled = true;
+                          document.all.tpConsolidacao[1].disabled = true;
+                          document.all.tpConsolidacao[2].disabled = true;
+                          document.all.tpConsolidacao[3].disabled = true;
+                          document.all.tpConsolidacao[0].checked = true;
+                          document.all.tpConsolidacao[1].checked = false;
+                          document.all.tpConsolidacao[2].checked = false;
+                          document.all.tpConsolidacao[3].checked = false;
+                      }
+                      else {
+                          document.all.fsConsolidacao.disabled = true;
+                          document.all.cdVisao.value = '';
+                          document.all.cdVisao.disabled = true;
+                          document.all.cdVisao.className = 'clsDisabled';
+                          document.all.tpConsolidacao[0].disabled = true;
+                          document.all.tpConsolidacao[1].disabled = true;
+                          document.all.tpConsolidacao[2].disabled = true;
+                          document.all.tpConsolidacao[3].disabled = true;
+                          document.all.tpConsolidacao[0].checked = false;
+                          document.all.tpConsolidacao[1].checked = false;
+                          document.all.tpConsolidacao[2].checked = false;
+                          document.all.tpConsolidacao[3].checked = false;
+                      }
+                  }
+                  function VoltaTelaConsolidacao() {
+                      document.all.cdVisao.value = FormataCampo( "000" , "999" , "valor" );
+                      document.all.BotCarregaVisao.click();
+                      document.all.tpConsolidacao[0].checked = true;
+                      document.all.tpConsolidacao[1].checked = false;
+                      document.all.tpConsolidacao[2].checked = false;
+                      document.all.tpConsolidacao[3].checked = false;
+                  }
+                  function ExibirStatusDocumentos(opc) {
+                      if( opc == "C" ){
+                          document.all.idExibeInfDocumentos.disabled = true;
+                          document.all.idExibeInfDocumentos.checked = false;
+                      }
+                      else{
+                          document.all.idExibeInfDocumentos.disabled = false;
+                      }
+                  }
+               </SCRIPT>
+               <TABLE width="100%">
+               <TR><TD>
+                  <TABLE border=1 cellspacing=1 cellpadding=2 bordercolor=White bordercolordark=White bordercolorlight=DimGray class=WindowScreen rules=none width="100%">
+                  <TR><TD>
+                     <TABLE border=0 width=100% height=100%>
+                     <TR><TD>
+                           <FIELDSET style="LEFT: 19px;"><LEGEND><LABEL class=titulocampo>&nbsp;Opções&nbsp;</LABEL></LEGEND>
+                              <TABLE border=0 rules=none align=center cellspacing=1 cellpadding=2 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 0px 2px 0px">
+                                 <TR>
+                                    <TD class=titulocampo> Classificação
+                                    <TD><SELECT tabIndex=1 class=combo name=opcaoRel onKeyDown="DigitaCombo( this );" onChange="Habilitar();" obrigatorio=1>
+                                         <OPTION Consolida=N value=0>--Selecionar--         </OPTION>
+                                         <OPTION Consolida=S value=01>Geral                 </OPTION>
+                                         <OPTION Consolida=S value=02>Area (Supervisor)     </OPTION>
+                                         <OPTION Consolida=N value=03>Setor (Vendedor)      </OPTION>
+                                         <OPTION Consolida=N value=04>Area/Segmento         </OPTION>
+                                         <OPTION Consolida=N value=05>Setor/Segmento        </OPTION>
+                                         <OPTION Consolida=S value=06>Gte de Vendas         </OPTION>
+                                         <OPTION Consolida=N value=07>Gte de Vendas/Segmento</OPTION>
+                                         <OPTION Consolida=S value=08>Gte Distrital         </OPTION>                 <!--MVF250204-11554-->
+                                         <OPTION Consolida=N value=09>Gte Distrital/Segmento</OPTION>                 <!--MVF250204-11554-->
+                                         <OPTION Consolida=N value=10>Setor/Rota            </OPTION>
+                                       </SELECT>
+                                 <TR>
+                                     <TD class=titulocampo>Perfil de Vendas
+                                     <TD><SELECT tabindex=2 class=combo name=perfilVendas onChange="VerifPerfil();"> <!--MVF200204-11554-->
+                                             <OPTION value='000'>--Todos--</OPTION>
+                                         </SELECT>
+                                 <TR>
+                                     <TD class=titulocampo>Grupo Perfil de Vendas
+                                     <TD><SELECT tabindex=3 class=combo name=grupoPerfilVendas onChange="VerifPerfilGrpPerfil();"> <!--MVF200204-11554-->
+                                             <OPTION value='00'>--Todos--</OPTION>
+                                         </SELECT>
+                              </TABLE>
+                           </FIELDSET>
+                     <TR><TD>
+                           <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Preferências&nbsp;</LABEL></LEGEND>
+                              <TABLE border=0 rules=none align=center cellspacing=0 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 0px 2px 0px">
+                                 <TR valign=top>
+                                    <TD width=40%>
+                                       <TABLE border=0 width=100% valign=top>
+                                          <TR>
+                                             <TD width=5% height=10px><INPUT tabIndex=4 class='checkbox' type=checkbox name=somenteResumo value="S" onClick="Selecao();">
+                                             <TD class='titulocampo' height=10px><div align=left>Somente Resumo</div>
+                                          <TR>
+                                             <TD height=10px><INPUT tabIndex=6 class='checkbox' type=checkbox name=idSintetico value="S" onClick="Selecao();">
+                                             <TD class='titulocampo' height=10px ><div align=left>Sintético</div>
+                                          <TR>
+                                             <TD><INPUT tabIndex=6 class='checkbox' type=checkbox name=ordemVencto value="S" onClick="Selecao();">
+                                             <TD class='titulocampo'><div align=left>Em Ordem de Vencto</div>
+                                          <TR>
+                                             <TD><INPUT tabIndex=6 class='checkbox' type=checkbox name=idNpHistorico value="S" checked>
+                                             <TD class='titulocampo'><div align=left>Consultar NP em Histórico</div>
+                                          <TR>
+                                             <TD class='titulocampo' colspan=2><div align=left>Tipo de Mercadoria</div>
+                                          <TR>
+                                             <TD><INPUT tabIndex=7 class='checkbox' type=checkbox name=todos value="X" onClick="TipoMarca();">
+                                             <TD class='titulocampo'><div align=left>Todos</div>
+                                          <TR>
+                                             <TD><INPUT tabIndex=8 class='checkbox' type=checkbox name=vasilhame value="X" onClick="TipoMarca();">
+                                             <TD class='titulocampo'><div align=left>Vasilhame</div>
+                                          <TR>
+                                             <TD><INPUT tabIndex=9 class='checkbox' type=checkbox name=garrafeira value="X" onClick="TipoMarca();">
+                                             <TD class='titulocampo'><div align=left>Garrafeira</div>
+                                          <TR>
+                                             <TD><INPUT tabIndex=10 class='checkbox' type=checkbox name=idSopiVisa value="X" onClick="TipoMarca();">
+                                             <TD class='titulocampo'><div align=left>SOPI/VISA</div>
+                                          <TR>
+                                             <TD><INPUT tabIndex=11 class='checkbox' type=checkbox name=idOutrosMat value="X" onClick="TipoMarca();">
+                                             <TD class='titulocampo'><div align=left>Outros Materiais</div>
+                                          <TR>
+                                             <TD><INPUT tabIndex=12 class='checkbox' type=checkbox name=idBarrilCilindro value="X" onClick="TipoMarca();">
+                                             <TD class='titulocampo'><div align=left>Barril/Cilindro</div>
+                                          <TR>
+                                             <TD><INPUT tabIndex=13 class='checkbox' type=checkbox name=idChoppPost value="X" onClick="TipoMarca();">
+                                             <TD class='titulocampo'><div align=left>Chopp/P. Mix</div>
+                                          <TR>
+                                             <TD><INPUT tabIndex=14 class='checkbox' type=checkbox name=idOutrosRef value="X" onClick="TipoMarca();">
+                                             <TD class='titulocampo'><div align=left>Outros Refrigeradores</div>
+                                          <TR>
+                                             <TD><INPUT tabIndex=15 class='checkbox' type=checkbox name=idPitStop value="X" onClick="TipoMarca();">
+                                             <TD class='titulocampo'><div align=left>Pit Stop</div>
+                                       </TABLE>
+                                    <TD>
+                                       <TABLE border=0 width=100%>
+                                          <TR>
+                                             <TD class='titulocampo2' colspan=2>&nbsp;P.C. Física
+                                          <TR>
+                                             <TD width=5%><INPUT tabIndex=5 class='checkbox' type=checkbox name=simularBaixa value="S" onClick="Selecao();">
+                                             <TD class='titulocampo' nowrap><div align=left>OK: Simular Baixa da Recolha</div>
+                                          <TR>
+                                             <TD width=5%><INPUT tabIndex=5 class='checkbox' type=checkbox name=omitirMapa value="S" checked onClick="Selecao();">
+                                             <TD class='titulocampo' nowrap><div align=left>Pendente: Omitir Mapa De-para</div>
+                                          <TR>
+                                             <TD colspan=2>
+                                                <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Situação dos Comodatos&nbsp;</LABEL></LEGEND>
+                                                   <TABLE border=0>
+                                                      <TR>
+                                                         <TD height=5 class=titulocampo width=50%><div align=left><INPUT tabIndex=15 class=radio type=radio name=selecao id=radio1 onClick="AlteraData();" value="T" checked>&nbsp;Todos
+                                                         <TD height=5 class=titulocampo><div align=left><INPUT tabIndex=15 class=radio type=radio name=selecao id=radio3 onClick="AlteraData();" value="P" >&nbsp;Pendentes
+                                                      <TR>
+                                                         <TD height=5 class=titulocampo><div align=left><INPUT tabIndex=15 class=radio type=radio name=selecao id=radio2 onClick="AlteraData();" value="V">&nbsp;Vencidos
+                                                         <TD height=5 class=titulocampo><div align=left><INPUT tabIndex=15 class=radio type=radio name=selecao id=radio4 onClick="AlteraData();" value="A">&nbsp;A Vencer
+                                                      <TR>
+                                                         <TD height=5 class=titulocampo><div align=left><INPUT tabIndex=15 class=radio type=radio name=selecao id=radio5 onClick="AlteraData();" value="B">&nbsp;Baixados
+                                                         <TD height=5 class=titulocampo><div align=left><INPUT tabIndex=16 class=radio type=radio name=selecao id=radio6 onClick="AlteraData();" value="X">&nbsp;Parc. Baixados  <!--MP140207:63256-->
+                                                   </TABLE>
+                                                </FIELDSET>
+                                          <TR>
+                                             <TD colspan=2>
+                                                <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Situação dos Clientes&nbsp;</LABEL></LEGEND>
+                                                   <TABLE border = 0>
+                                                      <TR>
+                                                         <TD height=05 class=titulocampo width=50%><div align=left><INPUT tabIndex=17 class=radio type=radio name=situacao id=radio1 value="O" checked>&nbsp;Todos
+                                                         <TD height=05 class=titulocampo><div align=left><INPUT tabIndex=17 class=radio type=radio name=situacao id=radio3 value="A" >&nbsp;Ativos
+                                                      <TR>
+                                                         <TD height=05 class=titulocampo><div align=left><INPUT tabIndex=17 class=radio type=radio name=situacao id=radio2 value="B">&nbsp;Bloqueados
+                                                         <TD height=05 class=titulocampo><div align=left><INPUT tabIndex=17 class=radio type=radio name=situacao id=radio4 value="I">&nbsp;Inativos
+                                                      <TR>
+                                                         <TD height=05 class=titulocampo><div align=left><INPUT tabIndex=17 class=radio type=radio name=situacao id=radio5 value="T">&nbsp;Temporários
+                                                         <TD height=05 class=titulocampo><div align=left><INPUT tabIndex=17 class=radio type=radio name=situacao id=radio6 value="D" >&nbsp;Duplicados
+                                                      <TR>
+                                                         <TD height=05 class=titulocampo><div align=left><INPUT tabIndex=17 class=radio type=radio name=situacao id=radio7 value="N">&nbsp;Inadimplentes
+                                                   </TABLE>
+                                                </FIELDSET>
+                                       </TABLE>
+                              </TABLE>
+                           </FIELDSET>
+                     </TABLE>
+                     <TD>
+                     <TABLE border=0 width=100% height=100%>
+                     <TR><TD nowrap valign=top height="40%" width=40%>
+                           <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Seleções&nbsp;</LABEL></LEGEND>
+                              <TABLE border=0 rules=none align=center cellspacing=1 cellpadding=0 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 0px 2px 0px">
+                                 <TR>
+                                    <TD>&nbsp;</TD>
+                                    <TD class=titulocampo><div align=center>Inicial</div></TD>
+                                    <TD class=titulocampo><div align=center>Final</div></TD>
+                                 <TR>
+                                    <TD width=100px nowrap align=right><LABEL id=labelData class=titulocampo>Data de Emissão</LABEL>&nbsp;</TD>
+                                    <TD><INPUT tabIndex=18 class='campo' name=dataInicial size=08 maxlength=10 onkeypress="return ControleSomenteNumeros();" onBlur="ControleFormataCampo( this );" obrigatorio=1 data=1 IniFim=1>&nbsp;
+                                    <TD><INPUT tabIndex=19 class='campo' name=dataFinal size=08 maxlength=10 onkeypress="return SomenteNumeros( '/' )" onBlur="FormataCampo( this, '99/99/9999' );" obrigatorio=1 data=1 IniFim=1>
+                                 <TR>
+                                    <TD class=titulocampo>Área&nbsp;
+                                    <TD><INPUT tabIndex=20 class='campo' name=areaInicial size=08 maxlength=03 onkeypress="return SomenteNumeros()">&nbsp;
+                                    <TD><INPUT tabIndex=21 class='campo' name=areaFinal size=08 maxlength=03 onkeypress="return SomenteNumeros()" obrigatorio=1>
+                                 <TR>
+                                    <TD class=titulocampo>Setor&nbsp;
+                                    <TD><INPUT tabIndex=22 class='campo' name=setorInicial size=08 maxlength=04 onkeypress="return SomenteNumeros()">
+                                    <TD><INPUT tabIndex=23 class='campo' name=setorFinal size=08 maxlength=04 onkeypress="return SomenteNumeros()" obrigatorio=1>&nbsp;
+                                 <TR>
+                                    <TD class=titulocampo><label id=nomeCampo class='titulocampo' style='display:none'>&nbsp;</label>                                            <!--MVF250204-11554-->
+                                    <TD><INPUT tabIndex=24 class='clsDisabled' name=campoInicial size=08 maxlength=04 onkeypress="return SomenteNumeros()" disabled>&nbsp;       <!--MVF250204-11554-->
+                                    <TD><INPUT tabIndex=25 class='clsDisabled' name=campoFinal size=08 maxlength=04 onkeypress="return SomenteNumeros()" disabled obrigatorio=1> <!--MVF250204-11554-->
+                                 <TR>
+                                    <TD class=titulocampo>Rota&nbsp;
+                                    <TD><INPUT tabIndex=26 class='clsDisabled' name=rotaInicial size=08 maxlength=03 onkeypress="return SomenteNumeros()" disabled>
+                                    <TD><INPUT tabIndex=27 class='clsDisabled' name=rotaFinal size=08 maxlength=03 onkeypress="return SomenteNumeros()" disabled obrigatorio=1>&nbsp;
+                                 <TR>
+                                    <TD class=titulocampo>Segmento&nbsp;</label>
+                                    <TD><INPUT tabIndex=28 class='clsDisabled' name=segmentoInicial size=08 maxlength=02 onkeypress="return SomenteNumeros()" disabled>&nbsp;
+                                    <TD><INPUT tabIndex=29 class='clsDisabled' name=segmentoFinal size=08 maxlength=02 onkeypress="return SomenteNumeros()" disabled obrigatorio=1>
+                                 <TR>
+                                    <TD class=titulocampo>Cliente&nbsp;
+                                    <TD><INPUT tabIndex=30 class='campo' name=clienteInicial size=08 maxlength=05 onkeypress="return SomenteNumeros()">&nbsp;
+                                    <TD><INPUT tabIndex=31 class='campo' name=clienteFinal size=08 maxlength=05 onkeypress="return SomenteNumeros()" obrigatorio=1>
+                                 <TR>
+                                    <TD class=titulocampo>Material&nbsp;
+                                    <TD><INPUT tabIndex=32 class='campo' name=materialInicial size=08 maxlength=07 onkeypress="return SomenteNumeros()">&nbsp;
+                                    <TD><INPUT tabIndex=33 class='campo' name=materialFinal size=08 maxlength=07 onkeypress="return SomenteNumeros()" obrigatorio=1>
+                                 <TR>
+                                    <TD height=07> </TR>
+                              </TABLE>
+                           </FIELDSET>
+                     <TR><TD>
+                        <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Digitalização Documentos&nbsp;</LABEL></LEGEND>
+                           <TABLE border=0 rules=none align=center cellspacing=1 cellpadding=2 width=90% >
+                               <TR>
+                                  <TD width=5%><INPUT tabIndex=34 class='checkbox' type=checkbox name=idExibeInfDocumentos value="S"  >
+                                  <TD class='titulocampo' nowrap><div align=left>Exibir Status dos Documentos</div>
+                           </TABLE>
+                        </FIELDSET>
+                     <TR><TD>
+                        <FIELDSET><LEGEND><LABEL class=titulocampo>&nbsp;Visão Multi CDD&nbsp;</LABEL></LEGEND>
+                           <TABLE border=0 rules=none align=center cellspacing=1 cellpadding=2 width=90% >
+                             <TR>
+                               <TD class=titulocampo2 align=center><input type=radio name=idVisaoMultiCdd value="C" class=radio onclick="ExibirStatusDocumentos('C')">&nbsp;Contábil
+                               <TD class=titulocampo2 align=center><input type=radio name=idVisaoMultiCdd value="G" class=radio checked onclick="ExibirStatusDocumentos()" >&nbsp;Gerencial
+                               <TD><SELECT name=idSelecaoMultiCdd class=combo style="margin-left: 10px;">
+                                       <OPTION value="T" selected> Todas Movimentações </option>
+                                       <OPTION value="S"> Sem Multi CDD </option>
+                                       <OPTION value="M"> Somente Multi CDD </option>
+                                   </SELECT>
+                           </TABLE>
+                        </FIELDSET>
+                     <TR><TD>
+                        <FIELDSET id=fsConsolidacao disabled><LEGEND><LABEL class=titulocampo>&nbsp;Consolidação&nbsp;</LABEL></LEGEND>
+                           <TABLE border=0 rules=none align=center cellspacing=1 cellpadding=1 bordercolor=white bordercolordark=white bordercolorlight=dimgray class=WindowScreen style="MARGIN: 0px 2px 0px">
+                             <TR>
+                                <TD class=titulocampo width=17%>Visão&nbsp;
+                                <TD><INPUT tabindex=60 type=text name=cdVisao size=3 maxLength=3 class="clsDisabled" onKeyPress="return SomenteNumeros();" onKeyDown="AltPesquisa( 'PesquisaVisao();' );" disabled blocoConsolidacao=1>
+                                   <IMG src=../icons/busca.gif name=BotPesquisaVisao title="Pesquisa Visão"         style="cursor:hand;" onClick="PesquisaVisao();">
+                                   <IMG src=../icons/check.gif name=BotCarregaVisao  title="Carregar Visão" tabIndex=61 style="cursor:hand;" onClick="CarregaVisao();" onKeyDown="VerificaTeclaPress( '13', 'CarregaVisao();' )">
+                                <TD class=titulocampo><div align=left><INPUT tabIndex=62 class=radio type=radio name=tpConsolidacao id=radio1 value="1" disabled blocoConsolidacao=1>&nbsp;UNB
+                                <TD class=titulocampo><div align=left><INPUT tabIndex=62 class=radio type=radio name=tpConsolidacao id=radio1 value="3" disabled blocoConsolidacao=1>&nbsp;GV
+                             <TR>
+                                <TD colspan=2>&nbsp;
+                                <TD class=titulocampo><div align=left><INPUT tabIndex=62 class=radio type=radio name=tpConsolidacao id=radio1 value="2" disabled blocoConsolidacao=1>&nbsp;GD
+                                <TD class=titulocampo><div align=left><INPUT tabIndex=62 class=radio type=radio name=tpConsolidacao id=radio1 value="4" disabled blocoConsolidacao=1>&nbsp;SV
+                           </TABLE>
+                        </FIELDSET>
+                     </TABLE>
+                  </TABLE>
+               </TABLE>
+             <TABLE width=100%>
+               <TR>
+                    <TD width=100%>
+                    <TD nowrap><BUTTON name=BotVisualizar AccessKey="V" tabIndex=99 onclick="return Visualizar()" class=botao title="Visualizar Impressão"><LABEL><U>V</U>isualizar</LABEL></BUTTON>
+                    <TD><DIV id=DivBtReservado></DIV>
+                               <input type=hidden name=GeraExcel value=1>
+                </TABLE>&nbsp;
+                    <INPUT type=hidden id=hiddenperfilVendas>
+                    <SCRIPT>
+                        if( document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).options[0] == null ){
+                            document.all ( 'hiddenperfilVendas' ).value = 'NaoExisteOpcaoInicial';
+                            oOption = document.createElement( "OPTION" );
+                            oOption.value = 'CCC';
+                            oOption.text = ' Carregando ... ';
+                            document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).add( oOption );
+                            oOption = null;
+                        }
+                        else {
+                            document.all ( 'hiddenperfilVendas' ).value = document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).options[0].text;
+                            document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).options[0].text = ' Carregando ... ';
+                        }
+                    </SCRIPT>
+               <SCRIPT>
+                   function CCmbperfilVendas(vlrCmb,txtCmb){oOpt=document.createElement("OPTION");oOpt.value=vlrCmb;oOpt.text=txtCmb;parent.frames['rotina'].document.all ('perfilVendas').add(oOpt);oOpt=null;}CCmbperfilVendas("001","001 - M1 SKOL");CCmbperfilVendas("002","002 - M2 BRAHMA");CCmbperfilVendas("003","003 - M3 ANTARCTICA");CCmbperfilVendas("004","004 - M2M3");CCmbperfilVendas("005","005 - SEGMENTADO");CCmbperfilVendas("006","006 - M4");CCmbperfilVendas("007","007 - TRIMARCA");CCmbperfilVendas("008","008 - Promotor de Vendas");CCmbperfilVendas("009","009 - 31064");
+               </SCRIPT>
+                    <script>
+                        document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).value = '';
+                    </script>
+                    <SCRIPT>
+                        if( document.all ( 'hiddenperfilVendas' ).value == 'NaoExisteOpcaoInicial' ){
+                            document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).remove( 0 );
+                        }
+                        else {
+                            document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).options[0].text = document.all ( 'hiddenperfilVendas' ).value;
+                        }
+                        document.parentWindow.parent.rotina.document.all ( 'perfilVendas' ).disabled = false;
+                    </SCRIPT>
+                    <INPUT type=hidden id=hiddengrupoPerfilVendas>
+                    <SCRIPT>
+                        if( document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).options[0] == null ){
+                            document.all ( 'hiddengrupoPerfilVendas' ).value = 'NaoExisteOpcaoInicial';
+                            oOption = document.createElement( "OPTION" );
+                            oOption.value = 'CCC';
+                            oOption.text = ' Carregando ... ';
+                            document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).add( oOption );
+                            oOption = null;
+                        }
+                        else {
+                            document.all ( 'hiddengrupoPerfilVendas' ).value = document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).options[0].text;
+                            document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).options[0].text = ' Carregando ... ';
+                        }
+                    </SCRIPT>
+               <SCRIPT>
+                   function CCmbgrupoPerfilVendas(vlrCmb,txtCmb){oOpt=document.createElement("OPTION");oOpt.value=vlrCmb;oOpt.text=txtCmb;parent.frames['rotina'].document.all ('grupoPerfilVendas').add(oOpt);oOpt=null;}CCmbgrupoPerfilVendas("01","01 - M1");CCmbgrupoPerfilVendas("02","02 - M2");CCmbgrupoPerfilVendas("03","03 - M3");CCmbgrupoPerfilVendas("04","04 - M2M3");CCmbgrupoPerfilVendas("05","05 - Segmentada");CCmbgrupoPerfilVendas("06","06 - M4");CCmbgrupoPerfilVendas("07","07 - PROM");CCmbgrupoPerfilVendas("09","09 - VD Interna");
+               </SCRIPT>
+                    <script>
+                        document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).value = '';
+                    </script>
+                    <SCRIPT>
+                        if( document.all ( 'hiddengrupoPerfilVendas' ).value == 'NaoExisteOpcaoInicial' ){
+                            document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).remove( 0 );
+                        }
+                        else {
+                            document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).options[0].text = document.all ( 'hiddengrupoPerfilVendas' ).value;
+                        }
+                        document.parentWindow.parent.rotina.document.all ( 'grupoPerfilVendas' ).disabled = false;
+                    </SCRIPT>
+               <SCRIPT>
+                  if( ( "N" != "S"
+                  &&  "R" != "R" )
+                  ||( "S" != "S"
+                  &&  "N" != "S"
+                  &&  "R" == "R" ) ){
+                     document.all.idBarrilCilindro.disabled = true;
+                     document.all.idChoppPost.disabled = true;
+                     document.all.idOutrosRef.disabled = true;
+                     document.all.idPitStop.disabled = true;
+                  }
+                  function ValidaParRel(){
+                     if( document.all.selecao[2].checked == false ){
+                         if( document.all.dataInicial.value == '00/00/0000' && document.all.dataFinal.value == '99/99/9999' ){
+                             document.all.dataInicial.IniFim = 1;
+                             document.all.dataFinal.IniFim = 1;
+                         }
+                         else{
+                             document.all.dataInicial.IniFim = 0;
+                             document.all.dataFinal.IniFim = 0;
+                         }
+                         if( document.all.dataFinal.value == '99/99/9999' ){
+                             document.all.dataFinal.IniFim = 1;
+                         }
+                     }
+                     if( !ValidaCampos() ){
+                         return false;
+                     }
+                     if( ( ! document.all.todos.checked ) && ( ! document.all.vasilhame.checked ) && ( ! document.all.garrafeira.checked ) && ( ! document.all.idSopiVisa.checked ) && ( ! document.all.idOutrosMat.checked ) &&
+                         ( ! document.all.idBarrilCilindro.checked ) && ( ! document.all.idChoppPost.checked ) && ( ! document.all.idOutrosRef.checked ) && ( ! document.all.idPitStop.checked ) ) {
+                            alert( 'Tipo de Mercadoria inválida' );
+                            document.all.todos.focus();
+                            return false;
+                     }
+                     if( document.all.selecao[2].checked == false ){
+                         if( DataMaior( document.all.dataInicial.value, document.all.dataFinal.value ) ){
+                             alert( 'Data inicial maior que data final' );
+                             document.all.dataInicial.select();
+                             return false;
+                         }
+                     }
+                     if( document.all.rotaInicial.value < '1' || document.all.rotaInicial.value > '7' ){
+                         alert( 'Rota deve ser entre 1 e 7' );
+                         document.all.rotaInicial.select();
+                         return false;
+                     }
+                     if( document.all.rotaFinal.value < '1' || document.all.rotaFinal.value > '7' ){
+                         alert( 'Rota deve ser entre 1 e 7' );
+                         document.all.rotaFinal.select();
+                         return false;
+                     }
+                     if( !ComparaValor( 'areaInicial', 'areaFinal', 'Área' ) ){
+                         return false;
+                     }
+                     if( !ComparaValor( 'setorInicial', 'setorFinal', 'Setor' ) ){
+                         return false;
+                     }
+                     if( !ComparaValor( 'rotaInicial', 'rotaFinal', 'Rota' ) ){
+                         return false;
+                     }
+                     if( !ComparaValor( 'campoInicial', 'campoFinal', document.all.nomeCampo.innerHTML ) ){
+                         return false;
+                     }
+                     if( !ComparaValor( 'segmentoInicial', 'segmentoFinal', 'Segmento' ) ){
+                         return false;
+                     }
+                     if( !ComparaValor( 'clienteInicial', 'clienteFinal', 'Cliente' ) ){
+                         return false;
+                     }
+                     if( !ComparaValor( 'materialInicial', 'materialFinal', 'Material' ) ){
+                         return false;
+                     }
+                     if( document.all.tpConsolidacao[0].checked == true){
+                         document.all.tpConsolidacao.value = "1";
+                     }
+                     var dataInicialInv = parseInt( ( document.all.dataInicial.value.substr(6,10) + document.all.dataInicial.value.substr(3,2) + document.all.dataInicial.value.substr(0,2) ), 10 );
+                     var dataFinalInv   = parseInt( ( document.all.dataFinal.value.substr(6,10) + document.all.dataFinal.value.substr(3,2) + document.all.dataFinal.value.substr(0,2) ), 10 );
+                     document.all.campoInicial.disabled = false;
+                     document.all.campoInicial.className = 'campo';
+                     document.all.campoFinal.disabled = false;
+                     document.all.campoFinal.className = 'campo';
+                     document.all.rotaInicial.disabled = false;
+                     document.all.rotaInicial.className = 'campo';
+                     document.all.rotaFinal.disabled = false;
+                     document.all.rotaFinal.className = 'campo';
+                     document.all.segmentoInicial.disabled = false;
+                     document.all.segmentoInicial.className = 'campo';
+                     document.all.segmentoFinal.disabled = false;
+                     document.all.segmentoFinal.className = 'campo';
+                     document.all.tpConsolidacao[0].disabled = false;
+                     Disabled( "blocoConsolidacao", false );
+                     return true;
+                  }
+               </SCRIPT>
+               <SCRIPT>
+                   document.all.dataInicial.value = "00/00/0000";
+                   document.all.dataFinal.value = "99/99/9999";
+                   document.all.areaInicial.value = "0";
+                   document.all.areaFinal.value = "999";
+                   document.all.setorInicial.value = "0";
+                   document.all.setorFinal.value = "9999";
+                   document.all.rotaInicial.value = "1";
+                   document.all.rotaFinal.value = "7";
+                   document.all.clienteInicial.value = "0";
+                   document.all.clienteFinal.value = "99999";
+                   document.all.materialInicial.value = "0";
+                   document.all.materialFinal.value = "9999999";
+                   document.all.segmentoInicial.value = "0";
+                   document.all.segmentoFinal.value = "99";
+                   document.all.campoInicial.value = "0";
+                   document.all.campoFinal.value = "9999";
+                   document.all.perfilVendas.value = "000";
+                   document.all.grupoPerfilVendas.value="00";
+               </SCRIPT>
+
+               <script>
+                   function ChamaBuscaErros(){
+                       document.parentWindow.parent.top_rotina.BuscaErros();
+                   }
+                   function ZeraTimeOutCtrl(){
+                       document.parentWindow.parent.top_rotina.timeOut = 0;
+                   }
+               </script>
+               <script for=imgWait event=onpropertychange>
+                   try{
+                       if( document.all.imgWait.style.display != 'none' ){
+                           ChamaBuscaErros();
+                       }
+                   }
+                   catch( e ){
+                       setTimeout( 'ChamaBuscaErros()', 1000 );
+                   }
+               </script>
+               <script> document.parentWindow.parent.bottom_rotina.document.location.href = "../cgi-bin/PP00100.exe?SessionID=w0Lb1a54659813&SubSessionID=t8Kt8K22927871&ppopcao=00&call=PW03004R&frame=9&opcao=1&"; </script>
+               <script>
+                   if( document.all.imgWait != null ){
+                       document.all.imgWait.style.display = 'none';
+                   }
+                   try{
+                       if( 'S' == 'S' ){
+                           document.parentWindow.parent.top_rotina.document.all.unidade.disabled = false;
+                       }
+                   }
+                   catch( e ){}
+               </script>

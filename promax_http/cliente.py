@@ -15,6 +15,7 @@ Nao ha cookies: a sessao vive nos parametros SessionID e SubSessionID.
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlencode, urljoin, urlsplit
@@ -34,6 +35,12 @@ from promax_http.transporte import Resposta, Transporte
 OPCAO_EXPORTAR = "88"
 OPCAO_RELAT_CSV = "3"
 _FUNCAO_ONCLICK_RE = re.compile(r"(\w+)\s*\(")
+
+
+@dataclass(frozen=True)
+class ExportacaoPreparada:
+    url: str
+    campos: dict[str, str]
 
 
 @dataclass
@@ -148,51 +155,57 @@ class ClientePromax:
         self.http.get(f"{self.base}?SessionID={self.session_id}&SubSessionID={rotina.sub_session_id}&ppopcao=10")
 
     # ------------------------------------------------------------- exportacao
-    def exportar_csv(self, rotina: Rotina, campos: dict[str, str], destino: Path) -> Path:
-        """Preenche o formulario da rotina e baixa o CSV.
+    def exportar_csv(self, rotina: Rotina, campos: dict[str, str | None], destino: Path) -> Path:
+        """Visualiza e exporta na hora (uma etapa depois da outra)."""
+        return self.concluir_exportacao(self.preparar_exportacao(rotina, campos), destino)
 
-        Repete o caminho do navegador: o botao Visualizar envia o form1 para a
-        propria pagina da rotina (form sem action) e o Promax devolve a tela do
-        relatorio. O botao GerExecl/GeraExcel dessa tela reenvia o formulario
-        com opcao=88 e opcaorelat=3, e a resposta traz o CSV ou um link /tmp/rels.
+    def preparar_exportacao(self, rotina: Rotina, campos: dict[str, str | None]) -> "ExportacaoPreparada":
+        """Etapa que precisa da janela da rotina: preenche e Visualiza.
+
+        Devolve o pedido de exportacao pronto (URL + campos da tela de resultado,
+        com SessionID/SubSessionID daquele momento). Como no robo do Edge, ele
+        pode ser concluido em segundo plano enquanto a janela ja vai para a
+        proxima unidade.
         """
         # None nos campos da receita significa "nao enviar" (ex.: checkbox desmarcado).
         valores = {k: v for k, v in {**rotina.form.campos, **campos}.items() if v is not None}
         opcao_visualizar = _opcao_do_botao(rotina.html_rotina, rotina.form, "BotVisualizar")
-        if opcao_visualizar:
-            self._log("Visualizando o relatorio (o Promax pode demorar) ...")
-            tela = self.http.post(rotina.url_rotina, {**valores, "opcao": opcao_visualizar})
-            arquivo = self._salvar_se_for_relatorio(tela, destino)
-            if arquivo:
-                return arquivo
-            self._falhar_por_alerta(tela)
-            form_resultado = _form_de_exportacao(tela.texto)
-            if form_resultado is not None:
-                url = tela.url if not form_resultado.action else urljoin(tela.url, form_resultado.action)
-                self._log("Relatorio pronto. Pedindo a exportacao em CSV ...")
-                resposta = self.http.post(
-                    url, {**form_resultado.campos, "opcao": OPCAO_EXPORTAR, "opcaorelat": OPCAO_RELAT_CSV}
-                )
-                arquivo = self._salvar_se_for_relatorio(resposta, destino)
-                if arquivo:
-                    self._log("CSV salvo via Visualizar + GeraExcel: %s", arquivo)
-                    return arquivo
-                self._falhar_por_alerta(resposta)
-                raise ExportacaoNaoEntendida(
-                    f"GeraExcel nao devolveu arquivo. Alertas: {html.alertas(resposta.texto)}. Envie a pasta de rastro."
-                )
+        if not opcao_visualizar:
+            # Rotina sem Visualizar: exporta direto pelo frame 9.
+            return ExportacaoPreparada(
+                url=rotina.url_frame9,
+                campos={
+                    **valores, "frame": "9", "SessionID": self.session_id,
+                    "SubSessionID": rotina.sub_session_id, "ppopcao": "00", "call": rotina.programa,
+                    "opcao": OPCAO_EXPORTAR, "opcaorelat": OPCAO_RELAT_CSV,
+                },
+            )
+
+        self._log("Visualizando o relatorio (o Promax pode demorar) ...")
+        inicio = time.time()
+        tela = self.http.post(rotina.url_rotina, {**valores, "opcao": opcao_visualizar})
+        self._log("Promax gerou o relatorio em %.0fs.", time.time() - inicio)
+        self._falhar_por_alerta(tela)
+        form_resultado = _form_de_exportacao(tela.texto)
+        if form_resultado is None:
             raise ExportacaoNaoEntendida(
                 f"Visualizar nao trouxe a tela com GeraExcel. Alertas: {html.alertas(tela.texto)}. Envie a pasta de rastro."
             )
+        url = tela.url if not form_resultado.action else urljoin(tela.url, form_resultado.action)
+        return ExportacaoPreparada(
+            url=url, campos={**form_resultado.campos, "opcao": OPCAO_EXPORTAR, "opcaorelat": OPCAO_RELAT_CSV}
+        )
 
-        resposta = self._enviar_frame9(rotina, {**valores, "opcao": OPCAO_EXPORTAR, "opcaorelat": OPCAO_RELAT_CSV})
+    def concluir_exportacao(self, exportacao: "ExportacaoPreparada", destino: Path) -> Path:
+        """Pede o CSV e baixa. Nao usa a janela da rotina: pode rodar em paralelo."""
+        self._log("Pedindo a exportacao em CSV: %s ...", destino.name)
+        resposta = self.http.post(exportacao.url, exportacao.campos)
         arquivo = self._salvar_se_for_relatorio(resposta, destino)
         if arquivo:
             return arquivo
         self._falhar_por_alerta(resposta)
         raise ExportacaoNaoEntendida(
-            "Rotina sem botao Visualizar e a exportacao direta nao devolveu arquivo. "
-            f"Alertas: {html.alertas(resposta.texto)}. Envie a pasta de rastro."
+            f"A exportacao nao devolveu arquivo. Alertas: {html.alertas(resposta.texto)}. Envie a pasta de rastro."
         )
 
     # --------------------------------------------------------------- internos
@@ -265,14 +278,23 @@ class ClientePromax:
         if _parece_csv(resposta):
             return _gravar(destino, resposta.corpo)
         for url in reversed(html.urls_relatorio(resposta.texto, resposta.url)):
-            # O Promax abre "<nome>.csv.inf"; o CSV costuma estar no mesmo nome sem o ".inf".
-            candidatos = [url[: -len(".inf")], url] if url.lower().endswith(".inf") else [url]
-            for candidato in candidatos:
-                self._log("Baixando arquivo gerado: %s", candidato.rsplit("/", 1)[-1])
-                arquivo = self.http.get(candidato)
-                if arquivo.status == 200 and _parece_csv(arquivo):
-                    return _gravar(destino, arquivo.corpo)
-                self._log("Arquivo nao veio (HTTP %s, %d bytes).", arquivo.status, len(arquivo.corpo))
+            # O link "<nome>.csv.inf" que o Promax abre e o proprio CSV.
+            nome = url.rsplit("/", 1)[-1]
+            self._log("Baixando arquivo gerado: %s", nome)
+            status, content_type, total = self.http.baixar(
+                url,
+                destino,
+                ao_progredir=lambda baixado, segundos: self._log(
+                    "... %s: %.1f MB em %.0fs", nome, baixado / 1_048_576, segundos
+                ),
+            )
+            parcial = destino.with_suffix(destino.suffix + ".parcial")
+            if status == 200 and _arquivo_parece_csv(parcial, content_type):
+                parcial.replace(destino)
+                self._log("Arquivo salvo: %s (%.1f MB)", destino.name, total / 1_048_576)
+                return destino
+            parcial.unlink(missing_ok=True)
+            self._log("Arquivo nao veio (HTTP %s, %d bytes).", status, total)
         return None
 
     def _falhar_por_alerta(self, resposta: Resposta) -> None:
@@ -381,6 +403,14 @@ def _parece_csv(resposta: Resposta) -> bool:
     if "html" in resposta.content_type.lower() or inicio.startswith((b"<html", b"<!doctype", b"<script", b"<")):
         return False
     return b";" in inicio or b"," in inicio or b"\t" in inicio
+
+
+def _arquivo_parece_csv(caminho: Path, content_type: str) -> bool:
+    if not caminho.is_file():
+        return False
+    with caminho.open("rb") as arquivo:
+        inicio = arquivo.read(300)
+    return _parece_csv(Resposta(url="", status=200, content_type=content_type, corpo=inicio))
 
 
 def _gravar(destino: Path, conteudo: bytes) -> Path:
