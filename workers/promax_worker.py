@@ -1471,22 +1471,21 @@ class PromaxWorker:
             operation = "grade_estoque"
         if operation != "grade_estoque":
             return
-        raw_files = (result.details or {}).get("downloaded_files")
-        if not isinstance(raw_files, Sequence) or isinstance(raw_files, (str, bytes, bytearray)):
-            raise ValueError("O driver Cora não informou os arquivos baixados da grade de estoque.")
-        requested_units = _string_list(payload.get("units"))
+        raw_units = (result.details or {}).get("units")
+        if not isinstance(raw_units, Sequence) or isinstance(raw_units, (str, bytes, bytearray)):
+            raise ValueError("O driver Cora não informou o vínculo entre unidade e arquivo da grade de estoque.")
         imported = 0
         skipped: list[str] = []
-        for index, raw_path in enumerate(raw_files):
-            path = Path(str(raw_path or "")).expanduser()
+        for raw_unit in raw_units:
+            if not isinstance(raw_unit, Mapping):
+                raise ValueError("O driver Cora informou uma unidade de estoque inválida.")
+            unit = str(raw_unit.get("code") or "").strip()
+            path = Path(str(raw_unit.get("file") or "")).expanduser()
             if not path.is_file():
                 raise OSError(f"Arquivo Stock_Product do Cora não encontrado: {path}")
-            unit = next((value for value in _CORA_ESTOQUE_UNIT_FILIAL if value in path.name), "")
-            if not unit and len(raw_files) == len(requested_units):
-                unit = requested_units[index]
             filial = _CORA_ESTOQUE_UNIT_FILIAL.get(unit)
             if not filial:
-                skipped.append(path.name)
+                skipped.append(f"{unit or 'sem codigo'}:{path.name}")
                 continue
             self._heartbeat_active_job(job_id, lease_token)
             response = self.client.import_cora_estoque_csv(

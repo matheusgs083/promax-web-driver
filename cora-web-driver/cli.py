@@ -66,13 +66,18 @@ def main() -> int:
             data_grade = date.fromisoformat(args.data) if args.data else date.today()
             cliente = ClienteCora(log=lambda msg: print(msg, flush=True))
             cliente.login(settings.username, settings.password)
-            arquivos = cliente.baixar_grade_estoque(data_grade, settings.download_dir / "estoque", filiais=args.filial)
+            unidades = cliente.baixar_grade_estoque_detalhada(
+                data_grade,
+                settings.download_dir.parent / "cora_estoque",
+                filiais=args.filial,
+            )
             print(json.dumps({
                 "event": "cora_job_result",
                 "status": "success",
-                "message": f"Grade de estoque do Cora baixada ({len(arquivos)} filial(is)).",
+                "message": f"Grade de estoque do Cora baixada ({len(unidades)} filial(is)).",
                 "grid_date": data_grade.isoformat(),
-                "downloaded_files": [str(a) for a in arquivos],
+                "downloaded_files": [item["file"] for item in unidades],
+                "units": unidades,
             }), flush=True)
             return 0
         if operation == "critica_navegador":

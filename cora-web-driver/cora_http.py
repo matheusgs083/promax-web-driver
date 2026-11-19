@@ -195,6 +195,31 @@ class ClienteCora:
     def baixar_grade_estoque(self, data_grade: date, pasta: Path, *, filiais: list[str] | None = None,
                              espera: float = 600, intervalo: float = 5) -> list[Path]:
         """Exporta a grade de estoque de cada filial (todas, se nao informar) e baixa os CSVs."""
+        return [
+            Path(item["file"])
+            for item in self.baixar_grade_estoque_detalhada(
+                data_grade,
+                pasta,
+                filiais=filiais,
+                espera=espera,
+                intervalo=intervalo,
+            )
+        ]
+
+    def baixar_grade_estoque_detalhada(
+        self,
+        data_grade: date,
+        pasta: Path,
+        *,
+        filiais: list[str] | None = None,
+        espera: float = 600,
+        intervalo: float = 5,
+    ) -> list[dict[str, str]]:
+        """Baixa a grade e mantém o vínculo seguro entre unidade Cora e arquivo.
+
+        O nome do arquivo é legível, mas não é uma chave de integração: o
+        resultado preserva o código retornado pela API do Cora.
+        """
         disponiveis = self.filiais_estoque()
         if filiais:
             pedidas = {str(f).strip() for f in filiais}
@@ -207,7 +232,7 @@ class ClienteCora:
             escolhidas = disponiveis
         if not escolhidas:
             raise CoraErro("Nenhuma filial disponivel na grade de estoque deste usuario.")
-        arquivos = []
+        arquivos: list[dict[str, str]] = []
         for filial in escolhidas:
             empresa, codigo = filial["company"]["code"], filial["code"]
             corpo = {
@@ -222,7 +247,12 @@ class ClienteCora:
             self.api("POST", f"{API_ESTOQUE}/reports/stock-products:csv", corpo)
             prefixo = f"STOCK_PRODUCT-{data_grade:%Y%m%d}-{empresa}{codigo}-"
             nome = f"ESTOQUE_{nome_revenda(filial)}_{data_grade:%Y%m%d}"
-            arquivos.append(self._baixar_do_gerenciador(prefixo, inicio, pasta, espera, intervalo, nome=nome))
+            arquivo = self._baixar_do_gerenciador(prefixo, inicio, pasta, espera, intervalo, nome=nome)
+            arquivos.append({
+                "code": str(codigo),
+                "name": str(filial.get("name") or nome_revenda(filial)),
+                "file": str(arquivo),
+            })
         return arquivos
 
     # ---- gerenciador de downloads ------------------------------------------

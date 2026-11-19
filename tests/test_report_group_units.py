@@ -9,7 +9,7 @@ def _manifest(tmp_path: Path, units: str) -> Path:
     caminho = tmp_path / "cora_estoque.py"
     caminho.write_text(
         'REPORT_GROUP = {"key": "cora_estoque", "name": "Cora", "description": "Estoque",'
-        ' "routines": [{"id": "grade_estoque", "name": "Grade", "output_folders": ["cora/estoque"]}]'
+        ' "routines": [{"id": "grade_estoque", "name": "Grade", "output_folders": ["cora_estoque"]}]'
         + units + "}",
         encoding="utf-8",
     )

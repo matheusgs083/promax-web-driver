@@ -6,7 +6,7 @@ REPORT_GROUP = {
         {
             "id": "grade_estoque",
             "name": "Grade de Estoque Cora",
-            "output_folders": ["cora/estoque"],
+            "output_folders": ["cora_estoque"],
         },
     ],
     "units": ["487570", "747530", "747548"],
