@@ -9,5 +9,6 @@ REPORT_GROUP = {
             "output_folders": ["cora_estoque"],
         },
     ],
-    "units": ["487570", "747530", "747548"],
+    # Códigos PUXADA da dRevendas (os mesmos aceitos pela API Cora).
+    "units": ["487570", "820288", "747530", "747548", "1036580", "1044303", "1044591", "1045180"],
 }

@@ -35,6 +35,21 @@ def _is_cora_critica_job(job: Mapping[str, Any], payload: Mapping[str, Any]) -> 
 # Grupos do Cora e a operacao do cora-web-driver que cada um executa.
 _CORA_OPERATIONS_BY_CATEGORY = {"cora_critica": "critica", "cora_estoque": "grade_estoque"}
 
+# O painel geral trabalha com códigos Promax; a API da Grade de Estoque usa
+# outros códigos para as unidades Cora. Só as unidades confirmadas entram
+# nesta tradução. As demais não podem ser inventadas nem enviadas ao Cora.
+_CORA_ESTOQUE_UNIT_BY_PROMAX_UNIT = {
+    "0640001": "487570",  # Sousa
+    "0640002": "820288",  # Itaporanga
+    "2210003": "747530",  # Patos
+    "2210004": "747548",  # Sumé
+    "3480005": "1036580",  # Guarabira
+    "3610006": "1044303",  # Brumado
+    "3610007": "1044591",  # Barra
+    "3610008": "1045180",  # Caculé
+}
+_CORA_ESTOQUE_UNITS = frozenset(_CORA_ESTOQUE_UNIT_BY_PROMAX_UNIT.values())
+
 
 def _cora_category(job: Mapping[str, Any], payload: Mapping[str, Any]) -> str:
     for key in ("category", "profile", "perfil", "report_profile"):
@@ -56,6 +71,26 @@ def _payload_units(payload: Mapping[str, Any]) -> list[str]:
         if unit not in units:
             units.append(unit)
     return units
+
+
+def _cora_estoque_units(payload: Mapping[str, Any]) -> list[str]:
+    """Converte a seleção do painel em códigos aceitos pela API Cora.
+
+    O painel pode enviar todas as unidades Promax. Para estoque, somente as
+    unidades que também existem no Cora devem virar argumentos ``--filial``.
+    """
+    selected = _payload_units(payload)
+    resolved: list[str] = []
+    for unit in selected:
+        cora_unit = _CORA_ESTOQUE_UNIT_BY_PROMAX_UNIT.get(unit, unit if unit in _CORA_ESTOQUE_UNITS else "")
+        if cora_unit and cora_unit not in resolved:
+            resolved.append(cora_unit)
+    if selected and not resolved:
+        raise ValueError(
+            "Nenhuma unidade selecionada possui código Cora de estoque configurado. "
+            "Verifique os códigos de unidade da dRevendas."
+        )
+    return resolved
 
 
 class PromaxRunnerConfigurationError(ValueError):
@@ -372,8 +407,9 @@ class PromaxRunner:
         if job_id:
             command.extend(["--job-id", job_id])
         if operation == "grade_estoque":
-            # Cada unidade de entrega do Cora e exportada separadamente.
-            for unit in _payload_units(payload):
+            # Cada unidade Cora é exportada separadamente. A seleção padrão
+            # do painel pode conter filiais que não existem nesse portal.
+            for unit in _cora_estoque_units(payload):
                 command.extend(["--filial", unit])
         return command
 

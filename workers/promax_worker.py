@@ -46,8 +46,14 @@ _PROMAX_030206_UNIT_FILIAL_DEFAULTS = {
     "3610008": "8",
 }
 _CORA_ESTOQUE_UNIT_FILIAL = {
+    "487570": "1",  # Sousa
+    "820288": "2",  # Itaporanga
     "747530": "3",  # Patos
     "747548": "4",  # Sumé
+    "1036580": "5",  # Guarabira
+    "1044303": "6",  # Brumado
+    "1044591": "7",  # Barra
+    "1045180": "8",  # Caculé
 }
 
 

@@ -53,6 +53,25 @@ def test_grade_de_estoque_do_cora_passa_cada_unidade_de_entrega(tmp_path: Path) 
     ]
 
 
+def test_grade_de_estoque_converte_unidades_do_painel_para_codigos_cora(tmp_path: Path) -> None:
+    command = _runner(tmp_path).build_command(
+        {
+            "job_id": "est-painel",
+            "job_type": "relatorios",
+            "payload": {
+                "category": "cora_estoque",
+                "units": ["0640001", "0640002", "2210003", "2210004", "3480005", "3610006", "3610007", "3610008"],
+            },
+        }
+    )
+
+    assert command[2:] == [
+        "executar", "--operacao", "grade_estoque", "--job-id", "est-painel",
+        "--filial", "487570", "--filial", "820288", "--filial", "747530", "--filial", "747548",
+        "--filial", "1036580", "--filial", "1044303", "--filial", "1044591", "--filial", "1045180",
+    ]
+
+
 def test_grade_de_estoque_sem_unidade_exporta_todas(tmp_path: Path) -> None:
     command = _runner(tmp_path).build_command(
         {"job_id": "est-2", "job_type": "cora_estoque", "payload": {"site": "cora", "operation": "cora_estoque"}}
