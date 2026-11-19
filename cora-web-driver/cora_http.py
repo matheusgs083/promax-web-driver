@@ -226,7 +226,11 @@ class ClienteCora:
             escolhidas = [f for f in disponiveis if str(f.get("code")) in pedidas]
             faltando = pedidas - {str(f.get("code")) for f in escolhidas}
             if faltando:
-                raise CoraErro(f"Filial(is) {sorted(faltando)} nao aparecem na grade de estoque. "
+                # O painel manda todas as revendas; este login do Cora so enxerga algumas.
+                self.log(f"Filial(is) {sorted(faltando)} nao aparecem na grade de estoque deste usuario; "
+                         f"ignoradas. Disponiveis: {[f.get('code') for f in disponiveis]}")
+            if not escolhidas:
+                raise CoraErro(f"Nenhuma das filiais pedidas {sorted(pedidas)} aparece na grade de estoque. "
                                f"Disponiveis: {[f.get('code') for f in disponiveis]}")
         else:
             escolhidas = disponiveis

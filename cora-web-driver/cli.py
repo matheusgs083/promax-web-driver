@@ -78,6 +78,7 @@ def main() -> int:
                 "grid_date": data_grade.isoformat(),
                 "downloaded_files": [item["file"] for item in unidades],
                 "units": unidades,
+                "ignored_units": sorted(set(args.filial) - {item["code"] for item in unidades}),
             }), flush=True)
             return 0
         if operation == "critica_navegador":

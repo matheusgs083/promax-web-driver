@@ -9,6 +9,7 @@ REPORT_GROUP = {
             "output_folders": ["cora_estoque"],
         },
     ],
-    # Códigos PUXADA da dRevendas (os mesmos aceitos pela API Cora).
-    "units": ["487570", "820288", "747530", "747548", "1036580", "1044303", "1044591", "1045180"],
+    # Sem "units": a tela envia os códigos Promax de sempre e o worker traduz
+    # para o código Cora (_CORA_ESTOQUE_UNIT_BY_PROMAX_UNIT em promax_runner.py).
+    # Listar aqui os códigos Cora faz a API recusar os códigos Promax (422).
 }

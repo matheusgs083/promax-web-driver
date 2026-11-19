@@ -179,3 +179,20 @@ def test_grade_de_estoque_filial_inexistente_lista_as_disponiveis(tmp_path):
 def test_nome_revenda_no_arquivo(nome, esperado):
     from cora_http import nome_revenda
     assert nome_revenda({"code": 747530, "name": nome}) == esperado
+
+
+def test_grade_de_estoque_ignora_filial_que_o_login_nao_ve(tmp_path):
+    falso = Falso(_login_ok() + [
+        (200, FILIAIS, None),
+        (202, "", None),
+        (200, {"data": [_estoque(2)]}, None),
+        (200, {"link": "https://blob/estoque.csv?sig=1"}, None),
+        (200, b"codigo;produto\n347;SUKITA\n", None),
+    ])
+    mensagens = []
+    cliente = ClienteCora(falso, log=mensagens.append, dormir=lambda s: None,
+                          agora=lambda: datetime(2026, 11, 19, 11, 10, 30, tzinfo=timezone.utc))
+    cliente.login("u", "s")
+    unidades = cliente.baixar_grade_estoque_detalhada(date(2026, 11, 19), tmp_path, filiais=["747530", "820288"])
+    assert [u["code"] for u in unidades] == ["747530"]
+    assert any("820288" in m and "ignoradas" in m for m in mensagens)
