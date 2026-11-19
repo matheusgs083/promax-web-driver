@@ -29,6 +29,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "mapa-030303": ("entrypoints.processes.mapa_030303", "Executa o carregamento e salvamento de mapa na rotina 030303."),
     "lancamento-grade": ("entrypoints.processes.lancamento_grade_020105", "Lanca a grade de inventario na rotina 020105."),
     "lancamento-grade-020304": ("entrypoints.processes.lancamento_grade_020304", "Lança a grade da 020301 para o estoque 020304."),
+    "digitacao-030104": ("entrypoints.processes.digitacao_030104", "Digita pedidos da 03.01.04 por HTTP."),
 }
 REPORT_CATALOG_COMMAND = "catalogo-relatorios"
 
@@ -104,6 +105,11 @@ def build_parser() -> argparse.ArgumentParser:
             command_parser.add_argument("--unidade", default=None)
             command_parser.add_argument("--nao-salvar", action="store_true")
             command_parser.add_argument("--fechar-ao-falhar", action="store_true")
+            command_parser.add_argument("--job-id", default="")
+        elif nome == "digitacao-030104":
+            command_parser.add_argument("--arquivo", required=True, help="JSON com os pedidos a digitar.")
+            command_parser.add_argument("--unidade", default=None)
+            command_parser.add_argument("--nao-salvar", action="store_true")
             command_parser.add_argument("--job-id", default="")
 
     subparsers.add_parser(
@@ -192,6 +198,7 @@ def main_cli() -> int:
         "reprocessar-publicacao",
         "lancamento-grade",
         "lancamento-grade-020304",
+        "digitacao-030104",
     }
     if args.command in {"relatorios", "fechamento"}:
         kwargs = {
@@ -244,6 +251,8 @@ def main_cli() -> int:
         }
     elif args.command == "lancamento-grade-020304":
         kwargs = {"arquivo": args.arquivo, "unidade": args.unidade, "job_id": args.job_id}
+    elif args.command == "digitacao-030104":
+        kwargs = {"arquivo": args.arquivo, "unidade": args.unidade, "salvar": not args.nao_salvar, "job_id": args.job_id}
     try:
         result = normalize_execution_result(module.main(**kwargs))
     except ValueError as exc:

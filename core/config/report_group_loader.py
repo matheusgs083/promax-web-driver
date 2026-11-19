@@ -10,10 +10,11 @@ from core.config.project_paths import REPORT_GROUPS_DIR
 
 
 GROUP_FIELDS = {"key", "name", "description", "routines"}
-OPTIONAL_GROUP_FIELDS = {"section"}
+OPTIONAL_GROUP_FIELDS = {"section", "units"}
 ROUTINE_FIELDS = {"id", "name", "output_folders"}
 GROUP_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 ROUTINE_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_]*$")
+UNIT_CODE_PATTERN = re.compile(r"^[0-9]{3,10}$")
 
 
 class ReportGroupManifestError(ValueError):
@@ -41,6 +42,8 @@ class ReportGroup:
     description: str
     routines: tuple[ReportRoutine, ...]
     section: str = ""
+    # Unidades proprias do grupo (ex.: unidades de entrega do Cora). Vazio = unidades do Promax.
+    units: tuple[str, ...] = ()
 
     @property
     def routine_ids(self) -> tuple[str, ...]:
@@ -55,13 +58,16 @@ class ReportGroup:
         )
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        dados: dict[str, object] = {
             "key": self.key,
             "name": self.name,
             "description": self.description,
             "section": self.section,
             "routines": [routine.to_dict() for routine in self.routines],
         }
+        if self.units:
+            dados["units"] = list(self.units)
+        return dados
 
 
 def _manifest_error(path: Path, message: str) -> ReportGroupManifestError:
@@ -195,6 +201,22 @@ def _validate_routines(raw_routines: object, *, path: Path) -> tuple[ReportRouti
     return tuple(routines)
 
 
+def _validate_units(raw_units: object, *, path: Path) -> tuple[str, ...]:
+    if raw_units is None:
+        return ()
+    if not isinstance(raw_units, list) or not raw_units:
+        raise _manifest_error(path, "units deve ser uma lista nao vazia de codigos")
+    units: list[str] = []
+    for index, raw_unit in enumerate(raw_units):
+        unit = _require_non_empty_string(raw_unit, path=path, field=f"units[{index}]")
+        if not UNIT_CODE_PATTERN.fullmatch(unit):
+            raise _manifest_error(path, f"units[{index}] deve ser um codigo numerico")
+        if unit in units:
+            raise _manifest_error(path, f"unidade duplicada: {unit}")
+        units.append(unit)
+    return tuple(units)
+
+
 def load_report_group_manifest(path: str | Path) -> ReportGroup:
     path = Path(path)
     raw_group = _literal_report_group(path)
@@ -223,6 +245,7 @@ def load_report_group_manifest(path: str | Path) -> ReportGroup:
         ),
         routines=_validate_routines(raw_group["routines"], path=path),
         section=str(raw_group.get("section") or "").strip(),
+        units=_validate_units(raw_group.get("units"), path=path),
     )
 
 

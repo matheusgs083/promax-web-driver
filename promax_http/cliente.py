@@ -56,6 +56,7 @@ class Rotina:
     html_rotina: str
     html_topo: str
     unidades: list[html.Opcao] = field(default_factory=list)
+    carga_frame9: str = ""  # JavaScript que o frame 9 roda ao abrir (listas, valores iniciais)
 
     @property
     def unidade_ativa(self) -> str | None:
@@ -370,7 +371,7 @@ class ClientePromax:
         return Rotina(
             codigo=codigo, menu_id=menu_id, programa=form.campos.get("call", programa), sub_session_id=sub,
             url_rotina=pagina.url, url_frame9=url_frame9, form=form, html_rotina=pagina.texto,
-            html_topo=topo, unidades=unidades,
+            html_topo=topo, unidades=unidades, carga_frame9=carga_frame9,
         )
 
     def _enviar_frame9(self, rotina: Rotina, campos: dict[str, str]) -> Resposta:

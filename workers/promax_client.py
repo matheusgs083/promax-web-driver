@@ -381,6 +381,31 @@ class PromaxClient:
             reference_date=reference_date,
         )
 
+    def import_cora_estoque_csv(
+        self,
+        *,
+        job_id: str,
+        lease_token: str,
+        filial: str,
+        filename: str,
+        csv_bytes: bytes,
+    ) -> dict[str, Any]:
+        if not csv_bytes:
+            raise ValueError("Cora stock CSV must not be empty.")
+        return self._request(
+            "POST",
+            "/api/internal/promax/cora-estoque/import",
+            {
+                "worker_id": self.worker_id,
+                "job_id": _path_identifier(job_id),
+                "lease_token": _path_identifier(lease_token),
+                "filial": str(filial or "").strip(),
+                "filename": str(filename or "").strip(),
+                "file_base64": base64.b64encode(csv_bytes).decode("ascii"),
+            },
+            timeout_seconds=self.boleto_import_timeout_seconds,
+        )
+
     def import_liga_entrega_files(
         self,
         *,

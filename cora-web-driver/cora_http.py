@@ -7,6 +7,9 @@ Caminho (igual ao que a tela faz):
    com a data de entrega desejada.
 3. Pede o CSV (generate-csv), acompanha o gerenciador de downloads ate o
    arquivo ficar pronto e baixa pelo link temporario do Azure.
+
+Grade de estoque (Pedidos > Grade de Estoque > exportar CSV): mesmo login e
+mesmo gerenciador; o pedido do CSV e feito por filial na API allocation-stock.
 """
 from __future__ import annotations
 
@@ -14,6 +17,7 @@ import html
 import json
 import re
 import time
+import unicodedata
 import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
@@ -30,6 +34,7 @@ REDIRECT_URI = "https://cora-revenda.ambev.com.br/"
 TENANT = "ambev-hercules-autorizacao-tenant-bra-3pd"
 API_PEDIDOS = "https://apim.ambevdevs.com.br/pedidos/orders/v1"
 API_DOWNLOADS = "https://apim.ambevdevs.com.br/foundation-cora/download-center/v1"
+API_ESTOQUE = "https://apim.ambevdevs.com.br/pedidos/allocation-stock/v1/api"
 FILTRO_DATA_ENTREGA = "52bedfa2-a540-473e-bec6-68b1fa004239"
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -180,10 +185,56 @@ class ClienteCora:
         inicio = self.agora()
         self.log(f"Pedindo o CSV da consulta {nome_consulta} para entrega em {data_entrega:%d/%m/%Y} ...")
         self.api("POST", f"{API_PEDIDOS}/search/generate-csv", corpo)
-        arquivo = self._esperar_arquivo(data_entrega, inicio, espera, intervalo)
+        return self._baixar_do_gerenciador(f"consulta-pedidos_{data_entrega:%d%m%Y}_", inicio, pasta, espera, intervalo)
+
+    # ---- grade de estoque (Pedidos > Grade de Estoque > exportar) -----------
+    def filiais_estoque(self) -> list[dict]:
+        """Filiais da grade de estoque: [{'code': 747530, 'name': ..., 'company': {'code': 2221}}, ...]."""
+        return (self.api("GET", f"{API_ESTOQUE}/branches").json() or {}).get("branches") or []
+
+    def baixar_grade_estoque(self, data_grade: date, pasta: Path, *, filiais: list[str] | None = None,
+                             espera: float = 600, intervalo: float = 5) -> list[Path]:
+        """Exporta a grade de estoque de cada filial (todas, se nao informar) e baixa os CSVs."""
+        disponiveis = self.filiais_estoque()
+        if filiais:
+            pedidas = {str(f).strip() for f in filiais}
+            escolhidas = [f for f in disponiveis if str(f.get("code")) in pedidas]
+            faltando = pedidas - {str(f.get("code")) for f in escolhidas}
+            if faltando:
+                raise CoraErro(f"Filial(is) {sorted(faltando)} nao aparecem na grade de estoque. "
+                               f"Disponiveis: {[f.get('code') for f in disponiveis]}")
+        else:
+            escolhidas = disponiveis
+        if not escolhidas:
+            raise CoraErro("Nenhuma filial disponivel na grade de estoque deste usuario.")
+        arquivos = []
+        for filial in escolhidas:
+            empresa, codigo = filial["company"]["code"], filial["code"]
+            corpo = {
+                "movementDate": data_grade.isoformat(),
+                "company": {"branch": {"code": codigo}, "code": empresa},
+                "grid": 0,
+                "productCodes": [],
+                "reserve": "TODAS",
+            }
+            inicio = self.agora()
+            self.log(f"Pedindo a grade de estoque de {filial.get('name', codigo)} ({data_grade:%d/%m/%Y}) ...")
+            self.api("POST", f"{API_ESTOQUE}/reports/stock-products:csv", corpo)
+            prefixo = f"STOCK_PRODUCT-{data_grade:%Y%m%d}-{empresa}{codigo}-"
+            nome = f"ESTOQUE_{nome_revenda(filial)}_{data_grade:%Y%m%d}"
+            arquivos.append(self._baixar_do_gerenciador(prefixo, inicio, pasta, espera, intervalo, nome=nome))
+        return arquivos
+
+    # ---- gerenciador de downloads ------------------------------------------
+    def _baixar_do_gerenciador(self, prefixo: str, inicio: datetime, pasta: Path, espera: float, intervalo: float,
+                               *, nome: str | None = None) -> Path:
+        """Espera o arquivo pedido ficar pronto no gerenciador e baixa ("Baixar arquivo").
+
+        `nome` troca o nome que o Cora deu ao arquivo (sem a extensao)."""
+        arquivo = self._esperar_arquivo(prefixo, inicio, espera, intervalo)
         link = self.api("POST", f"{API_DOWNLOADS}/files/{arquivo['id']}:generatedownloadlink").json()["link"]
         pasta.mkdir(parents=True, exist_ok=True)
-        destino = pasta / f"{arquivo['name']}.csv"
+        destino = pasta / f"{nome or arquivo['name']}.csv"
         conteudo = self.http.enviar("GET", link)
         if conteudo.status != 200:
             raise CoraErro(f"Download do CSV falhou (HTTP {conteudo.status}).")
@@ -193,8 +244,7 @@ class ClienteCora:
         self.log(f"CSV salvo: {destino.name} ({len(conteudo.corpo) / 1_048_576:.1f} MB)")
         return destino
 
-    def _esperar_arquivo(self, data_entrega: date, inicio: datetime, espera: float, intervalo: float) -> dict:
-        prefixo = f"consulta-pedidos_{data_entrega:%d%m%Y}_"
+    def _esperar_arquivo(self, prefixo: str, inicio: datetime, espera: float, intervalo: float) -> dict:
         desde = inicio - timedelta(seconds=30)  # folga para diferenca de relogio
         limite = time.monotonic() + espera
         while True:
@@ -209,7 +259,7 @@ class ClienteCora:
                     raise CoraErro(f"O Cora marcou o arquivo como {STATUS_FALHA[status]}: {arquivo.get('name')}")
                 self.log(f"... Cora gerando o CSV ({arquivo.get('percentile') or 0}%)")
             if time.monotonic() >= limite:
-                raise CoraErro(f"O CSV da Critica nao ficou pronto em {int(espera)}s.")
+                raise CoraErro(f"O arquivo {prefixo}* nao ficou pronto em {int(espera)}s.")
             self.dormir(intervalo)
 
 
@@ -230,6 +280,17 @@ def pedido_csv(modelo: dict, data_entrega: date) -> dict:
         "columns": [{"id": c["id"], "order": i, "value": None} for i, c in enumerate(colunas)],
         "filters": filtros,
     }
+
+
+_PALAVRAS_GENERICAS = {"PAU", "BRASIL", "FILIAL", "MATRIZ", "BEBIDAS", "DISTRIBUIDORA", "LTDA", "ME", "EPP", "SA", "DE", "DA", "DO"}
+
+
+def nome_revenda(filial: dict) -> str:
+    """Nome curto da revenda para o arquivo: 'Pau Brasil Filial Sume' -> 'SUME'; sem nome, o codigo."""
+    texto = unicodedata.normalize("NFKD", str(filial.get("name") or "")).encode("ascii", "ignore").decode()
+    palavras = re.findall(r"[A-Z0-9]+", texto.upper())
+    proprias = [p for p in palavras if p not in _PALAVRAS_GENERICAS]
+    return "_".join(proprias or palavras) or str(filial.get("code"))
 
 
 def _codigo_do_redirecionamento(local: str) -> str:

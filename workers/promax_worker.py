@@ -45,6 +45,10 @@ _PROMAX_030206_UNIT_FILIAL_DEFAULTS = {
     "3610007": "7",
     "3610008": "8",
 }
+_CORA_ESTOQUE_UNIT_FILIAL = {
+    "747530": "3",  # Patos
+    "747548": "4",  # Sumé
+}
 
 
 @dataclass(frozen=True)
@@ -472,6 +476,7 @@ class PromaxWorker:
                     self._import_031702_documentacao_if_needed(job, job_id, lease_token, result)
                     self._import_030111_critica_if_needed(job, job_id, lease_token, result)
                     self._import_cora_critica_if_needed(job, job_id, lease_token, result)
+                    self._import_cora_estoque_if_needed(job, job_id, lease_token, result)
                     post_import_attempted = True
                 if not sync_completed:
                     self._sync_pending_partial_results(job, job_id, lease_token)
@@ -1442,6 +1447,87 @@ class PromaxWorker:
             f"Critica do Cora enviada ao servidor: {len(files)} arquivo(s).",
             "info",
             {"event": "cora_critica_auto_import_uploaded", "files": list(files), "result": response},
+        )
+
+    def _import_cora_estoque_if_needed(
+        self,
+        job: Mapping[str, Any],
+        job_id: str,
+        lease_token: str,
+        result: PromaxRunResult,
+    ) -> None:
+        """Envia cada Stock_Product do Cora para a filial correspondente no painel."""
+        if normalize_status(result.status) != "success":
+            return
+        payload = job.get("payload")
+        if not isinstance(payload, Mapping):
+            payload = {}
+        site = str(payload.get("site") or job.get("site") or "").strip().lower()
+        category = str(payload.get("category") or job.get("category") or "").strip().lower()
+        operation = str(payload.get("operation") or job.get("job_type") or "").strip().lower()
+        if site != "cora" and category != "cora_estoque":
+            return
+        if operation in {"cora_estoque", "estoque"}:
+            operation = "grade_estoque"
+        if operation != "grade_estoque":
+            return
+        raw_files = (result.details or {}).get("downloaded_files")
+        if not isinstance(raw_files, Sequence) or isinstance(raw_files, (str, bytes, bytearray)):
+            raise ValueError("O driver Cora não informou os arquivos baixados da grade de estoque.")
+        requested_units = _string_list(payload.get("units"))
+        imported = 0
+        skipped: list[str] = []
+        for index, raw_path in enumerate(raw_files):
+            path = Path(str(raw_path or "")).expanduser()
+            if not path.is_file():
+                raise OSError(f"Arquivo Stock_Product do Cora não encontrado: {path}")
+            unit = next((value for value in _CORA_ESTOQUE_UNIT_FILIAL if value in path.name), "")
+            if not unit and len(raw_files) == len(requested_units):
+                unit = requested_units[index]
+            filial = _CORA_ESTOQUE_UNIT_FILIAL.get(unit)
+            if not filial:
+                skipped.append(path.name)
+                continue
+            self._heartbeat_active_job(job_id, lease_token)
+            response = self.client.import_cora_estoque_csv(
+                job_id=job_id,
+                lease_token=lease_token,
+                filial=filial,
+                filename=path.name,
+                csv_bytes=path.read_bytes(),
+            )
+            self._heartbeat_active_job(job_id, lease_token)
+            result_payload = response.get("result") if isinstance(response, Mapping) else {}
+            self._send_log(
+                job_id,
+                lease_token,
+                f"Grade Cora importada para filial {filial}: {path.name}.",
+                "info",
+                {
+                    "event": "cora_estoque_auto_import_uploaded",
+                    "unit": unit,
+                    "filial": filial,
+                    "filename": path.name,
+                    "result": result_payload if isinstance(result_payload, Mapping) else {},
+                },
+            )
+            imported += 1
+        if skipped:
+            self._send_log(
+                job_id,
+                lease_token,
+                "Grade Cora baixada sem vínculo de filial no painel: " + ", ".join(skipped),
+                "warning",
+                {"event": "cora_estoque_auto_import_unmapped", "files": skipped},
+            )
+        if not imported:
+            raise ValueError("Nenhum CSV Stock_Product foi associado a uma filial configurada no painel.")
+        self._send_log(
+            job_id,
+            lease_token,
+            f"Atualizacao da grade Cora concluida: {imported} filial(is) importada(s).",
+            "info",
+            {"event": "cora_estoque_auto_import_success", "imported": imported, "skipped": skipped},
         )
 
     def _import_csv_folder_if_needed(

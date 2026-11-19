@@ -127,3 +127,55 @@ def test_consulta_inexistente_lista_as_do_usuario():
     cliente.login("u", "s")
     with pytest.raises(CoraErro, match="BUFFER"):
         cliente.consulta_salva("Critica")
+
+
+FILIAIS = {"branches": [
+    {"code": 747530, "name": "Pau Brasil Filial Patos", "company": {"code": 2221}},
+    {"code": 747548, "name": "Pau Brasil Filial Sume", "company": {"code": 2221}},
+]}
+
+
+def _estoque(status, filial="747530", criado="2026-11-19T11:10:38.876396Z"):
+    return {"id": f"arq{filial}", "name": f"STOCK_PRODUCT-20261119-2221{filial}-20261119-081038828",
+            "status": status, "createAt": criado}
+
+
+def test_grade_de_estoque_pede_por_filial_e_baixa(tmp_path):
+    falso = Falso(_login_ok() + [
+        (200, FILIAIS, None),
+        (202, "", None),  # stock-products:csv
+        (200, {"data": [_estoque(1)]}, None),
+        (200, {"data": [_estoque(2)]}, None),
+        (200, {"link": "https://blob/estoque.csv?sig=1"}, None),
+        (200, b"codigo;produto\n347;SUKITA\n", None),
+    ])
+    cliente = ClienteCora(falso, log=lambda m: None, dormir=lambda s: None,
+                          agora=lambda: datetime(2026, 11, 19, 11, 10, 30, tzinfo=timezone.utc))
+    cliente.login("u", "s")
+    arquivos = cliente.baixar_grade_estoque(date(2026, 11, 19), tmp_path, filiais=["747530"])
+    assert [a.name for a in arquivos] == ["ESTOQUE_PATOS_20261119.csv"]
+    assert arquivos[0].read_bytes().startswith(b"codigo;produto")
+    metodo, url, _, corpo = falso.pedidos[4]
+    assert metodo == "POST" and url.endswith("/reports/stock-products:csv")
+    assert json.loads(corpo) == {"movementDate": "2026-11-19", "company": {"branch": {"code": 747530}, "code": 2221},
+                                 "grid": 0, "productCodes": [], "reserve": "TODAS"}
+
+
+def test_grade_de_estoque_filial_inexistente_lista_as_disponiveis(tmp_path):
+    falso = Falso(_login_ok() + [(200, FILIAIS, None)])
+    cliente = ClienteCora(falso, log=lambda m: None)
+    cliente.login("u", "s")
+    with pytest.raises(CoraErro, match="747548"):
+        cliente.baixar_grade_estoque(date(2026, 11, 19), tmp_path, filiais=["999"])
+
+
+@pytest.mark.parametrize("nome, esperado", [
+    ("Pau Brasil Filial Patos", "PATOS"),
+    ("PAU BRASIL FILIAL SUMÉ", "SUME"),
+    ("Sousa", "SOUSA"),
+    ("Sao Joao do Rio do Peixe", "SAO_JOAO_RIO_PEIXE"),
+    ("", "747530"),
+])
+def test_nome_revenda_no_arquivo(nome, esperado):
+    from cora_http import nome_revenda
+    assert nome_revenda({"code": 747530, "name": nome}) == esperado

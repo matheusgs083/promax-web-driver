@@ -1,0 +1,72 @@
+
+                    <HTML>
+                    <BODY bgcolor=#D3D3D3>
+                    <form name=form1 method=post>
+                    <input type=hidden name=frame value=9>
+                    <div id=ocultoSubmit></div>
+               <script>
+                   try{
+                       document.parentWindow.parent.rotina.document.all ( 'imgWait' ).style.display = '';
+                   }
+                   catch( e ){}
+                   try{
+                       document.parentWindow.parent.top_rotina.document.all.unidade.disabled = true;
+                   }
+                   catch( e ){}
+               </script>
+               <script>
+                   document.parentWindow.parent.rotina .limiteLista = parseInt('200',10);
+               </script>
+               <script>
+                       document.parentWindow.parent.rotina.document.all ( 'cdAutorizacao' ).value = '';
+                       document.parentWindow.parent.rotina.document.all ( 'cdAutorizacao' ).disabled = true;
+                       document.parentWindow.parent.rotina.document.all ( 'cdAutorizacao' ).className = "clsDisabled";
+               </script>
+            <SCRIPT>
+                document.parentWindow.parent.rotina.document.all ( 'ufCliente' ).value = "PB";
+            </SCRIPT>
+               <script>
+                   try{
+                       document.parentWindow.parent.rotina.document.all ( 'imgWait' ).style.display = 'none';
+                   }
+                   catch( e ){}
+                   try{
+                       if( 'S' == 'S' ){
+                           document.parentWindow.parent.top_rotina.document.all.unidade.disabled = false;
+                       }
+                   }
+                   catch( e ){}
+               </script>
+               <!-- end program -->
+               <script>
+                   try{
+                       document.parentWindow.parent.rotina.document.all ( 'imgWait' ).style.display = 'none';
+                   }
+                   catch( e ){}
+                   try{
+                       if( 'S' == 'S' ){
+                           document.parentWindow.parent.top_rotina.document.all.unidade.disabled = false;
+                       }
+                   }
+                   catch( e ){}
+               </script>
+               <script>
+                   document.parentWindow.parent.rotina .msgbxSimNao( 'PW02043C' , 'Cliente pertence ao Setor  502, Confirma ?',
+                     function(){ //Sim
+                       document.parentWindow.parent.rotina.document.all ( 'idSetorDifere' ).value = 'S';
+                       document.parentWindow.parent.rotina.document.all ( 'opcao' ).value = '05';
+                       document.parentWindow.parent.rotina .EnviarFormulario();
+                   }
+                   ,
+                     function() { //Nao
+                       document.parentWindow.parent.rotina.document.all ( 'cdDestinatario' ).value = '';
+                       document.parentWindow.parent.rotina.document.all ( 'cdCondicaoPagto' ).value = '';
+                       document.parentWindow.parent.rotina.document.all ( 'codTabelaPrecos' ).value = '0';
+                       document.parentWindow.parent.rotina.document.all ( 'codTransportadora' ).value = '0';
+                       document.parentWindow.parent.rotina.document.all ( 'numeroAP' ).value = '0';
+                       document.parentWindow.parent.rotina.document.all ( 'cdViagem' ).value = '0';
+                       document.parentWindow.parent.rotina.document.all ( 'nmDestinatario' ).value = '';
+                       document.parentWindow.parent.rotina.document.all ( 'tipoCliente' ).value = '';
+                       document.parentWindow.parent.rotina.document.all ( 'cdDestinatario' ).focus();                                  // here 963
+                   });
+               </script>

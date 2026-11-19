@@ -29,10 +29,33 @@ def _is_cora_critica_job(job: Mapping[str, Any], payload: Mapping[str, Any]) -> 
     site = str(payload.get("site") or job.get("site") or "").strip().lower()
     if site == "cora":
         return True
-    return any(
-        str(payload.get(key) or job.get(key) or "").strip().lower() == "cora_critica"
-        for key in ("category", "profile", "perfil", "report_profile")
-    )
+    return _cora_category(job, payload) in _CORA_OPERATIONS_BY_CATEGORY
+
+
+# Grupos do Cora e a operacao do cora-web-driver que cada um executa.
+_CORA_OPERATIONS_BY_CATEGORY = {"cora_critica": "critica", "cora_estoque": "grade_estoque"}
+
+
+def _cora_category(job: Mapping[str, Any], payload: Mapping[str, Any]) -> str:
+    for key in ("category", "profile", "perfil", "report_profile"):
+        value = str(payload.get(key) or job.get(key) or "").strip().lower()
+        if value in _CORA_OPERATIONS_BY_CATEGORY:
+            return value
+    return ""
+
+
+def _payload_units(payload: Mapping[str, Any]) -> list[str]:
+    raw = payload.get("units") or payload.get("unidades") or payload.get("unit") or payload.get("unidade") or []
+    if isinstance(raw, (str, int)):
+        raw = [raw]
+    units: list[str] = []
+    for value in raw:
+        unit = str(value or "").strip()
+        if not re.fullmatch(r"[0-9]{3,10}", unit):
+            raise ValueError(f"Unidade de entrega do Cora invalida: {unit!r}")
+        if unit not in units:
+            units.append(unit)
+    return units
 
 
 class PromaxRunnerConfigurationError(ValueError):
@@ -136,6 +159,33 @@ class PromaxRunner:
         operation = str(payload.get("operation") or "").strip()
         job_id = str(job.get("id") or job.get("job_id") or "").strip()
         normalized_job_kind = _normalize_job_kind(operation or job_type)
+        if normalized_job_kind == "digitacao_030104":
+            if job_type != "digitacao_030104" or operation != "digitacao_030104":
+                raise ValueError("Invalid Promax order entry job.")
+            digitacao = payload.get("digitacao")
+            if not isinstance(digitacao, Mapping):
+                raise ValueError("Promax order entry requires payload.digitacao.")
+            if not job_id or not _IDENTIFIER_PATTERN.fullmatch(job_id):
+                raise ValueError("Promax order entry requires a valid job id.")
+            input_dir = self.config.driver_dir / "data" / "job_inputs"
+            input_dir.mkdir(parents=True, exist_ok=True)
+            input_path = input_dir / f"digitacao_030104_{job_id}.json"
+            input_path.write_text(json.dumps(dict(digitacao), ensure_ascii=False), encoding="utf-8")
+            command = [
+                str(self.config.python_executable),
+                str(self.config.cli_path),
+                "digitacao-030104", "--arquivo", str(input_path), "--job-id", job_id,
+            ]
+            unidade_payload = str(payload.get("unidade") or "").strip()
+            unidade_digitacao = str(digitacao.get("unidade") or "").strip()
+            if unidade_payload and unidade_digitacao and unidade_payload != unidade_digitacao:
+                raise ValueError("Promax order entry has conflicting unit values.")
+            unidade = unidade_payload or unidade_digitacao
+            if unidade:
+                command.extend(["--unidade", unidade])
+            if payload.get("salvar") is False:
+                command.append("--nao-salvar")
+            return command
         if normalized_job_kind in {"lancamento_grade", "lancamento_grade_020304"}:
             if job_type != normalized_job_kind or operation != normalized_job_kind:
                 raise ValueError("Invalid Promax grade launch job.")
@@ -301,8 +351,11 @@ class PromaxRunner:
         payload: Mapping[str, Any],
     ) -> list[str]:
         operation = str(payload.get("operation") or job.get("job_type") or "").strip()
-        if operation.lower() == "cora_critica":
-            operation = "critica"
+        category = _cora_category(job, payload)
+        if operation.lower() in _CORA_OPERATIONS_BY_CATEGORY:
+            operation = _CORA_OPERATIONS_BY_CATEGORY[operation.lower()]
+        elif category and operation.lower() not in set(_CORA_OPERATIONS_BY_CATEGORY.values()):
+            operation = _CORA_OPERATIONS_BY_CATEGORY[category]
         if not _IDENTIFIER_PATTERN.fullmatch(operation):
             raise ValueError("Cora job requires a valid operation identifier.")
         cli_path = self.config.driver_dir / "cora-web-driver" / "cli.py"
@@ -318,6 +371,10 @@ class PromaxRunner:
         job_id = str(job.get("id") or job.get("job_id") or "").strip()
         if job_id:
             command.extend(["--job-id", job_id])
+        if operation == "grade_estoque":
+            # Cada unidade de entrega do Cora e exportada separadamente.
+            for unit in _payload_units(payload):
+                command.extend(["--filial", unit])
         return command
 
     def run(

@@ -25,6 +25,9 @@ def build_parser() -> argparse.ArgumentParser:
     executar = subparsers.add_parser("executar", help="Executa uma operação Cora registrada.")
     executar.add_argument("--operacao", required=True)
     executar.add_argument("--job-id", default="")
+    executar.add_argument("--filial", action="append", default=[],
+                          help="Filial da grade de estoque (ex.: 747530). Repita para varias; vazio = todas.")
+    executar.add_argument("--data", default="", help="Data da grade de estoque (AAAA-MM-DD); vazio = hoje.")
     return parser
 
 
@@ -57,6 +60,19 @@ def main() -> int:
                 "message": "Relatório Critica do Cora baixado (HTTP, sem navegador).",
                 "delivery_date": delivery_date.isoformat(),
                 "downloaded_files": [str(arquivo)],
+            }), flush=True)
+            return 0
+        if operation in {"grade_estoque", "estoque"}:
+            data_grade = date.fromisoformat(args.data) if args.data else date.today()
+            cliente = ClienteCora(log=lambda msg: print(msg, flush=True))
+            cliente.login(settings.username, settings.password)
+            arquivos = cliente.baixar_grade_estoque(data_grade, settings.download_dir / "estoque", filiais=args.filial)
+            print(json.dumps({
+                "event": "cora_job_result",
+                "status": "success",
+                "message": f"Grade de estoque do Cora baixada ({len(arquivos)} filial(is)).",
+                "grid_date": data_grade.isoformat(),
+                "downloaded_files": [str(a) for a in arquivos],
             }), flush=True)
             return 0
         if operation == "critica_navegador":

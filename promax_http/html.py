@@ -215,6 +215,17 @@ def valores_do_frame9(texto: str) -> dict[str, str]:
     return {nome: valor for nome, valor in valores.items() if nome not in calculados}
 
 
+_OPCAO_CARREGADA_RE = re.compile(r"""CCmb(\w+)\(\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\)""")
+
+
+def opcoes_carregadas(texto: str) -> dict[str, list[Opcao]]:
+    """Opcoes que o Promax poe nas listas via JavaScript: CCmbcdCondicaoPagto("408","408 - BOLETO ...")."""
+    listas: dict[str, list[Opcao]] = {}
+    for campo, valor, rotulo in _OPCAO_CARREGADA_RE.findall(texto or ""):
+        listas.setdefault(campo, []).append(Opcao(valor=valor, texto=" ".join(rotulo.split()), selecionada=False))
+    return listas
+
+
 def aplicar_valores_do_frame9(form: Formulario, texto: str) -> None:
     for nome, valor in valores_do_frame9(texto).items():
         if nome in form.campos or nome in form.opcoes:
