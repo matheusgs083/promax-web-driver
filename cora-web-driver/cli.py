@@ -68,7 +68,7 @@ def main() -> int:
             cliente.login(settings.username, settings.password)
             unidades = cliente.baixar_grade_estoque_detalhada(
                 data_grade,
-                settings.download_dir.parent / "cora_estoque",
+                settings.estoque_download_dir,
                 filiais=args.filial,
             )
             print(json.dumps({

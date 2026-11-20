@@ -8,6 +8,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 
 DEFAULT_CORA_URL = "https://cora.ab-inbev.com/?redirectTo=%2F"
+DEFAULT_CORA_ESTOQUE_DOWNLOAD_DIR = Path(r"\\dc01n\publico_patos\VENDAS\Gilvandro APR\Estoques_Revendas")
 
 
 @dataclass(frozen=True)
@@ -18,6 +19,7 @@ class CoraSettings:
     username: str = ""
     password: str = ""
     download_dir: Path = Path("downloads") / "cora"
+    estoque_download_dir: Path = DEFAULT_CORA_ESTOQUE_DOWNLOAD_DIR
     holidays: frozenset[date] = frozenset()
 
     @property
@@ -43,6 +45,14 @@ class CoraSettings:
         )
         if not download_dir.is_absolute():
             download_dir = Path(__file__).resolve().parents[1] / download_dir
+        raw_estoque_download_dir = os.environ.get("CORA_ESTOQUE_DOWNLOAD_DIR", "").strip()
+        estoque_download_dir = (
+            Path(raw_estoque_download_dir).expanduser()
+            if raw_estoque_download_dir
+            else DEFAULT_CORA_ESTOQUE_DOWNLOAD_DIR
+        )
+        if not estoque_download_dir.is_absolute():
+            estoque_download_dir = Path(__file__).resolve().parents[1] / estoque_download_dir
         holidays = _configured_holidays(os.environ.get("CORA_HOLIDAYS", ""))
         return cls(
             url=os.environ.get("CORA_URL", DEFAULT_CORA_URL).strip() or DEFAULT_CORA_URL,
@@ -51,6 +61,7 @@ class CoraSettings:
             username=os.environ.get("CORA_USER", "").strip(),
             password=os.environ.get("CORA_PASS", ""),
             download_dir=download_dir,
+            estoque_download_dir=estoque_download_dir,
             holidays=holidays,
         )
 
